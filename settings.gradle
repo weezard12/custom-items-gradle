@@ -1,6 +1,64 @@
 rootProject.name = 'custom-items'
 
-include 'bit-helper', 'gui', 'shared-code', 'plug-in', 'editor', 'kci-nms', 'custom-recipes',
+def allModules = [
+        'bit-helper', 'gui', 'shared-code', 'plug-in', 'editor', 'kci-nms', 'custom-recipes',
         'kci-nms12', 'kci-nms13plus', 'kci-nms13', 'kci-nms14', 'kci-nms15', 'kci-nms16plus', 'kci-nms16',
-        'kci-nms17', 'kci-nms18plus', 'kci-nms18', 'kci-nms19', 'kci-nms21plus', 'kci-nms20', 'kci-nms21',
+        'kci-nms17', 'kci-nms18plus', 'kci-nms18', 'kci-nms19', 'kci-nms20', 'kci-nms21plus', 'kci-nms21',
+        'kci-nms21r1',
         'ce-event-handler', 'test-custom-recipes'
+]
+
+def onlyVersions = (gradle.startParameter.projectProperties['onlyVersions'] ?: '').trim()
+if (onlyVersions) {
+    def versionToModule = [
+            '1.12.2': 'kci-nms12',
+            '1.13.2': 'kci-nms13',
+            '1.14.4': 'kci-nms14',
+            '1.15.2': 'kci-nms15',
+            '1.16.5': 'kci-nms16',
+            '1.17.1': 'kci-nms17',
+            '1.18.2': 'kci-nms18',
+            '1.19.4': 'kci-nms19',
+            '1.20.6': 'kci-nms20',
+            '1.21.1': 'kci-nms21r1',
+            '1.21.10': 'kci-nms21'
+    ]
+    def moduleRequirements = [
+            'kci-nms13': ['kci-nms13plus'],
+            'kci-nms14': ['kci-nms13plus'],
+            'kci-nms15': ['kci-nms13plus'],
+            'kci-nms16': ['kci-nms13plus', 'kci-nms16plus'],
+            'kci-nms17': ['kci-nms13plus', 'kci-nms16plus'],
+            'kci-nms18': ['kci-nms13plus', 'kci-nms16plus', 'kci-nms18plus'],
+            'kci-nms19': ['kci-nms13plus', 'kci-nms16plus', 'kci-nms18plus'],
+            'kci-nms20': ['kci-nms13plus', 'kci-nms16plus', 'kci-nms18plus'],
+            'kci-nms21': ['kci-nms13plus', 'kci-nms16plus', 'kci-nms18plus', 'kci-nms21plus'],
+            'kci-nms21r1': ['kci-nms13plus', 'kci-nms16plus', 'kci-nms18plus', 'kci-nms21plus']
+    ]
+    def requestedVersions = onlyVersions.split(',').collect { it.trim() }.findAll { it }
+    def selectedNms = []
+    requestedVersions.each { version ->
+        def moduleName = versionToModule[version]
+        if (!moduleName) {
+            throw new GradleException("Unsupported version '${version}'. Supported versions: ${versionToModule.keySet().sort()}")
+        }
+        selectedNms.add(moduleName)
+    }
+
+    def includeModules = new LinkedHashSet()
+    includeModules.addAll(['bit-helper', 'gui', 'shared-code', 'plug-in', 'editor', 'kci-nms', 'custom-recipes'])
+    includeModules.addAll(selectedNms)
+    selectedNms.each { moduleName ->
+        def required = moduleRequirements[moduleName]
+        if (required != null) includeModules.addAll(required)
+    }
+
+    def includeEventHandler = (gradle.startParameter.projectProperties['includeEventHandler'] ?: 'false').toString().toBoolean()
+    def includeTests = (gradle.startParameter.projectProperties['includeTests'] ?: 'false').toString().toBoolean()
+    if (includeEventHandler) includeModules.add('ce-event-handler')
+    if (includeTests) includeModules.add('test-custom-recipes')
+
+    include(*(includeModules as String[]))
+} else {
+    include(*(allModules as String[]))
+}

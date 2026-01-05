@@ -11,17 +11,29 @@ public abstract class KciNms {
     static {
         KciNms supportedInstance = null;
         int chosenMcVersion = -1;
-        int[] supportedMcVersions = { 12, 13, 14, 15, 16, 17, 18, 19, 20, 21 };
+        NmsCandidate[] candidates = {
+                new NmsCandidate("nl.knokko.customitems.nms12.KciNms12", 12),
+                new NmsCandidate("nl.knokko.customitems.nms13.KciNms13", 13),
+                new NmsCandidate("nl.knokko.customitems.nms14.KciNms14", 14),
+                new NmsCandidate("nl.knokko.customitems.nms15.KciNms15", 15),
+                new NmsCandidate("nl.knokko.customitems.nms16.KciNms16", 16),
+                new NmsCandidate("nl.knokko.customitems.nms17.KciNms17", 17),
+                new NmsCandidate("nl.knokko.customitems.nms18.KciNms18", 18),
+                new NmsCandidate("nl.knokko.customitems.nms19.KciNms19", 19),
+                new NmsCandidate("nl.knokko.customitems.nms20.KciNms20", 20),
+                new NmsCandidate("nl.knokko.customitems.nms21.KciNms21", 21),
+                new NmsCandidate("nl.knokko.customitems.nms21r1.KciNms21R1", 21)
+        };
 
-        for (int candidateVersion : supportedMcVersions) {
+        for (NmsCandidate candidate : candidates) {
             try {
-                Class<?> nmsClass = Class.forName("nl.knokko.customitems.nms" + candidateVersion + ".KciNms" + candidateVersion);
+                Class<?> nmsClass = Class.forName(candidate.className);
                 String nmsVersion = (String) nmsClass.getField("NMS_VERSION_STRING").get(null);
 
                 // If the candidate version matches the actual NMS version of the server implementation, we are good to go
                 Class.forName("org.bukkit.craftbukkit.v" + nmsVersion + ".inventory.CraftItemStack");
                 supportedInstance = (KciNms) nmsClass.getConstructor().newInstance();
-                chosenMcVersion = candidateVersion;
+                chosenMcVersion = candidate.mcVersion;
                 if (!supportedInstance.isCompatible()) {
                     supportedInstance = null;
                     chosenMcVersion = -1;
@@ -40,6 +52,17 @@ public abstract class KciNms {
 
         instance = supportedInstance;
         mcVersion = chosenMcVersion;
+    }
+
+    private static final class NmsCandidate {
+
+        final String className;
+        final int mcVersion;
+
+        NmsCandidate(String className, int mcVersion) {
+            this.className = className;
+            this.mcVersion = mcVersion;
+        }
     }
 
     public static final KciNms instance;

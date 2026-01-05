@@ -19,6 +19,10 @@ you need to run
 [BuildTools](https://www.spigotmc.org/wiki/buildtools/)
 using the right Java version (some MC versions support
 multiple Java versions, but I only mention 1):
+If you want to install the required Java versions and
+run BuildTools in one go, use `scripts/install-jdks.ps1`
+first and then `scripts/install-spigot.ps1`. See
+[`docs/buildtools-helper.md`](./buildtools-helper.md).
 - MC 1.12: use Java 8: `java -jar BuildTools.jar --rev 1.12.2 --compile CRAFTBUKKIT`
 - MC 1.13: use Java 8: `java -jar BuildTools.jar --rev 1.13.2 --compile CRAFTBUKKIT`
 - MC 1.14: use Java 8: `java -jar BuildTools.jar --rev 1.14.4 --compile CRAFTBUKKIT`
@@ -28,7 +32,8 @@ multiple Java versions, but I only mention 1):
 - MC 1.18: use Java 17: `java -jar BuildTools.jar --rev 1.18.2`
 - MC 1.19: use Java 17: `java -jar BuildTools.jar --rev 1.19.4`
 - MC 1.20: use Java 21: `java -jar BuildTools.jar --rev 1.20.6`
-- MC 1.21: use Java 21: `java -jar BuildTools.jar --rev 1.21.10`
+- MC 1.21.1: use Java 21: `java -jar BuildTools.jar --rev 1.21.1`
+- MC 1.21.10: use Java 21: `java -jar BuildTools.jar --rev 1.21.10`
 
 These steps will add some dependencies to the mavenLocal
 on your computer, which are required for development.
@@ -49,6 +54,11 @@ If you intend to develop with Java 8, you should also get
 rid of `ce-event-handler` and `test-custom-recipes`.
 Do **not** push these changes to Git! This is just for
 local development.
+
+Alternatively, you can keep the files unchanged and use
+the dev profile flag:
+`./gradlew :plug-in:shadowJar -PonlyVersions=1.21.1`
+(add `-PincludeEventHandler=true` if you need that module).
 
 ### Building the plug-in
 When you followed all the above steps, you should be able
