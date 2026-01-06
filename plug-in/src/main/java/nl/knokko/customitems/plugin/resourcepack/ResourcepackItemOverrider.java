@@ -27,6 +27,7 @@ class ResourcepackItemOverrider {
     private final ItemSet itemSet;
     private final ZipOutputStream zipOutput;
     private final Map<KciItemType, ItemDurabilityAssignments> allDamageAssignments;
+    private final boolean useModernItemModels;
 
     ResourcepackItemOverrider(
             ItemSet itemSet, ZipOutputStream zipOutput, Map<KciItemType, ItemDurabilityAssignments> allDamageAssignments
@@ -34,6 +35,7 @@ class ResourcepackItemOverrider {
         this.itemSet = itemSet;
         this.zipOutput = zipOutput;
         this.allDamageAssignments = allDamageAssignments;
+        this.useModernItemModels = ResourcepackVersionHelper.useModernItemModels(itemSet.getExportSettings().getMcVersion());
     }
 
     void overrideItems() throws IOException, ValidationException {
@@ -63,7 +65,7 @@ class ResourcepackItemOverrider {
                             itemType.canServe(KciItemType.Category.LEGGINGS) ||
                             itemType.canServe(KciItemType.Category.BOOTS);
 
-                    if (itemSet.getExportSettings().getMcVersion() >= VERSION1_21) {
+                    if (useModernItemModels) {
                         zipOutput.putNextEntry(new ZipEntry("assets/minecraft/items/" + modelName + ".json"));
                         if (itemType == KciItemType.BOW) {
                             overrideModernBow(new PrintWriter(zipOutput), damageAssignments);
@@ -493,7 +495,7 @@ class ResourcepackItemOverrider {
                     item -> item.getItemType() == KciItemType.OTHER && item.getOtherMaterial() == currentOtherMaterial
             ).collect(Collectors.toList());
 
-            if (itemSet.getExportSettings().getMcVersion() >= VERSION1_21) {
+            if (useModernItemModels) {
                 zipOutput.putNextEntry(new ZipEntry("assets/minecraft/items/" + modelName + ".json"));
                 overrideModernItem(new PrintWriter(zipOutput), modelName, currentItems, dataAssignments);
                 zipOutput.closeEntry();

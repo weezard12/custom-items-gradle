@@ -42,6 +42,16 @@ public class CustomItemsApi {
         else return null;
     }
 
+    /**
+     * Creates an ItemStack by custom item id (alias). If no item matches the id, this also tries the internal name.
+     */
+    public static ItemStack createItemStackById(String itemId, int amount) {
+        ItemSetWrapper wrapper = CustomItemsPlugin.getInstance().getSet();
+        KciItem item = wrapper.getItemById(itemId);
+        if (item != null) return wrap(item).create(amount);
+        else return null;
+    }
+
     public static String getItemName(ItemStack itemStack) {
         KciItem item = CustomItemsPlugin.getInstance().getSet().getItem(itemStack);
 
@@ -49,8 +59,43 @@ public class CustomItemsApi {
         else return null;
     }
 
+    /**
+     * Returns the custom item id (alias) for the given ItemStack, or null when it isn't a custom item.
+     * If the item has no alias, this falls back to the internal name.
+     */
+    public static String getItemId(ItemStack itemStack) {
+        KciItem item = CustomItemsPlugin.getInstance().getSet().getItem(itemStack);
+        if (item == null) return null;
+
+        String alias = item.getAlias();
+        if (alias != null && !alias.isEmpty()) return alias;
+        return item.getName();
+    }
+
     public static boolean hasItem(String itemName) {
         return CustomItemsPlugin.getInstance().getSet().getItem(itemName) != null;
+    }
+
+    /**
+     * Checks whether a custom item with the given id (alias) exists. Falls back to internal names.
+     */
+    public static boolean hasItemId(String itemId) {
+        return CustomItemsPlugin.getInstance().getSet().getItemById(itemId) != null;
+    }
+
+    /**
+     * Returns all known custom item ids (alias). Items without alias will return their internal name.
+     */
+    public static Collection<String> getAllItemIds() {
+        ItemSet itemSet = CustomItemsPlugin.getInstance().getSet().get();
+
+        Collection<String> itemIds = new ArrayList<>(itemSet.items.size());
+        for (KciItem item : itemSet.items) {
+            String alias = item.getAlias();
+            itemIds.add(alias == null || alias.isEmpty() ? item.getName() : alias);
+        }
+
+        return itemIds;
     }
 
     public static Collection<String> getAllBlockNames() {

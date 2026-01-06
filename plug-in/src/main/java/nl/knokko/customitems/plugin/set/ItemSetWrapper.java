@@ -25,6 +25,7 @@ public class ItemSetWrapper {
     private ItemSet currentItemSet;
 
     private Map<String, KciItem> itemMap;
+    private Map<String, KciItem> itemAliasMap;
     private boolean hasCustomTridents;
     private Map<VEntityType, Collection<MobDrop>> mobDropMap;
     private Map<VBlockType, Collection<BlockDrop>> blockDropMap;
@@ -44,8 +45,13 @@ public class ItemSetWrapper {
     private void initItemMap() {
         this.hasCustomTridents = false;
         this.itemMap = new HashMap<>(this.currentItemSet.items.size());
+        this.itemAliasMap = new HashMap<>();
         for (KciItem item : this.currentItemSet.items) {
             this.itemMap.put(item.getName(), item);
+            String alias = item.getAlias();
+            if (alias != null && !alias.isEmpty()) {
+                this.itemAliasMap.putIfAbsent(alias, item);
+            }
             if (item instanceof KciTrident) {
                 this.hasCustomTridents = true;
             }
@@ -103,6 +109,17 @@ public class ItemSetWrapper {
 
     public KciItem getItem(String name) {
         return this.itemMap.get(name);
+    }
+
+    public KciItem getItemByAlias(String alias) {
+        if (alias == null) return null;
+        return this.itemAliasMap.get(alias);
+    }
+
+    public KciItem getItemById(String id) {
+        KciItem byAlias = getItemByAlias(id);
+        if (byAlias != null) return byAlias;
+        return getItem(id);
     }
 
     public KciItem getItem(ItemStack itemStack) {

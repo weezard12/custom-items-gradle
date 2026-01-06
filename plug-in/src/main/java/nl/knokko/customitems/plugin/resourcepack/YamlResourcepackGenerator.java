@@ -43,7 +43,7 @@ public class YamlResourcepackGenerator {
     private static void writePackMcMeta(ItemSet itemSet, ZipOutputStream zipOutput)
             throws IOException, ProgrammingValidationException {
         int mcVersion = itemSet.getExportSettings().getMcVersion();
-        int packFormat = getPackFormat(mcVersion);
+        int packFormat = ResourcepackVersionHelper.getPackFormat(mcVersion);
 
         ZipEntry mcMeta = new ZipEntry("pack.mcmeta");
         zipOutput.putNextEntry(mcMeta);
@@ -56,30 +56,6 @@ public class YamlResourcepackGenerator {
         jsonWriter.println("}");
         jsonWriter.flush();
         zipOutput.closeEntry();
-    }
-
-    private static int getPackFormat(int mcVersion) throws ProgrammingValidationException {
-        if (mcVersion == VERSION1_12) {
-            return 3;
-        } else if (mcVersion == VERSION1_13 || mcVersion == VERSION1_14) {
-            return 4;
-        } else if (mcVersion == VERSION1_15) {
-            return 5;
-        } else if (mcVersion == VERSION1_16) {
-            return 6;
-        } else if (mcVersion == VERSION1_17) {
-            return 7;
-        } else if (mcVersion == VERSION1_18) {
-            return 8;
-        } else if (mcVersion == VERSION1_19) {
-            return 13;
-        } else if (mcVersion == VERSION1_20) {
-            return 32;
-        } else if (mcVersion == VERSION1_21) {
-            return 55;
-        } else {
-            throw new ProgrammingValidationException("Unknown pack format for mc version " + mcVersion);
-        }
     }
 
     private static void writeAtlases(ItemSet itemSet, ZipOutputStream zipOutput) throws IOException {
