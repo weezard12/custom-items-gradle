@@ -17,6 +17,9 @@ import nl.knokko.customitems.util.ProgrammingValidationException;
 import nl.knokko.customitems.util.ValidationException;
 
 import java.awt.image.BufferedImage;
+import java.io.File;
+import java.io.IOException;
+import javax.imageio.ImageIO;
 import java.util.ArrayList;
 import java.util.Collection;
 
@@ -32,8 +35,8 @@ class YamlItemSetBuilder {
 
         ExportSettings settings = new ExportSettings(true);
         settings.setMcVersion(mcVersion);
-        settings.setMode(ExportSettings.Mode.MANUAL);
-        settings.setSkipResourcepack(true);
+        settings.setMode(ExportSettings.Mode.AUTOMATIC);
+        settings.setSkipResourcepack(false);
         itemSet.setExportSettings(settings);
 
         KciTexture placeholderTexture = new KciTexture(true);
@@ -43,7 +46,8 @@ class YamlItemSetBuilder {
 
         for (YamlItemDefinition itemDefinition : items) {
             KciItem item = createItem(itemDefinition);
-            applyBaseProperties(itemDefinition, item, itemSet);
+            applyBaseProperties(itemDefinition, item);
+            applyTexture(itemDefinition, item, itemSet);
             applyMaterial(itemDefinition, item);
             applyStackSize(itemDefinition, item);
             applyEnchantments(itemDefinition, item);
@@ -74,17 +78,56 @@ class YamlItemSetBuilder {
         return new KciSimpleItem(true);
     }
 
-    private static void applyBaseProperties(YamlItemDefinition itemDefinition, KciItem item, ItemSet itemSet) {
+    private static void applyBaseProperties(YamlItemDefinition itemDefinition, KciItem item) {
         item.setName(itemDefinition.internalName);
         item.setAlias(itemDefinition.fullId);
         item.setDisplayName(itemDefinition.displayName);
         if (!itemDefinition.lore.isEmpty()) {
             item.setLore(itemDefinition.lore);
         }
-        item.setTexture(itemSet.textures.getReference(PLACEHOLDER_TEXTURE_NAME));
         if (itemDefinition.damageValue != null) {
             item.setItemDamage(itemDefinition.damageValue.shortValue());
+            if (itemDefinition.damageValue > 0) {
+                item.setUpdateAutomatically(false);
+            }
         }
+    }
+
+    private static void applyTexture(
+            YamlItemDefinition itemDefinition, KciItem item, ItemSet itemSet
+    ) throws ValidationException, ProgrammingValidationException {
+        File textureFile = resolveTextureFile(itemDefinition);
+        if (textureFile == null) {
+            item.setTexture(itemSet.textures.getReference(PLACEHOLDER_TEXTURE_NAME));
+            return;
+        }
+
+        String textureName = itemDefinition.internalName;
+        BufferedImage image;
+        try {
+            image = ImageIO.read(textureFile);
+        } catch (IOException ex) {
+            throw new ValidationException("Failed to read texture " + textureFile.getPath() + ": " + ex.getMessage());
+        }
+        if (image == null) {
+            throw new ValidationException("Texture " + textureFile.getPath() + " is not a valid PNG image");
+        }
+
+        KciTexture.validateImage(image);
+        KciTexture texture = KciTexture.createQuick(textureName, image);
+        itemSet.textures.add(texture);
+        item.setTexture(itemSet.textures.getReference(textureName));
+    }
+
+    private static File resolveTextureFile(YamlItemDefinition itemDefinition) {
+        File assetsDir = new File(itemDefinition.packDirectory, "assets/item");
+        File byName = new File(assetsDir, itemDefinition.idName + ".png");
+        if (byName.isFile()) return byName;
+
+        File byInternalName = new File(assetsDir, itemDefinition.internalName + ".png");
+        if (byInternalName.isFile()) return byInternalName;
+
+        return null;
     }
 
     private static void applyMaterial(YamlItemDefinition itemDefinition, KciItem item) {

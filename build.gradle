@@ -49,6 +49,7 @@ project(':plug-in') {
         implementation project(':shared-code')
         implementation project(':kci-nms')
         implementation project(':custom-recipes')
+        implementation 'com.github.cliftonlabs:json-simple:4.0.1'
         if (hasProject(':kci-nms12')) runtimeOnly project(':kci-nms12')
         if (hasProject(':kci-nms13plus')) runtimeOnly project(':kci-nms13plus')
         if (hasProject(':kci-nms13')) runtimeOnly project(':kci-nms13')

@@ -2,6 +2,7 @@ package nl.knokko.customitems.plugin.yaml;
 
 import nl.knokko.customitems.bithelper.ByteArrayBitOutput;
 import nl.knokko.customitems.itemset.ItemSet;
+import nl.knokko.customitems.plugin.resourcepack.YamlResourcepackGenerator;
 import nl.knokko.customitems.util.StringEncoder;
 import nl.knokko.customitems.util.ValidationException;
 import nl.knokko.customitems.util.ProgrammingValidationException;
@@ -64,20 +65,36 @@ public class YamlToCisConverter {
             return false;
         }
 
+        Collections.sort(items, Comparator.comparing(item -> item.internalName));
+        ItemSet itemSet;
         try {
-            Collections.sort(items, Comparator.comparing(item -> item.internalName));
-            ItemSet itemSet = YamlItemSetBuilder.build(items);
-            ByteArrayBitOutput output = YamlItemSetBuilder.buildBinary(itemSet);
-            writeTextyFile(dataFolder, output);
-            log.accept(ChatColor.GREEN + "Converted " + items.size() + " item(s) from " + packCount + " pack(s).");
-            return true;
+            itemSet = YamlItemSetBuilder.build(items);
         } catch (ValidationException | ProgrammingValidationException ex) {
             log.accept(ChatColor.RED + "YAML conversion failed: " + ex.getMessage());
-        } catch (IOException ex) {
-            log.accept(ChatColor.RED + "Failed to write items.cis.txt: " + ex.getMessage());
+            return false;
         }
 
-        return false;
+        try {
+            File resourcePackFile = new File(dataFolder, "resource-pack.zip");
+            YamlResourcepackGenerator.write(itemSet, resourcePackFile);
+        } catch (ValidationException | ProgrammingValidationException ex) {
+            log.accept(ChatColor.RED + "YAML resource pack generation failed: " + ex.getMessage());
+            return false;
+        } catch (IOException ex) {
+            log.accept(ChatColor.RED + "Failed to write resource-pack.zip: " + ex.getMessage());
+            return false;
+        }
+
+        try {
+            ByteArrayBitOutput output = YamlItemSetBuilder.buildBinary(itemSet);
+            writeTextyFile(dataFolder, output);
+            log.accept(ChatColor.GREEN + "Converted " + items.size() + " item(s) from "
+                    + packCount + " pack(s) and generated resource-pack.zip.");
+            return true;
+        } catch (IOException ex) {
+            log.accept(ChatColor.RED + "Failed to write items.cis.txt: " + ex.getMessage());
+            return false;
+        }
     }
 
     private static void writeTextyFile(File dataFolder, ByteArrayBitOutput output) throws IOException {

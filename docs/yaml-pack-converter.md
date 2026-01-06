@@ -10,7 +10,8 @@ supported.
 - On startup and on `/kci reload`, the plugin scans `plugins/CustomItems/*`.
 - Each subfolder is treated as a pack.
 - Any `.yml` or `.yaml` file with a top-level `item:` section is parsed.
-- The plugin creates a minimal ItemSet and writes `plugins/CustomItems/items.cis.txt`.
+- The plugin builds an ItemSet, generates `plugins/CustomItems/resource-pack.zip`, and writes
+  `plugins/CustomItems/items.cis.txt`.
 - If any YAML errors are found, conversion is skipped and the existing
   `items.cis.txt` (if any) is used.
 
@@ -75,6 +76,7 @@ Field notes:
 - `type: armor` requires an armor material (`*_HELMET`, `*_CHESTPLATE`, `*_LEGGINGS`, `*_BOOTS`).
 - `type: food` allows any food-compatible item type or a `VMaterial` (MC 1.14+).
 - `stack_size` is supported for `simple` and `food` items only.
+- `damage_value` locks the internal model data value when set to a positive number.
 - `enchantments` supports list entries as strings (`"sharpness:3"`) or maps (`id` + optional `level`).
 - `attack_damage` and `attack_speed` are added as attribute modifiers for the main hand.
 - `type` controls which item class is used. If `type` is omitted, it defaults to `simple` unless a single
@@ -88,6 +90,17 @@ Field notes:
 Internal behavior:
 - Internal item name = `namespace_name` (for safe compatibility).
 - Item alias = `namespace:name` (so `/kci give namespace:name` works).
+
+## Textures (runtime resource pack)
+
+If a texture file exists, the plugin automatically maps it to the item id and includes it in the
+generated resource pack.
+
+Texture paths:
+- `plugins/CustomItems/<pack>/assets/item/<id>.png`
+- For namespaced ids, `<id>` is the part after the colon (e.g. `my:steel_sword` -> `steel_sword.png`).
+- If you need to disambiguate, you can also use `<namespace>_<id>.png`.
+- Textures must be square, power-of-two, and at most 512x512.
 
 ## Example pack layout
 
@@ -108,6 +121,5 @@ item:
 
 ## Notes and limitations
 
-- This path does not generate a resource pack.
 - A placeholder texture is used internally so the ItemSet validates.
 - `unbreakable` applies to tool/armor durability; it has no effect on simple or food items.

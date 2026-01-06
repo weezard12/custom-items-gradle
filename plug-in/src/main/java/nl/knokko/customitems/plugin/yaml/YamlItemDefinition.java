@@ -7,6 +7,8 @@ class YamlItemDefinition {
 
     final String fullId;
     final String internalName;
+    final String idName;
+    final File packDirectory;
     final String displayName;
     final File sourceFile;
     final List<String> lore;
@@ -25,6 +27,8 @@ class YamlItemDefinition {
     YamlItemDefinition(
             String fullId,
             String internalName,
+            String idName,
+            File packDirectory,
             String displayName,
             File sourceFile,
             List<String> lore,
@@ -42,6 +46,8 @@ class YamlItemDefinition {
     ) {
         this.fullId = fullId;
         this.internalName = internalName;
+        this.idName = idName;
+        this.packDirectory = packDirectory;
         this.displayName = displayName;
         this.sourceFile = sourceFile;
         this.lore = lore;

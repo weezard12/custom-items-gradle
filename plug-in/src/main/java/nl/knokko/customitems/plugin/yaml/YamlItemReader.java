@@ -103,6 +103,8 @@ class YamlItemReader {
                 items.add(new YamlItemDefinition(
                         parsedId.fullId,
                         parsedId.internalName,
+                        parsedId.name,
+                        pack.directory,
                         displayName,
                         file,
                         lore,
@@ -164,17 +166,19 @@ class YamlItemReader {
 
         String fullId = namespace + ":" + name;
         String internalName = namespace + "_" + name;
-        return new ParsedId(fullId, internalName);
+        return new ParsedId(fullId, internalName, name);
     }
 
     private static class ParsedId {
 
         final String fullId;
         final String internalName;
+        final String name;
 
-        ParsedId(String fullId, String internalName) {
+        ParsedId(String fullId, String internalName, String name) {
             this.fullId = fullId;
             this.internalName = internalName;
+            this.name = name;
         }
     }
 
