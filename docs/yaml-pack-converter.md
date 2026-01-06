@@ -29,13 +29,36 @@ namespace: "my"
 
 ```yml
 item:
-  id: "my:steel_sword" # required
-  name: "Steel Sword"  # required
+  id: "my:steel_sword"    # required
+  name: "Steel Sword"     # required
+  lore:                   # optional
+    - "&7A blazing sword that protects its wielder from flames."
+    - "&#FF5500Grants &6Fire Resistance &7while held"
+  material: "IRON_SWORD"  # optional
+  stack_size: 1           # optional
+  damage_value: 0         # optional
+  unbreakable: true       # optional
+  attack_damage: 7        # optional
+  attack_speed: 1.6       # optional
+  enchantments:           # optional
+    - id: "sharpness"
+      level: 3
+    - "unbreaking:2"
 ```
 
 Rules:
 - `id` can be namespaced (`my:steel_sword`) or use the pack namespace (`steel_sword`).
 - `name` is used as the display name.
+
+Field notes:
+- `lore` is a list of strings; each entry is a lore line.
+- Colors:
+  - Use `&` codes (`&a`, `&6`, `&l`, etc.) for legacy colors and formatting.
+  - Use hex with `&#RRGGBB` (MC 1.16+) and it will be converted to the `&x&...` format.
+- `material` accepts vanilla names like `IRON_SWORD` or namespaced values like `minecraft:iron_sword`.
+- If `material` is not a supported `KciItemType`, it uses `OTHER` and requires MC 1.14+.
+- `enchantments` supports list entries as strings (`"sharpness:3"`) or maps (`id` + optional `level`).
+- `attack_damage` and `attack_speed` are added as attribute modifiers for the main hand.
 
 Internal behavior:
 - Internal item name = `namespace_name` (for safe compatibility).
