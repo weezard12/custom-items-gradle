@@ -10,6 +10,10 @@ class YamlItemDefinition {
     final String displayName;
     final File sourceFile;
     final List<String> lore;
+    final YamlItemType type;
+    final YamlToolDefinition toolDefinition;
+    final YamlArmorDefinition armorDefinition;
+    final YamlFoodDefinition foodDefinition;
     final YamlMaterialDefinition material;
     final List<YamlEnchantmentDefinition> enchantments;
     final Integer stackSize;
@@ -24,6 +28,10 @@ class YamlItemDefinition {
             String displayName,
             File sourceFile,
             List<String> lore,
+            YamlItemType type,
+            YamlToolDefinition toolDefinition,
+            YamlArmorDefinition armorDefinition,
+            YamlFoodDefinition foodDefinition,
             YamlMaterialDefinition material,
             List<YamlEnchantmentDefinition> enchantments,
             Integer stackSize,
@@ -37,6 +45,10 @@ class YamlItemDefinition {
         this.displayName = displayName;
         this.sourceFile = sourceFile;
         this.lore = lore;
+        this.type = type;
+        this.toolDefinition = toolDefinition;
+        this.armorDefinition = armorDefinition;
+        this.foodDefinition = foodDefinition;
         this.material = material;
         this.enchantments = enchantments;
         this.stackSize = stackSize;

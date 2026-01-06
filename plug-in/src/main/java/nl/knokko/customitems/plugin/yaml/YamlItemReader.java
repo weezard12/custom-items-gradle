@@ -2,6 +2,7 @@ package nl.knokko.customitems.plugin.yaml;
 
 import nl.knokko.customitems.MCVersions;
 import nl.knokko.customitems.item.KciItemType;
+import nl.knokko.customitems.item.KciItemType.Category;
 import nl.knokko.customitems.item.VMaterial;
 import nl.knokko.customitems.item.enchantment.VEnchantmentType;
 import nl.knokko.customitems.util.ProgrammingValidationException;
@@ -55,6 +56,15 @@ class YamlItemReader {
 
                 int errorCountBefore = errors.size();
 
+                ConfigurationSection toolSection = getChildSection(itemSection, "tool", file, errors);
+                ConfigurationSection armorSection = getChildSection(itemSection, "armor", file, errors);
+                ConfigurationSection foodSection = getChildSection(itemSection, "food", file, errors);
+
+                YamlItemType type = parseItemType(itemSection.get("type"), file, errors);
+                if (type == null) {
+                    type = inferItemType(toolSection, armorSection, foodSection, file, errors);
+                }
+
                 String displayName = translateColors(name, "name", file, errors);
                 List<String> lore = parseLore(itemSection.get("lore"), file, errors);
                 YamlMaterialDefinition material = parseMaterial(itemSection.get("material"), file, errors);
@@ -67,12 +77,39 @@ class YamlItemReader {
 
                 if (errors.size() != errorCountBefore) return;
 
+                if (type == null) return;
+
+                validateTypeSections(type, toolSection, armorSection, foodSection, file, errors);
+                validateMaterialForType(type, material, file, errors);
+                if ((type == YamlItemType.TOOL || type == YamlItemType.ARMOR) && stackSize != null) {
+                    errors.add("item.stack_size is not supported for type " + type.name().toLowerCase(Locale.ROOT)
+                            + " in " + file.getPath());
+                    return;
+                }
+
+                YamlToolDefinition toolDefinition = null;
+                YamlArmorDefinition armorDefinition = null;
+                YamlFoodDefinition foodDefinition = null;
+                if (type == YamlItemType.TOOL) {
+                    toolDefinition = parseToolDefinition(toolSection, file, errors);
+                } else if (type == YamlItemType.ARMOR) {
+                    armorDefinition = parseArmorDefinition(armorSection, file, errors);
+                } else if (type == YamlItemType.FOOD) {
+                    foodDefinition = parseFoodDefinition(foodSection, file, errors);
+                }
+
+                if (errors.size() != errorCountBefore) return;
+
                 items.add(new YamlItemDefinition(
                         parsedId.fullId,
                         parsedId.internalName,
                         displayName,
                         file,
                         lore,
+                        type,
+                        toolDefinition,
+                        armorDefinition,
+                        foodDefinition,
                         material,
                         enchantments,
                         stackSize,
@@ -139,6 +176,189 @@ class YamlItemReader {
             this.fullId = fullId;
             this.internalName = internalName;
         }
+    }
+
+    private static ConfigurationSection getChildSection(
+            ConfigurationSection parent, String name, File sourceFile, List<String> errors
+    ) {
+        if (parent == null) return null;
+        if (!parent.isSet(name)) return null;
+        ConfigurationSection section = parent.getConfigurationSection(name);
+        if (section == null) {
+            errors.add("item." + name + " must be a map in " + sourceFile.getPath());
+            return null;
+        }
+        return section;
+    }
+
+    private static YamlItemType parseItemType(Object rawType, File sourceFile, List<String> errors) {
+        if (rawType == null) return null;
+        if (!(rawType instanceof String)) {
+            errors.add("item.type must be a string in " + sourceFile.getPath());
+            return null;
+        }
+
+        String trimmed = ((String) rawType).trim();
+        if (trimmed.isEmpty()) {
+            errors.add("item.type must not be empty in " + sourceFile.getPath());
+            return null;
+        }
+
+        String normalized = trimmed.toLowerCase(Locale.ROOT);
+        switch (normalized) {
+            case "simple":
+                return YamlItemType.SIMPLE;
+            case "tool":
+                return YamlItemType.TOOL;
+            case "armor":
+            case "armour":
+                return YamlItemType.ARMOR;
+            case "food":
+                return YamlItemType.FOOD;
+            default:
+                errors.add("Unknown item.type '" + trimmed + "' in " + sourceFile.getPath());
+                return null;
+        }
+    }
+
+    private static YamlItemType inferItemType(
+            ConfigurationSection toolSection,
+            ConfigurationSection armorSection,
+            ConfigurationSection foodSection,
+            File sourceFile,
+            List<String> errors
+    ) {
+        int count = 0;
+        YamlItemType inferred = YamlItemType.SIMPLE;
+        if (toolSection != null) {
+            count++;
+            inferred = YamlItemType.TOOL;
+        }
+        if (armorSection != null) {
+            count++;
+            inferred = YamlItemType.ARMOR;
+        }
+        if (foodSection != null) {
+            count++;
+            inferred = YamlItemType.FOOD;
+        }
+
+        if (count > 1) {
+            errors.add("item.type must be set when multiple type blocks are present in " + sourceFile.getPath());
+            return null;
+        }
+
+        return inferred;
+    }
+
+    private static void validateTypeSections(
+            YamlItemType type,
+            ConfigurationSection toolSection,
+            ConfigurationSection armorSection,
+            ConfigurationSection foodSection,
+            File sourceFile,
+            List<String> errors
+    ) {
+        if (type != YamlItemType.TOOL && toolSection != null) {
+            errors.add("item.tool is only allowed for type tool in " + sourceFile.getPath());
+        }
+        if (type != YamlItemType.ARMOR && armorSection != null) {
+            errors.add("item.armor is only allowed for type armor in " + sourceFile.getPath());
+        }
+        if (type != YamlItemType.FOOD && foodSection != null) {
+            errors.add("item.food is only allowed for type food in " + sourceFile.getPath());
+        }
+    }
+
+    private static void validateMaterialForType(
+            YamlItemType type,
+            YamlMaterialDefinition material,
+            File sourceFile,
+            List<String> errors
+    ) {
+        if (material == null) return;
+
+        if (type == YamlItemType.SIMPLE) return;
+
+        if (type == YamlItemType.FOOD) {
+            if (material.otherMaterial != null) return;
+            if (!material.itemType.canServe(Category.FOOD)) {
+                errors.add("item.material must be food-compatible for type food in " + sourceFile.getPath());
+            }
+            return;
+        }
+
+        if (material.otherMaterial != null) {
+            errors.add("item.material must be a custom item type for type " + type.name().toLowerCase(Locale.ROOT)
+                    + " in " + sourceFile.getPath());
+            return;
+        }
+
+        if (type == YamlItemType.TOOL && !isToolItemType(material.itemType)) {
+            errors.add("item.material must be a tool material for type tool in " + sourceFile.getPath());
+        } else if (type == YamlItemType.ARMOR && !isArmorItemType(material.itemType)) {
+            errors.add("item.material must be an armor material for type armor in " + sourceFile.getPath());
+        }
+    }
+
+    private static boolean isToolItemType(KciItemType itemType) {
+        return itemType.canServe(Category.SWORD) || itemType.canServe(Category.AXE)
+                || itemType.canServe(Category.PICKAXE) || itemType.canServe(Category.SHOVEL)
+                || itemType.canServe(Category.HOE) || itemType.canServe(Category.SHEAR)
+                || itemType.canServe(Category.FISHING) || itemType.canServe(Category.FLINT)
+                || itemType.canServe(Category.CARROTSTICK);
+    }
+
+    private static boolean isArmorItemType(KciItemType itemType) {
+        return itemType.canServe(Category.HELMET) || itemType.canServe(Category.CHESTPLATE)
+                || itemType.canServe(Category.LEGGINGS) || itemType.canServe(Category.BOOTS);
+    }
+
+    private static YamlToolDefinition parseToolDefinition(
+            ConfigurationSection toolSection, File sourceFile, List<String> errors
+    ) {
+        if (toolSection == null) return new YamlToolDefinition(null, null, null);
+        Integer maxDurability = parseInteger(toolSection.get("max_durability"), 1, Integer.MAX_VALUE,
+                "tool.max_durability", sourceFile, errors);
+        Integer entityHitLoss = parseInteger(toolSection.get("entity_hit_durability_loss"), 0, Integer.MAX_VALUE,
+                "tool.entity_hit_durability_loss", sourceFile, errors);
+        Integer blockBreakLoss = parseInteger(toolSection.get("block_break_durability_loss"), 0, Integer.MAX_VALUE,
+                "tool.block_break_durability_loss", sourceFile, errors);
+        return new YamlToolDefinition(maxDurability, entityHitLoss, blockBreakLoss);
+    }
+
+    private static YamlArmorDefinition parseArmorDefinition(
+            ConfigurationSection armorSection, File sourceFile, List<String> errors
+    ) {
+        if (armorSection == null) return new YamlArmorDefinition(null, null, null, null, null);
+        Integer maxDurability = parseInteger(armorSection.get("max_durability"), 1, Integer.MAX_VALUE,
+                "armor.max_durability", sourceFile, errors);
+        Integer entityHitLoss = parseInteger(armorSection.get("entity_hit_durability_loss"), 0, Integer.MAX_VALUE,
+                "armor.entity_hit_durability_loss", sourceFile, errors);
+        Integer blockBreakLoss = parseInteger(armorSection.get("block_break_durability_loss"), 0, Integer.MAX_VALUE,
+                "armor.block_break_durability_loss", sourceFile, errors);
+        Double armorValue = parseDouble(armorSection.get("armor_value"), "armor.armor_value", sourceFile, errors);
+        Double armorToughness = parseDouble(armorSection.get("armor_toughness"), "armor.armor_toughness", sourceFile, errors);
+        if (armorValue != null && armorValue < 0.0) {
+            errors.add("item.armor.armor_value must be non-negative in " + sourceFile.getPath());
+            return null;
+        }
+        if (armorToughness != null && armorToughness < 0.0) {
+            errors.add("item.armor.armor_toughness must be non-negative in " + sourceFile.getPath());
+            return null;
+        }
+        return new YamlArmorDefinition(maxDurability, entityHitLoss, blockBreakLoss, armorValue, armorToughness);
+    }
+
+    private static YamlFoodDefinition parseFoodDefinition(
+            ConfigurationSection foodSection, File sourceFile, List<String> errors
+    ) {
+        if (foodSection == null) return new YamlFoodDefinition(null, null);
+        Integer foodValue = parseInteger(foodSection.get("food_value"), 0, Integer.MAX_VALUE,
+                "food.food_value", sourceFile, errors);
+        Integer eatTime = parseInteger(foodSection.get("eat_time"), 1, Integer.MAX_VALUE,
+                "food.eat_time", sourceFile, errors);
+        return new YamlFoodDefinition(foodValue, eatTime);
     }
 
     private static YamlMaterialDefinition parseMaterial(Object rawMaterial, File sourceFile, List<String> errors) {
@@ -430,44 +650,54 @@ class YamlItemReader {
         if (rawText == null) return null;
         StringBuilder result = new StringBuilder(rawText.length());
         int index = 0;
-        boolean usedHex = false;
         while (index < rawText.length()) {
-            int hexIndex = rawText.indexOf("&#", index);
-            if (hexIndex < 0) {
+            int ampIndex = rawText.indexOf('&', index);
+            if (ampIndex < 0) {
                 result.append(rawText, index, rawText.length());
                 break;
             }
 
-            result.append(rawText, index, hexIndex);
-            if (hexIndex + 8 > rawText.length()) {
-                errors.add("item." + fieldName + " has invalid hex color in " + sourceFile.getPath());
-                return null;
+            result.append(rawText, index, ampIndex);
+            if (ampIndex + 1 >= rawText.length()) {
+                result.append('&');
+                break;
             }
 
-            String hex = rawText.substring(hexIndex + 2, hexIndex + 8);
-            if (!isHex(hex)) {
-                errors.add("item." + fieldName + " has invalid hex color in " + sourceFile.getPath());
-                return null;
+            char next = rawText.charAt(ampIndex + 1);
+            if (next == '#') {
+                if (ampIndex + 8 > rawText.length()) {
+                    errors.add("item." + fieldName + " has invalid hex color in " + sourceFile.getPath());
+                    return null;
+                }
+                String hex = rawText.substring(ampIndex + 2, ampIndex + 8);
+                if (!isHex(hex)) {
+                    errors.add("item." + fieldName + " has invalid hex color in " + sourceFile.getPath());
+                    return null;
+                }
+
+                if (mcVersion >= MCVersions.VERSION1_16) {
+                    result.append(toAmpersandHex(hex));
+                } else {
+                    result.append(toLegacyColor(hex));
+                }
+                index = ampIndex + 8;
+            } else if (isColorCodeChar(next)) {
+                result.append('&').append(Character.toLowerCase(next));
+                index = ampIndex + 2;
+            } else {
+                result.append('&');
+                index = ampIndex + 1;
             }
-
-            usedHex = true;
-            result.append(toAmpersandHex(hex));
-            index = hexIndex + 8;
-        }
-
-        if (usedHex && mcVersion < MCVersions.VERSION1_16) {
-            errors.add("Hex colors require MC 1.16+ in " + sourceFile.getPath());
-            return null;
         }
 
         return result.toString();
     }
 
     private static String toAmpersandHex(String hex) {
-        String upper = hex.toUpperCase(Locale.ROOT);
-        return "&x&" + upper.charAt(0) + "&" + upper.charAt(1)
-                + "&" + upper.charAt(2) + "&" + upper.charAt(3)
-                + "&" + upper.charAt(4) + "&" + upper.charAt(5);
+        String lower = hex.toLowerCase(Locale.ROOT);
+        return "&x&" + lower.charAt(0) + "&" + lower.charAt(1)
+                + "&" + lower.charAt(2) + "&" + lower.charAt(3)
+                + "&" + lower.charAt(4) + "&" + lower.charAt(5);
     }
 
     private static boolean isHex(String value) {
@@ -480,6 +710,47 @@ class YamlItemReader {
         }
         return value.length() == 6;
     }
+
+    private static boolean isColorCodeChar(char value) {
+        return (value >= '0' && value <= '9') || (value >= 'a' && value <= 'z')
+                || (value >= 'A' && value <= 'Z');
+    }
+
+    private static String toLegacyColor(String hex) {
+        int rgb = Integer.parseInt(hex, 16);
+        int red = (rgb >> 16) & 0xFF;
+        int green = (rgb >> 8) & 0xFF;
+        int blue = rgb & 0xFF;
+
+        int bestIndex = 0;
+        int bestDistance = Integer.MAX_VALUE;
+        for (int index = 0; index < LEGACY_COLOR_RGB.length; index++) {
+            int legacy = LEGACY_COLOR_RGB[index];
+            int lr = (legacy >> 16) & 0xFF;
+            int lg = (legacy >> 8) & 0xFF;
+            int lb = legacy & 0xFF;
+            int dr = red - lr;
+            int dg = green - lg;
+            int db = blue - lb;
+            int distance = dr * dr + dg * dg + db * db;
+            if (distance < bestDistance) {
+                bestDistance = distance;
+                bestIndex = index;
+            }
+        }
+
+        return "&" + LEGACY_COLOR_CODES[bestIndex];
+    }
+
+    private static final char[] LEGACY_COLOR_CODES = {
+            '0', '1', '2', '3', '4', '5', '6', '7',
+            '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'
+    };
+
+    private static final int[] LEGACY_COLOR_RGB = {
+            0x000000, 0x0000AA, 0x00AA00, 0x00AAAA, 0xAA0000, 0xAA00AA, 0xFFAA00, 0xAAAAAA,
+            0x555555, 0x5555FF, 0x55FF55, 0x55FFFF, 0xFF5555, 0xFF55FF, 0xFFFF55, 0xFFFFFF
+    };
 
     private static class ParsedEnchantment {
 

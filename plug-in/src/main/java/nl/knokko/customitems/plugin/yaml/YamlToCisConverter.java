@@ -41,6 +41,12 @@ public class YamlToCisConverter {
             }
         }
 
+        if (!errors.isEmpty()) {
+            logErrors(errors, log);
+            log.accept(ChatColor.RED + "YAML conversion failed; using existing items.cis.txt if present.");
+            return false;
+        }
+
         if (items.isEmpty()) return false;
 
         Map<String, File> internalNameSources = new HashMap<>();
