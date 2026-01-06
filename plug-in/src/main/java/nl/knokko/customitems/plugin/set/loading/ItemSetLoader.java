@@ -10,6 +10,7 @@ import nl.knokko.customitems.plugin.data.PluginData;
 import nl.knokko.customitems.plugin.multisupport.floodgate.FloodgateSupport;
 import nl.knokko.customitems.plugin.multisupport.geyser.GeyserSupport;
 import nl.knokko.customitems.plugin.set.ItemSetWrapper;
+import nl.knokko.customitems.plugin.yaml.YamlToCisConverter;
 import nl.knokko.customitems.settings.ExportSettings;
 import nl.knokko.customitems.trouble.IntegrityException;
 import nl.knokko.customitems.trouble.OutdatedItemSetException;
@@ -140,6 +141,7 @@ public class ItemSetLoader implements Listener {
     }
 
     private boolean reloadItems(Consumer<String> sendMessage) {
+        YamlToCisConverter.convertIfNeeded(dataFolder, sendMessage);
         File itemsFile = getItemSetFile();
 
         if (!itemsFile.exists()) {
