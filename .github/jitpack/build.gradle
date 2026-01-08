@@ -71,6 +71,7 @@ project(':plug-in') {
         api project(':shared-code')
         api project(':kci-nms')
         api project(':custom-recipes')
+        implementation 'com.github.cliftonlabs:json-simple:4.0.1'
 
         compileOnly project(':bit-helper')
         compileOnly 'org.bukkit:bukkit:1.12.2-R0.1-SNAPSHOT'
