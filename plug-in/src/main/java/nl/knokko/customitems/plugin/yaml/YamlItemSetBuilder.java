@@ -1,6 +1,22 @@
 package nl.knokko.customitems.plugin.yaml;
 
+import com.github.cliftonlabs.json_simple.JsonException;
+import com.github.cliftonlabs.json_simple.JsonObject;
+import com.github.cliftonlabs.json_simple.Jsoner;
 import nl.knokko.customitems.bithelper.ByteArrayBitOutput;
+import nl.knokko.customitems.block.BlockSounds;
+import nl.knokko.customitems.block.KciBlock;
+import nl.knokko.customitems.block.drop.CustomBlockDrop;
+import nl.knokko.customitems.block.drop.RequiredItems;
+import nl.knokko.customitems.block.miningspeed.CustomMiningSpeedEntry;
+import nl.knokko.customitems.block.miningspeed.MiningSpeed;
+import nl.knokko.customitems.block.miningspeed.VanillaMiningSpeedEntry;
+import nl.knokko.customitems.block.model.BlockModel;
+import nl.knokko.customitems.block.model.CustomBlockModel;
+import nl.knokko.customitems.block.model.SidedBlockModel;
+import nl.knokko.customitems.block.model.SimpleBlockModel;
+import nl.knokko.customitems.drops.AllowedBiomes;
+import nl.knokko.customitems.drops.KciDrop;
 import nl.knokko.customitems.item.KciAttributeModifier;
 import nl.knokko.customitems.item.KciArmor;
 import nl.knokko.customitems.item.KciFood;
@@ -9,19 +25,33 @@ import nl.knokko.customitems.item.KciItemType;
 import nl.knokko.customitems.item.KciSimpleItem;
 import nl.knokko.customitems.item.KciTool;
 import nl.knokko.customitems.item.ToolDurabilityLoss;
+import nl.knokko.customitems.item.model.ModernCustomItemModel;
 import nl.knokko.customitems.itemset.ItemSet;
+import nl.knokko.customitems.itemset.TextureReference;
 import nl.knokko.customitems.item.enchantment.LeveledEnchantment;
+import nl.knokko.customitems.recipe.OutputTable;
+import nl.knokko.customitems.recipe.result.CustomItemResult;
+import nl.knokko.customitems.recipe.result.SimpleVanillaResult;
 import nl.knokko.customitems.settings.ExportSettings;
+import nl.knokko.customitems.sound.KciSound;
 import nl.knokko.customitems.texture.KciTexture;
+import nl.knokko.customitems.util.Chance;
 import nl.knokko.customitems.util.ProgrammingValidationException;
 import nl.knokko.customitems.util.ValidationException;
 
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import javax.imageio.ImageIO;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 
 import static nl.knokko.customitems.nms.KciNms.mcVersion;
 
@@ -30,6 +60,11 @@ class YamlItemSetBuilder {
     private static final String PLACEHOLDER_TEXTURE_NAME = "yaml_placeholder";
 
     static ItemSet build(Collection<YamlItemDefinition> items)
+            throws ValidationException, ProgrammingValidationException {
+        return build(items, Collections.emptyList());
+    }
+
+    static ItemSet build(Collection<YamlItemDefinition> items, Collection<YamlBlockDefinition> blocks)
             throws ValidationException, ProgrammingValidationException {
         ItemSet itemSet = new ItemSet(ItemSet.Side.EDITOR);
 
@@ -59,6 +94,16 @@ class YamlItemSetBuilder {
                 applyFoodDefinition(itemDefinition, (KciFood) item);
             }
             itemSet.items.add(item);
+        }
+
+        for (YamlBlockDefinition blockDefinition : blocks) {
+            KciBlock block = new KciBlock(true);
+            block.setName(blockDefinition.internalName);
+            block.setModel(createBlockModel(blockDefinition, itemSet));
+            applyBlockMiningSpeed(blockDefinition, block, itemSet);
+            applyBlockSounds(blockDefinition, block);
+            applyBlockDrops(blockDefinition, block, itemSet);
+            itemSet.blocks.add(block);
         }
 
         itemSet.validateExportVersion(mcVersion);
@@ -310,6 +355,418 @@ class YamlItemSetBuilder {
         }
         if (itemDefinition.foodDefinition.eatTime != null) {
             food.setEatTime(itemDefinition.foodDefinition.eatTime);
+        }
+    }
+
+    private static BlockModel createBlockModel(
+            YamlBlockDefinition blockDefinition, ItemSet itemSet
+    ) throws ValidationException, ProgrammingValidationException {
+        if (blockDefinition.modelDefinition == null) {
+            return new SimpleBlockModel(itemSet.textures.getReference(PLACEHOLDER_TEXTURE_NAME));
+        }
+
+        YamlBlockModelDefinition modelDefinition = blockDefinition.modelDefinition;
+        if (modelDefinition.type == YamlBlockModelType.SIDED) {
+            Map<String, String> textures = modelDefinition.sidedTextures;
+            TextureReference north = resolveBlockTexture(blockDefinition, textures.get("north"), itemSet,
+                    blockDefinition.internalName + "_north", true);
+            TextureReference east = resolveBlockTexture(blockDefinition, textures.get("east"), itemSet,
+                    blockDefinition.internalName + "_east", true);
+            TextureReference south = resolveBlockTexture(blockDefinition, textures.get("south"), itemSet,
+                    blockDefinition.internalName + "_south", true);
+            TextureReference west = resolveBlockTexture(blockDefinition, textures.get("west"), itemSet,
+                    blockDefinition.internalName + "_west", true);
+            TextureReference up = resolveBlockTexture(blockDefinition, textures.get("up"), itemSet,
+                    blockDefinition.internalName + "_up", true);
+            TextureReference down = resolveBlockTexture(blockDefinition, textures.get("down"), itemSet,
+                    blockDefinition.internalName + "_down", true);
+            return new SidedBlockModel(north, east, south, west, up, down);
+        }
+
+        if (modelDefinition.type == YamlBlockModelType.CUSTOM) {
+            return createCustomBlockModel(blockDefinition, modelDefinition.customModel, itemSet);
+        }
+
+        TextureReference texture = resolveBlockTexture(
+                blockDefinition,
+                modelDefinition.simpleTexture,
+                itemSet,
+                blockDefinition.internalName,
+                modelDefinition.simpleTexture != null
+        );
+        if (texture == null) {
+            texture = itemSet.textures.getReference(PLACEHOLDER_TEXTURE_NAME);
+        }
+        return new SimpleBlockModel(texture);
+    }
+
+    private static void applyBlockMiningSpeed(
+            YamlBlockDefinition blockDefinition, KciBlock block, ItemSet itemSet
+    ) throws ValidationException, ProgrammingValidationException {
+        if (blockDefinition.miningSpeed == null) return;
+
+        MiningSpeed miningSpeed = new MiningSpeed(true);
+        if (blockDefinition.miningSpeed.defaultValue != null) {
+            miningSpeed.setDefaultValue(blockDefinition.miningSpeed.defaultValue);
+        }
+
+        List<VanillaMiningSpeedEntry> vanillaEntries = new ArrayList<>();
+        for (YamlBlockVanillaMiningSpeedEntry entry : blockDefinition.miningSpeed.vanillaEntries) {
+            VanillaMiningSpeedEntry vanillaEntry = new VanillaMiningSpeedEntry(true);
+            vanillaEntry.setMaterial(entry.material);
+            vanillaEntry.setValue(entry.value);
+            vanillaEntry.setAcceptCustomItems(entry.allowCustomItems);
+            vanillaEntries.add(vanillaEntry);
+        }
+        miningSpeed.setVanillaEntries(vanillaEntries);
+
+        List<CustomMiningSpeedEntry> customEntries = new ArrayList<>();
+        for (YamlBlockCustomMiningSpeedEntry entry : blockDefinition.miningSpeed.customEntries) {
+            CustomMiningSpeedEntry customEntry = new CustomMiningSpeedEntry(true);
+            customEntry.setValue(entry.value);
+            customEntry.setItemReference(itemSet.items.getReference(entry.itemInternalName));
+            customEntries.add(customEntry);
+        }
+        miningSpeed.setCustomEntries(customEntries);
+
+        block.setMiningSpeed(miningSpeed);
+    }
+
+    private static void applyBlockSounds(YamlBlockDefinition blockDefinition, KciBlock block) {
+        if (blockDefinition.sounds == null) return;
+
+        BlockSounds sounds = new BlockSounds(true);
+        if (blockDefinition.sounds.leftClick != null) {
+            sounds.setLeftClickSound(createSound(blockDefinition.sounds.leftClick));
+        }
+        if (blockDefinition.sounds.rightClick != null) {
+            sounds.setRightClickSound(createSound(blockDefinition.sounds.rightClick));
+        }
+        if (blockDefinition.sounds.breakSound != null) {
+            sounds.setBreakSound(createSound(blockDefinition.sounds.breakSound));
+        }
+        if (blockDefinition.sounds.step != null) {
+            sounds.setStepSound(createSound(blockDefinition.sounds.step));
+        }
+        block.setSounds(sounds);
+    }
+
+    private static KciSound createSound(YamlSoundDefinition definition) {
+        return KciSound.createQuick(definition.soundType, definition.volume, definition.pitch);
+    }
+
+    private static void applyBlockDrops(
+            YamlBlockDefinition blockDefinition, KciBlock block, ItemSet itemSet
+    ) throws ValidationException, ProgrammingValidationException {
+        if (blockDefinition.drops == null || blockDefinition.drops.isEmpty()) return;
+
+        List<CustomBlockDrop> drops = new ArrayList<>();
+        for (YamlBlockDropDefinition dropDefinition : blockDefinition.drops) {
+            CustomBlockDrop drop = new CustomBlockDrop(true);
+            if (dropDefinition.silkTouchRequirement != null) {
+                drop.setSilkTouchRequirement(dropDefinition.silkTouchRequirement);
+            }
+            if (dropDefinition.minFortuneLevel != null) {
+                drop.setMinFortuneLevel(dropDefinition.minFortuneLevel);
+            }
+            if (dropDefinition.maxFortuneLevel != null) {
+                drop.setMaxFortuneLevel(dropDefinition.maxFortuneLevel);
+            }
+
+            KciDrop dropConfig = new KciDrop(true);
+            if (dropDefinition.cancelNormalDrops != null) {
+                dropConfig.setCancelNormalDrops(dropDefinition.cancelNormalDrops);
+            }
+
+            OutputTable outputTable = new OutputTable(true);
+            List<OutputTable.Entry> entries = new ArrayList<>();
+            for (YamlBlockDropOutputDefinition output : dropDefinition.outputs) {
+                OutputTable.Entry entry = new OutputTable.Entry(true);
+                entry.setChance(createChance(output.chance));
+                if (output.customItemInternalName != null) {
+                    entry.setResult(createCustomItemResult(itemSet, output));
+                } else {
+                    entry.setResult(SimpleVanillaResult.createQuick(output.material, output.amount));
+                }
+                entries.add(entry);
+            }
+            outputTable.setEntries(entries);
+            dropConfig.setOutputTable(outputTable);
+
+            if (dropDefinition.requiredItems != null) {
+                dropConfig.setRequiredHeldItems(createRequiredItems(itemSet, dropDefinition.requiredItems));
+            }
+            if (dropDefinition.allowedBiomes != null) {
+                dropConfig.setAllowedBiomes(createAllowedBiomes(dropDefinition.allowedBiomes));
+            }
+            drop.setDrop(dropConfig);
+            drops.add(drop);
+        }
+
+        block.setDrops(drops);
+    }
+
+    private static CustomItemResult createCustomItemResult(
+            ItemSet itemSet, YamlBlockDropOutputDefinition output
+    ) throws ValidationException {
+        CustomItemResult result = CustomItemResult.createQuick(
+                itemSet.items.getReference(output.customItemInternalName),
+                output.amount
+        );
+        if (output.amount > result.getItem().getMaxStacksize()) {
+            throw new ValidationException("Drop amount " + output.amount + " exceeds max stack size for "
+                    + result.getItem().getName());
+        }
+        return result;
+    }
+
+    private static Chance createChance(double chancePercentage) {
+        double rounded = Math.rint(chancePercentage);
+        if (Math.abs(rounded - chancePercentage) < 0.0001) {
+            return Chance.percentage((int) rounded);
+        }
+        return Chance.nonIntegerPercentage(chancePercentage);
+    }
+
+    private static RequiredItems createRequiredItems(
+            ItemSet itemSet, YamlRequiredItemsDefinition definition
+    ) {
+        RequiredItems requiredItems = new RequiredItems(true);
+        requiredItems.setEnabled(definition.enabled);
+        requiredItems.setInverted(definition.invert);
+
+        List<RequiredItems.VanillaEntry> vanillaEntries = new ArrayList<>();
+        for (YamlRequiredVanillaItemDefinition entry : definition.vanillaItems) {
+            vanillaEntries.add(RequiredItems.VanillaEntry.createQuick(entry.material, entry.allowCustomItems));
+        }
+        requiredItems.setVanillaItems(vanillaEntries);
+
+        List<nl.knokko.customitems.itemset.ItemReference> customEntries = new ArrayList<>();
+        for (String itemName : definition.customItems) {
+            customEntries.add(itemSet.items.getReference(itemName));
+        }
+        requiredItems.setCustomItems(customEntries);
+        return requiredItems;
+    }
+
+    private static AllowedBiomes createAllowedBiomes(YamlAllowedBiomesDefinition definition) {
+        AllowedBiomes biomes = new AllowedBiomes(true);
+        biomes.setWhitelist(definition.whitelist);
+        biomes.setBlacklist(definition.blacklist);
+        return biomes;
+    }
+
+    private static BlockModel createCustomBlockModel(
+            YamlBlockDefinition blockDefinition,
+            YamlBlockCustomModelDefinition customModelDefinition,
+            ItemSet itemSet
+    ) throws ValidationException, ProgrammingValidationException {
+        if (customModelDefinition == null) {
+            throw new ValidationException("Custom block model is missing for " + blockDefinition.fullId);
+        }
+
+        File modelFile = resolveModelFile(blockDefinition.packDirectory, customModelDefinition.modelPath);
+        if (modelFile == null || !modelFile.isFile()) {
+            throw new ValidationException("Missing block model file " + customModelDefinition.modelPath
+                    + " (" + blockDefinition.sourceFile.getPath() + ")");
+        }
+
+        byte[] rawModel;
+        try {
+            rawModel = Files.readAllBytes(modelFile.toPath());
+        } catch (IOException ex) {
+            throw new ValidationException("Failed to read block model " + modelFile.getPath() + ": " + ex.getMessage());
+        }
+
+        JsonObject modelJson;
+        try {
+            modelJson = (JsonObject) Jsoner.deserialize(new String(rawModel, StandardCharsets.UTF_8));
+        } catch (JsonException ex) {
+            throw new ValidationException("Invalid JSON in model " + modelFile.getPath());
+        }
+
+        if (modelJson == null) {
+            throw new ValidationException("Model " + modelFile.getPath() + " is empty or invalid JSON");
+        }
+
+        Map<String, String> textureMap = modelJson.getMap(ModernCustomItemModel.TEXTURES_KEY);
+        if (textureMap == null) {
+            throw new ValidationException("Model " + modelFile.getPath() + " is missing a textures map");
+        }
+
+        Map<String, IncludedImageBuilder> includedImages = new HashMap<>();
+        Map<String, Integer> usedNames = new HashMap<>();
+        for (Map.Entry<String, String> entry : customModelDefinition.texturePaths.entrySet()) {
+            String textureKey = entry.getKey();
+            if (!textureMap.containsKey(textureKey)) {
+                throw new ValidationException("Model " + modelFile.getPath() + " has no texture key '" + textureKey + "'");
+            }
+            File textureFile = resolveTextureFile(blockDefinition.packDirectory, entry.getValue());
+            if (textureFile == null || !textureFile.isFile()) {
+                throw new ValidationException("Missing model texture " + entry.getValue()
+                        + " (" + blockDefinition.sourceFile.getPath() + ")");
+            }
+
+            String fileKey = textureFile.getPath();
+            IncludedImageBuilder builder = includedImages.get(fileKey);
+            if (builder == null) {
+                BufferedImage image = loadTextureImage(textureFile, "model texture");
+                String safeName = createSafeName(textureFile.getName(), usedNames);
+                builder = new IncludedImageBuilder(safeName, image);
+                includedImages.put(fileKey, builder);
+            }
+            builder.textureReferences.add(textureKey);
+        }
+
+        List<ModernCustomItemModel.IncludedImage> includedImageList = new ArrayList<>(includedImages.size());
+        for (IncludedImageBuilder builder : includedImages.values()) {
+            includedImageList.add(new ModernCustomItemModel.IncludedImage(
+                    builder.textureReferences, builder.name, builder.image
+            ));
+        }
+
+        ModernCustomItemModel model = new ModernCustomItemModel(rawModel, includedImageList);
+
+        File editorTextureFile = resolveTextureFile(blockDefinition.packDirectory, customModelDefinition.editorTexturePath);
+        if (editorTextureFile == null || !editorTextureFile.isFile()) {
+            throw new ValidationException("Missing editor texture " + customModelDefinition.editorTexturePath
+                    + " (" + blockDefinition.sourceFile.getPath() + ")");
+        }
+        BufferedImage editorImage = loadTextureImage(editorTextureFile, "editor texture");
+        TextureReference editorTexture = addTexture(itemSet, blockDefinition.internalName + "_editor", editorImage);
+
+        return new CustomBlockModel(model, editorTexture, null);
+    }
+
+    private static TextureReference resolveBlockTexture(
+            YamlBlockDefinition blockDefinition,
+            String rawTexture,
+            ItemSet itemSet,
+            String textureName,
+            boolean required
+    ) throws ValidationException, ProgrammingValidationException {
+        String rawValue = rawTexture;
+        if (rawValue == null || rawValue.trim().isEmpty()) {
+            rawValue = blockDefinition.idName;
+        }
+        File textureFile = resolveTextureFile(blockDefinition.packDirectory, rawValue);
+        if (textureFile == null || !textureFile.isFile()) {
+            if (required) {
+                throw new ValidationException("Missing block texture " + rawValue + " for "
+                        + blockDefinition.fullId + " (" + blockDefinition.sourceFile.getPath() + ")");
+            }
+            return null;
+        }
+        BufferedImage image = loadTextureImage(textureFile, "block texture");
+        return addTexture(itemSet, textureName, image);
+    }
+
+    private static File resolveModelFile(File packDirectory, String rawPath) {
+        if (rawPath == null) return null;
+        String trimmed = rawPath.trim();
+        if (trimmed.isEmpty()) return null;
+        File candidate = new File(trimmed);
+        if (!candidate.isAbsolute()) {
+            candidate = new File(packDirectory, trimmed);
+        }
+        if (candidate.isFile()) return candidate;
+        if (!trimmed.toLowerCase(Locale.ROOT).endsWith(".json")) {
+            File jsonCandidate = new File(candidate.getPath() + ".json");
+            if (jsonCandidate.isFile()) return jsonCandidate;
+        }
+        return candidate;
+    }
+
+    private static File resolveTextureFile(File packDirectory, String rawValue) {
+        if (rawValue == null) return null;
+        String trimmed = rawValue.trim();
+        if (trimmed.isEmpty()) return null;
+        boolean isPath = trimmed.contains("/") || trimmed.contains("\\")
+                || trimmed.toLowerCase(Locale.ROOT).endsWith(".png");
+        if (isPath) {
+            File file = new File(trimmed);
+            if (!file.isAbsolute()) {
+                file = new File(packDirectory, trimmed);
+            }
+            return file;
+        }
+        int colonIndex = trimmed.indexOf(':');
+        String name = colonIndex >= 0 ? trimmed.substring(colonIndex + 1) : trimmed;
+        File assetsDir = new File(packDirectory, "assets/block");
+        return new File(assetsDir, name + ".png");
+    }
+
+    private static BufferedImage loadTextureImage(
+            File file, String description
+    ) throws ValidationException, ProgrammingValidationException {
+        BufferedImage image;
+        try {
+            image = ImageIO.read(file);
+        } catch (IOException ex) {
+            throw new ValidationException("Failed to read " + description + " " + file.getPath() + ": " + ex.getMessage());
+        }
+        if (image == null) {
+            throw new ValidationException("Texture " + file.getPath() + " is not a valid PNG image");
+        }
+        KciTexture.validateImage(image);
+        return image;
+    }
+
+    private static TextureReference addTexture(
+            ItemSet itemSet, String textureName, BufferedImage image
+    ) throws ValidationException, ProgrammingValidationException {
+        if (itemSet.textures.get(textureName).isPresent()) {
+            return itemSet.textures.getReference(textureName);
+        }
+        KciTexture texture = KciTexture.createQuick(textureName, image);
+        itemSet.textures.add(texture);
+        return itemSet.textures.getReference(textureName);
+    }
+
+    private static String createSafeName(String rawName, Map<String, Integer> used) throws ValidationException {
+        String base = rawName;
+        String lower = base.toLowerCase(Locale.ROOT);
+        if (lower.endsWith(".png")) {
+            base = base.substring(0, base.length() - 4);
+        }
+        StringBuilder cleaned = new StringBuilder();
+        for (int i = 0; i < base.length(); i++) {
+            char c = base.charAt(i);
+            if ((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '_') {
+                cleaned.append(c);
+            } else if (c >= 'A' && c <= 'Z') {
+                cleaned.append(Character.toLowerCase(c));
+            } else {
+                cleaned.append('_');
+            }
+        }
+        String name = cleaned.toString();
+        if (name.isEmpty()) name = "texture";
+
+        int count = used.getOrDefault(name, 0);
+        if (count == 0) {
+            used.put(name, 1);
+            return name;
+        }
+        String candidate;
+        do {
+            count++;
+            candidate = name + "_" + count;
+        } while (used.containsKey(candidate));
+        used.put(name, count);
+        used.put(candidate, 1);
+        return candidate;
+    }
+
+    private static class IncludedImageBuilder {
+
+        final String name;
+        final BufferedImage image;
+        final List<String> textureReferences = new ArrayList<>();
+
+        IncludedImageBuilder(String name, BufferedImage image) {
+            this.name = name;
+            this.image = image;
         }
     }
 

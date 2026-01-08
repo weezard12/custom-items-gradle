@@ -9,7 +9,7 @@ supported.
 
 - On startup and on `/kci reload`, the plugin scans `plugins/CustomItems/*`.
 - Each subfolder is treated as a pack.
-- Any `.yml` or `.yaml` file with a top-level `item:` section is parsed.
+- Any `.yml` or `.yaml` file with a top-level `item:` or `block:` section is parsed.
 - The plugin builds an ItemSet, generates `plugins/CustomItems/resource-pack.zip`, and writes
   `plugins/CustomItems/items.cis.txt`.
 - If any YAML errors are found, conversion is skipped and the existing
@@ -91,15 +91,81 @@ Internal behavior:
 - Internal item name = `namespace_name` (for safe compatibility).
 - Item alias = `namespace:name` (so `/kci give namespace:name` works).
 
+## Supported block fields (current)
+
+```yml
+block:
+  id: "my:steel_block"    # required
+  requires:
+    mc: ">=1.16"
+  model:
+    type: "simple"         # simple|sided|custom
+    texture: "steel_block" # optional (defaults to assets/block/<id>.png)
+  mining_speed:
+    default: 0
+    vanilla:
+      - tool: "DIAMOND_PICKAXE"
+        value: 5
+        allow_custom_items: true
+    custom:
+      - item: "my:steel_pickaxe"
+        value: 8
+  sounds:
+    left_click: "BLOCK_STONE_HIT"
+    break:
+      sound: "BLOCK_STONE_BREAK"
+      volume: 1.0
+      pitch: 1.0
+  drops:
+    - outputs:
+        - material: "IRON_INGOT"
+          amount: 1
+          chance: 50
+        - item: "my:steel_ingot"
+          amount: 1
+          chance: 25
+      silk_touch: optional   # optional|required|forbidden
+      fortune:
+        min: 0
+        max: 3
+      cancel_normal_drops: false
+      required_held_items:
+        vanilla:
+          - material: "DIAMOND_PICKAXE"
+            allow_custom_items: true
+        custom:
+          - "my:steel_pickaxe"
+        invert: false
+      biomes:
+        whitelist: [PLAINS]
+        blacklist: [OCEAN]
+```
+
+Rules:
+- `id` can be namespaced (`my:steel_block`) or use the pack namespace (`steel_block`).
+- Internal block name = `namespace_name`.
+- `requires.mc` supports operators (`>=`, `<=`, `>`, `<`, `=`) and versions like `1.16` or `1.16.5`.
+- `model.type: simple` uses a single texture; `sided` uses `model.textures.north/east/south/west/up/down`.
+- `model.type: custom` expects `model.json`, `model.editor_texture`, and `model.textures` (map of model texture keys to png paths).
+- `mining_speed` values are between `-5` and `25`.
+- `mining_speed.vanilla` entries accept `tool` or `material`; `allow_custom_items` defaults to true.
+- `mining_speed.custom.item` uses a custom item id and applies only when that item is held.
+- `sounds` supports string shorthand (`"BLOCK_STONE_HIT"`) or map with `sound`, `volume`, `pitch`.
+- `drops.outputs` chances are percentages (0..100), decimals allowed.
+- `drops.required_held_items` supports `enabled` (default true), `invert` (default false), `vanilla` entries
+  (with `material` + `allow_custom_items`) and `custom` entries (list of custom item ids).
+- `drops.biomes` supports `whitelist` and `blacklist` lists of biome names; empty lists mean no restriction.
+
 ## Textures (runtime resource pack)
 
-If a texture file exists, the plugin automatically maps it to the item id and includes it in the
+If a texture file exists, the plugin automatically maps it to the item or block id and includes it in the
 generated resource pack.
 
 Texture paths:
-- `plugins/CustomItems/<pack>/assets/item/<id>.png`
+- Items: `plugins/CustomItems/<pack>/assets/item/<id>.png`
+- Blocks: `plugins/CustomItems/<pack>/assets/block/<id>.png`
 - For namespaced ids, `<id>` is the part after the colon (e.g. `my:steel_sword` -> `steel_sword.png`).
-- If you need to disambiguate, you can also use `<namespace>_<id>.png`.
+- `model.texture` and `model.textures.*` can also point to explicit png paths relative to the pack folder.
 - Textures must be square, power-of-two, and at most 512x512.
 
 ## Example pack layout
@@ -110,6 +176,8 @@ plugins/CustomItems/
     pack.yml
     items/
       steel_sword.yml
+    blocks/
+      steel_block.yml
 ```
 
 ```yml
@@ -119,7 +187,15 @@ item:
   name: "Steel Sword"
 ```
 
+```yml
+# blocks/steel_block.yml
+block:
+  id: "steel_block"
+```
+
 ## Notes and limitations
 
 - A placeholder texture is used internally so the ItemSet validates.
 - `unbreakable` applies to tool/armor durability; it has no effect on simple or food items.
+- Block textures and runtime block models are generated for `simple` and `sided` models.
+- `custom` block models embed textures listed under `model.textures` into the resource pack.
