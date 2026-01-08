@@ -5,6 +5,7 @@ plugins {
 
 allprojects {
     apply plugin: 'java'
+    apply plugin: 'maven-publish'
 
     group = 'nl.knokko.customitems'
 
@@ -39,21 +40,36 @@ allprojects {
     test {
         useJUnitPlatform()
     }
+
+    java {
+        withSourcesJar()
+    }
+
+    publishing {
+        publications {
+            mavenJava(MavenPublication) {
+                from components.java
+                artifactId = project.name
+            }
+        }
+    }
 }
 
 project(':shared-code') {
+    apply plugin: 'java-library'
     dependencies {
-        implementation project(':bit-helper')
+        api project(':bit-helper')
         implementation 'com.github.cliftonlabs:json-simple:4.0.1'
     }
 }
 
 project(':plug-in') {
+    apply plugin: 'java-library'
     apply plugin: 'io.github.goooler.shadow'
     dependencies {
-        implementation project(':shared-code')
-        implementation project(':kci-nms')
-        implementation project(':custom-recipes')
+        api project(':shared-code')
+        api project(':kci-nms')
+        api project(':custom-recipes')
 
         compileOnly project(':bit-helper')
         compileOnly 'org.bukkit:bukkit:1.12.2-R0.1-SNAPSHOT'
