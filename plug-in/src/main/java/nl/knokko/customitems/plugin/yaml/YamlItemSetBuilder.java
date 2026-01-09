@@ -55,9 +55,9 @@ import java.util.Map;
 
 import static nl.knokko.customitems.nms.KciNms.mcVersion;
 
-class YamlItemSetBuilder {
+public class YamlItemSetBuilder {
 
-    private static final String PLACEHOLDER_TEXTURE_NAME = "yaml_placeholder";
+    public static final String PLACEHOLDER_TEXTURE_NAME = "yaml_placeholder";
 
     static ItemSet build(Collection<YamlItemDefinition> items)
             throws ValidationException, ProgrammingValidationException {

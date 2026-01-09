@@ -8,6 +8,7 @@ import nl.knokko.customitems.item.KciItem;
 import nl.knokko.customitems.item.durability.ItemDurabilityAssignments;
 import nl.knokko.customitems.item.durability.ItemDurabilityClaim;
 import nl.knokko.customitems.itemset.ItemSet;
+import nl.knokko.customitems.plugin.yaml.YamlItemSetBuilder;
 import nl.knokko.customitems.texture.BowTextureEntry;
 import nl.knokko.customitems.util.ValidationException;
 
@@ -43,11 +44,13 @@ class ResourcepackItemOverrider {
 
             KciItemType itemType = typeEntry.getKey();
             ItemDurabilityAssignments damageAssignments = typeEntry.getValue();
+            Set<Short> placeholderDamages = getPlaceholderDamages(itemType);
+            ItemDurabilityAssignments filteredAssignments = filterAssignments(damageAssignments, placeholderDamages);
 
-            if (!damageAssignments.claimList.isEmpty()) {
+            if (!filteredAssignments.claimList.isEmpty()) {
 
                 if (itemType == KciItemType.OTHER) {
-                    overrideOtherItems(zipOutput, damageAssignments);
+                    overrideOtherItems(zipOutput, filteredAssignments, placeholderDamages);
                 } else {
 
                     String modelName;
@@ -68,22 +71,22 @@ class ResourcepackItemOverrider {
                     if (useModernItemModels) {
                         zipOutput.putNextEntry(new ZipEntry("assets/minecraft/items/" + modelName + ".json"));
                         if (itemType == KciItemType.BOW) {
-                            overrideModernBow(new PrintWriter(zipOutput), damageAssignments);
+                            overrideModernBow(new PrintWriter(zipOutput), filteredAssignments);
                         } else if (itemType == KciItemType.CROSSBOW) {
-                            overrideModernCrossbow(new PrintWriter(zipOutput), damageAssignments);
+                            overrideModernCrossbow(new PrintWriter(zipOutput), filteredAssignments);
                         } else if (itemType == KciItemType.SHIELD) {
-                            overrideModernShield(new PrintWriter(zipOutput), damageAssignments);
+                            overrideModernShield(new PrintWriter(zipOutput), filteredAssignments);
                         } else if (itemType == KciItemType.ELYTRA) {
-                            overrideModernElytra(new PrintWriter(zipOutput), damageAssignments);
+                            overrideModernElytra(new PrintWriter(zipOutput), filteredAssignments);
                         } else if (isArmor) {
                             overrideModernArmor(
                                     new PrintWriter(zipOutput), "item/" + textureName,
-                                    itemType.isLeatherArmor(), damageAssignments
+                                    itemType.isLeatherArmor(), filteredAssignments
                             );
                         } else if (itemType == KciItemType.TRIDENT) {
-                            overrideModernTrident(new PrintWriter(zipOutput), damageAssignments);
+                            overrideModernTrident(new PrintWriter(zipOutput), filteredAssignments);
                         } else {
-                            overrideModernItem(new PrintWriter(zipOutput), modelName, null, damageAssignments);
+                            overrideModernItem(new PrintWriter(zipOutput), modelName, null, filteredAssignments);
                         }
                         zipOutput.closeEntry();
                         continue;
@@ -94,29 +97,53 @@ class ResourcepackItemOverrider {
                     final PrintWriter jsonWriter = new PrintWriter(zipOutput);
 
                     if (itemType == KciItemType.BOW) {
-                        overrideBow(jsonWriter, damageAssignments);
+                        overrideBow(jsonWriter, filteredAssignments);
                     } else if (itemType == KciItemType.CROSSBOW) {
-                        overrideCrossBow(jsonWriter, damageAssignments);
+                        overrideCrossBow(jsonWriter, filteredAssignments);
                     } else if (itemType == KciItemType.SHIELD) {
-                        overrideShield(jsonWriter, damageAssignments);
+                        overrideShield(jsonWriter, filteredAssignments);
                     } else if (itemType == KciItemType.ELYTRA) {
-                        overrideElytra(jsonWriter, damageAssignments);
+                        overrideElytra(jsonWriter, filteredAssignments);
                     } else if (isArmor && itemSet.getExportSettings().getMcVersion() >= VERSION1_20) {
-                        overrideArmor(jsonWriter, damageAssignments, itemType, textureName);
+                        overrideArmor(jsonWriter, filteredAssignments, itemType, textureName);
                     } else {
-                        overrideItem(jsonWriter, damageAssignments, itemType, modelName, textureName);
+                        overrideItem(jsonWriter, filteredAssignments, itemType, modelName, textureName);
                     }
                     jsonWriter.flush();
 
                     // The trident base model is not special, but it does need a special in-hand model
                     if (itemType == KciItemType.TRIDENT) {
-                        overrideTridentInHand(jsonWriter, damageAssignments);
+                        overrideTridentInHand(jsonWriter, filteredAssignments);
                     }
 
                     zipOutput.closeEntry();
                 }
             }
         }
+    }
+
+    private Set<Short> getPlaceholderDamages(KciItemType itemType) {
+        Set<Short> result = new HashSet<>();
+        for (KciItem item : itemSet.items) {
+            if (item.getItemType() == itemType
+                    && YamlItemSetBuilder.PLACEHOLDER_TEXTURE_NAME.equals(item.getTexture().getName())) {
+                result.add(item.getItemDamage());
+            }
+        }
+        return result;
+    }
+
+    private ItemDurabilityAssignments filterAssignments(
+            ItemDurabilityAssignments assignments, Set<Short> skipDamages
+    ) {
+        if (skipDamages.isEmpty()) return assignments;
+        ItemDurabilityAssignments filtered = new ItemDurabilityAssignments();
+        for (ItemDurabilityClaim claim : assignments.claimList) {
+            if (!skipDamages.contains(claim.itemDamage)) {
+                filtered.claimList.add(claim);
+            }
+        }
+        return filtered;
     }
 
     private void overrideModernBow(PrintWriter output, ItemDurabilityAssignments dataAssignments) throws IOException {
@@ -464,12 +491,12 @@ class ResourcepackItemOverrider {
     }
 
     private void overrideOtherItems(
-            ZipOutputStream zipOutput, ItemDurabilityAssignments dataAssignments
+            ZipOutputStream zipOutput, ItemDurabilityAssignments dataAssignments, Set<Short> skipDamages
     ) throws IOException {
         Set<VMaterial> usedOtherMaterials = EnumSet.noneOf(VMaterial.class);
 
         for (KciItem item : itemSet.items) {
-            if (item.getItemType() == KciItemType.OTHER) {
+            if (item.getItemType() == KciItemType.OTHER && !skipDamages.contains(item.getItemDamage())) {
                 usedOtherMaterials.add(item.getOtherMaterial());
             }
         }
@@ -492,7 +519,9 @@ class ResourcepackItemOverrider {
             List<KciItem> currentItems = itemSet.items.stream().sorted(
                     Comparator.comparingInt(KciItem::getItemDamage)
             ).filter(
-                    item -> item.getItemType() == KciItemType.OTHER && item.getOtherMaterial() == currentOtherMaterial
+                    item -> item.getItemType() == KciItemType.OTHER
+                            && item.getOtherMaterial() == currentOtherMaterial
+                            && !skipDamages.contains(item.getItemDamage())
             ).collect(Collectors.toList());
 
             if (useModernItemModels) {

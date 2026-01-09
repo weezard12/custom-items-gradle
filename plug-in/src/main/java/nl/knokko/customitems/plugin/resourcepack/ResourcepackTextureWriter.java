@@ -1,6 +1,7 @@
 package nl.knokko.customitems.plugin.resourcepack;
 
 import nl.knokko.customitems.itemset.ItemSet;
+import nl.knokko.customitems.plugin.yaml.YamlItemSetBuilder;
 import nl.knokko.customitems.texture.BowTexture;
 import nl.knokko.customitems.texture.BowTextureEntry;
 import nl.knokko.customitems.texture.CrossbowTexture;
@@ -65,6 +66,9 @@ class ResourcepackTextureWriter {
         for (KciTexture texture : itemSet.textures) {
 
             String baseTextureName = texture.getName();
+            if (YamlItemSetBuilder.PLACEHOLDER_TEXTURE_NAME.equals(baseTextureName)) {
+                continue;
+            }
             if (texture instanceof BowTexture || texture instanceof CrossbowTexture) {
                 baseTextureName += "_standby";
 

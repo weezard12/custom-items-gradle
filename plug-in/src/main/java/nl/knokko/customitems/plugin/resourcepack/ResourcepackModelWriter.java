@@ -8,6 +8,7 @@ import nl.knokko.customitems.item.model.ItemModel;
 import nl.knokko.customitems.itemset.ItemSet;
 import nl.knokko.customitems.projectile.cover.ProjectileCover;
 import nl.knokko.customitems.texture.BowTextureEntry;
+import nl.knokko.customitems.plugin.yaml.YamlItemSetBuilder;
 
 import java.io.IOException;
 import java.io.OutputStream;
@@ -41,6 +42,9 @@ class ResourcepackModelWriter {
     void writeCustomItemModels() throws IOException {
         boolean supportsArmorTrims = itemSet.getExportSettings().getMcVersion() >= VERSION1_20;
         for (KciItem item : itemSet.items) {
+            if (YamlItemSetBuilder.PLACEHOLDER_TEXTURE_NAME.equals(item.getTexture().getName())) {
+                continue;
+            }
 
             ZipEntry entry = new ZipEntry("assets/minecraft/models/customitems/" + item.getName() + ".json");
             zipOutput.putNextEntry(entry);

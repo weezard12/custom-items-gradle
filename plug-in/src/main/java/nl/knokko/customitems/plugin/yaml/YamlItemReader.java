@@ -293,6 +293,9 @@ class YamlItemReader {
         }
 
         if (material.otherMaterial != null) {
+            if (type == YamlItemType.TOOL && material.otherMaterial == VMaterial.MACE) {
+                return;
+            }
             errors.add("item.material must be a custom item type for type " + type.name().toLowerCase(Locale.ROOT)
                     + " in " + sourceFile.getPath());
             return;

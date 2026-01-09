@@ -51,6 +51,9 @@ public class CustomItemsPlugin extends JavaPlugin {
 	private int chunkPopulationPeriod;
 	private int chunkPopulationCount;
 	private boolean cancelWhenDamageResistanceIsAtLeast100Percent;
+	private boolean embeddedPackImportEnabled = true;
+	private boolean embeddedPackImportRestrictToRoots = false;
+	private java.util.List<String> embeddedPackImportRoots = defaultEmbeddedPackImportRoots();
 
 	/**
 	 * To avoid compatibility issues with other plug-ins, recipes can't be registered the first 5 seconds
@@ -168,12 +171,12 @@ public class CustomItemsPlugin extends JavaPlugin {
 	@Override
 	public void onDisable() {
 		if (KciNms.instance != null) {
-			if (!itemSet.get().isEmpty() && itemSetLoader.getPluginData() != null) {
+			if (!itemSet.get().isEmpty() && itemSetLoader != null && itemSetLoader.getPluginData() != null) {
 				itemSetLoader.getPluginData().saveData();
 			}
-			latePopulator.stop();
-			recipes.disable();
-			projectileManager.destroyCustomProjectiles();
+			if (latePopulator != null) latePopulator.stop();
+			if (recipes != null) recipes.disable();
+			if (projectileManager != null) projectileManager.destroyCustomProjectiles();
 			enabledAreas = null;
 			instance = null;
 		}
@@ -206,6 +209,10 @@ public class CustomItemsPlugin extends JavaPlugin {
 	private static final String KEY_CHUNK_POPULATION_COUNT = "Chunks per population period";
 	private static final String KEY_CANCEL_WHEN_DAMAGE_RESISTANCE_IS_AT_LEAST_100_PERCENT
 			= "Cancel attacks when custom armor damage resistance is at least 100 percent";
+	private static final String KEY_EMBEDDED_PACK_IMPORT = "Embedded pack importer";
+	private static final String KEY_EMBEDDED_PACK_IMPORT_ENABLED = KEY_EMBEDDED_PACK_IMPORT + ".Enabled";
+	private static final String KEY_EMBEDDED_PACK_IMPORT_RESTRICT = KEY_EMBEDDED_PACK_IMPORT + ".Restrict to pack roots";
+	private static final String KEY_EMBEDDED_PACK_IMPORT_ROOTS = KEY_EMBEDDED_PACK_IMPORT + ".Pack roots";
 
 	private void loadConfig() {
 		reloadConfig();
@@ -244,6 +251,34 @@ public class CustomItemsPlugin extends JavaPlugin {
 			saveConfig = true;
 		}
 
+		if (config.contains(KEY_EMBEDDED_PACK_IMPORT_ENABLED)) {
+			this.embeddedPackImportEnabled = config.getBoolean(KEY_EMBEDDED_PACK_IMPORT_ENABLED);
+		} else {
+			this.embeddedPackImportEnabled = true;
+			config.set(KEY_EMBEDDED_PACK_IMPORT_ENABLED, true);
+			saveConfig = true;
+		}
+
+		if (config.contains(KEY_EMBEDDED_PACK_IMPORT_RESTRICT)) {
+			this.embeddedPackImportRestrictToRoots = config.getBoolean(KEY_EMBEDDED_PACK_IMPORT_RESTRICT);
+		} else {
+			this.embeddedPackImportRestrictToRoots = false;
+			config.set(KEY_EMBEDDED_PACK_IMPORT_RESTRICT, false);
+			saveConfig = true;
+		}
+
+		if (config.contains(KEY_EMBEDDED_PACK_IMPORT_ROOTS)) {
+			java.util.List<String> roots = config.getStringList(KEY_EMBEDDED_PACK_IMPORT_ROOTS);
+			this.embeddedPackImportRoots = roots != null ? roots : defaultEmbeddedPackImportRoots();
+		} else {
+			java.util.List<String> defaultRoots = new java.util.ArrayList<>();
+			defaultRoots.add("customitems");
+			defaultRoots.add("custom-items");
+			this.embeddedPackImportRoots = defaultRoots;
+			config.set(KEY_EMBEDDED_PACK_IMPORT_ROOTS, defaultRoots);
+			saveConfig = true;
+		}
+
 		if (this.enabledAreas.update(config)) saveConfig = true;
 
 		if (saveConfig) {
@@ -253,6 +288,26 @@ public class CustomItemsPlugin extends JavaPlugin {
 	
 	public ItemSetWrapper getSet() {
 		return itemSet;
+	}
+
+	public boolean isEmbeddedPackImportEnabled() {
+		return embeddedPackImportEnabled;
+	}
+
+	public boolean isEmbeddedPackImportRestrictToRoots() {
+		return embeddedPackImportRestrictToRoots;
+	}
+
+	public java.util.List<String> getEmbeddedPackImportRoots() {
+		if (embeddedPackImportRoots == null) return defaultEmbeddedPackImportRoots();
+		return new java.util.ArrayList<>(embeddedPackImportRoots);
+	}
+
+	private static java.util.List<String> defaultEmbeddedPackImportRoots() {
+		java.util.List<String> roots = new java.util.ArrayList<>();
+		roots.add("customitems");
+		roots.add("custom-items");
+		return roots;
 	}
 
 	public LanguageFile getLanguageFile() {

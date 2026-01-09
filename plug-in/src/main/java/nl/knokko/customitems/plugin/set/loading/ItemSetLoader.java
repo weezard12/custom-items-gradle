@@ -142,7 +142,14 @@ public class ItemSetLoader implements Listener {
     }
 
     private boolean reloadItems(Consumer<String> sendMessage) {
-        YamlPackImporter.importEmbeddedPacks(plugin, dataFolder, sendMessage);
+        YamlPackImporter.importEmbeddedPacks(
+                plugin,
+                dataFolder,
+                sendMessage,
+                plugin.isEmbeddedPackImportEnabled(),
+                plugin.isEmbeddedPackImportRestrictToRoots(),
+                plugin.getEmbeddedPackImportRoots()
+        );
         YamlToCisConverter.convertIfNeeded(dataFolder, sendMessage);
         File itemsFile = getItemSetFile();
 

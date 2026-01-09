@@ -20,27 +20,54 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.function.Consumer;
-import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 
-class YamlPackImporter {
+public class YamlPackImporter {
 
-    private static final String[] PACK_ROOTS = { "customitems/", "custom-items/" };
     private static final String MARKER_FILE = ".kci-imported.txt";
 
-    static void importEmbeddedPacks(Plugin self, File dataFolder, Consumer<String> log) {
+    public static void importEmbeddedPacks(
+            Plugin self,
+            File dataFolder,
+            Consumer<String> log,
+            boolean enabled,
+            boolean restrictToRoots,
+            List<String> roots
+    ) {
+        if (!enabled) {
+            log.accept(ChatColor.DARK_GRAY + "Embedded pack import is disabled.");
+            return;
+        }
+        List<String> normalizedRoots = normalizeRoots(roots);
         Plugin[] plugins = Bukkit.getPluginManager().getPlugins();
         int importedCount = 0;
+        log.accept(ChatColor.GRAY + "Scanning plugin jars for embedded packs...");
+        log.accept(ChatColor.GRAY + "Found " + plugins.length + " plugin(s).");
 
         for (Plugin plugin : plugins) {
-            if (plugin == null || plugin == self) continue;
+            if (plugin == null) continue;
+            if (plugin == self) {
+                log.accept(ChatColor.DARK_GRAY + "Skipping CustomItems jar.");
+                continue;
+            }
             File jarFile = getPluginJar(plugin);
-            if (jarFile == null || !jarFile.isFile()) continue;
-            importedCount += importFromJar(plugin, jarFile, dataFolder, log);
+            if (jarFile == null || !jarFile.isFile()) {
+                log.accept(ChatColor.DARK_GRAY + "Skipping " + plugin.getName() + ": jar not found.");
+                continue;
+            }
+            int importedFromPlugin = importFromJar(
+                    plugin, jarFile, dataFolder, log, restrictToRoots, normalizedRoots
+            );
+            if (importedFromPlugin == 0) {
+                log.accept(ChatColor.DARK_GRAY + "No embedded packs imported from " + plugin.getName() + ".");
+            }
+            importedCount += importedFromPlugin;
         }
 
         if (importedCount > 0) {
             log.accept(ChatColor.GREEN + "Imported " + importedCount + " embedded pack(s) from other plugins.");
+        } else {
+            log.accept(ChatColor.GRAY + "No embedded packs imported.");
         }
     }
 
@@ -55,12 +82,17 @@ class YamlPackImporter {
     }
 
     private static int importFromJar(
-            Plugin plugin, File jarFile, File dataFolder, Consumer<String> log
+            Plugin plugin,
+            File jarFile,
+            File dataFolder,
+            Consumer<String> log,
+            boolean restrictToRoots,
+            List<String> roots
     ) {
         Map<String, PackInfo> packs = new HashMap<>();
         try (JarFile jar = new JarFile(jarFile)) {
             jar.stream().forEach(entry -> {
-                PackPath path = parsePackPath(entry.getName());
+                PackPath path = parsePackPath(entry.getName(), restrictToRoots, roots);
                 if (path == null || path.relativePath.isEmpty()) return;
                 PackInfo info = packs.computeIfAbsent(path.packName, name -> new PackInfo(path.root));
                 if (!entry.isDirectory()) {
@@ -81,10 +113,20 @@ class YamlPackImporter {
             return 0;
         }
 
+        if (packs.isEmpty()) {
+            log.accept(ChatColor.DARK_GRAY + "No embedded pack roots found in " + plugin.getName() + ".");
+            return 0;
+        }
+        log.accept(ChatColor.GRAY + "Found " + packs.size() + " embedded pack folder(s) in " + plugin.getName() + ".");
+
         int imported = 0;
         for (Map.Entry<String, PackInfo> entry : packs.entrySet()) {
             PackInfo info = entry.getValue();
-            if (!info.hasYamlDefinition) continue;
+            if (!info.hasYamlDefinition) {
+                log.accept(ChatColor.DARK_GRAY + "Skipping pack '" + entry.getKey() + "' from " + plugin.getName()
+                        + ": no item/block YAML definitions detected.");
+                continue;
+            }
 
             String packName = entry.getKey();
             if (!isSafePackName(packName)) {
@@ -108,6 +150,8 @@ class YamlPackImporter {
             try (JarFile jar = new JarFile(jarFile)) {
                 if (copyPackResources(jar, targetPackDir, info.resources, log, plugin.getName(), packName)) {
                     writeMarker(targetPackDir, plugin, info.root);
+                    log.accept(ChatColor.GREEN + "Imported pack '" + packName + "' from " + plugin.getName()
+                            + " (" + info.resources.size() + " file(s)).");
                     imported++;
                 }
             } catch (IOException ex) {
@@ -170,19 +214,29 @@ class YamlPackImporter {
         }
     }
 
-    private static PackPath parsePackPath(String entryName) {
+    private static PackPath parsePackPath(String entryName, boolean restrictToRoots, List<String> roots) {
         if (entryName == null) return null;
-        for (String root : PACK_ROOTS) {
-            if (entryName.startsWith(root)) {
-                String remainder = entryName.substring(root.length());
-                int slash = remainder.indexOf('/');
-                if (slash <= 0) return null;
-                String packName = remainder.substring(0, slash);
-                String relativePath = remainder.substring(slash + 1);
-                return new PackPath(packName, relativePath, root);
+        if (restrictToRoots) {
+            for (String root : roots) {
+                String normalized = ensureTrailingSlash(root);
+                if (entryName.startsWith(normalized)) {
+                    String remainder = entryName.substring(normalized.length());
+                    int slash = remainder.indexOf('/');
+                    if (slash <= 0) return null;
+                    String packName = remainder.substring(0, slash);
+                    String relativePath = remainder.substring(slash + 1);
+                    return new PackPath(packName, relativePath, normalized);
+                }
             }
+            return null;
+        } else {
+            int slash = entryName.indexOf('/');
+            if (slash <= 0) return null;
+            String packName = entryName.substring(0, slash);
+            if (isIgnoredRoot(packName, roots)) return null;
+            String relativePath = entryName.substring(slash + 1);
+            return new PackPath(packName, relativePath, "");
         }
-        return null;
     }
 
     private static boolean isYamlFile(String path) {
@@ -214,6 +268,43 @@ class YamlPackImporter {
         if (path.isEmpty()) return false;
         if (path.startsWith("/") || path.startsWith("\\")) return false;
         return !(path.contains("..") || path.contains(":"));
+    }
+
+    private static List<String> normalizeRoots(List<String> roots) {
+        if (roots == null || roots.isEmpty()) {
+            List<String> defaults = new ArrayList<>();
+            defaults.add("customitems");
+            defaults.add("custom-items");
+            return defaults;
+        }
+        List<String> normalized = new ArrayList<>(roots.size());
+        for (String root : roots) {
+            if (root == null) continue;
+            String trimmed = root.trim();
+            if (trimmed.isEmpty()) continue;
+            normalized.add(trimmed);
+        }
+        if (normalized.isEmpty()) {
+            normalized.add("customitems");
+            normalized.add("custom-items");
+        }
+        return normalized;
+    }
+
+    private static boolean isIgnoredRoot(String packName, List<String> roots) {
+        if (packName == null || packName.isEmpty()) return true;
+        String normalized = packName.trim().toLowerCase(Locale.ROOT);
+        for (String root : roots) {
+            String rootName = root.toLowerCase(Locale.ROOT);
+            if (rootName.endsWith("/")) rootName = rootName.substring(0, rootName.length() - 1);
+            if (rootName.equals(normalized)) return true;
+        }
+        return false;
+    }
+
+    private static String ensureTrailingSlash(String root) {
+        if (root.endsWith("/")) return root;
+        return root + "/";
     }
 
     private static class PackPath {

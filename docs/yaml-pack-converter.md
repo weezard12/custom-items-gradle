@@ -36,11 +36,23 @@ Supported resource roots inside plugin jars:
 - `customitems/<pack>/...`
 - `custom-items/<pack>/...`
 
+Importer config (in `config.yml`):
+```yml
+Embedded pack importer:
+  Enabled: true
+  Restrict to pack roots: false
+  Pack roots:
+    - customitems
+    - custom-items
+```
+
 Rules:
 - A pack is only imported if it contains at least one `.yml/.yaml` file whose first non-empty line is `item:` or `block:`.
 - Packs are copied to `plugins/CustomItems/<pack>`.
 - If that folder already exists, it is only overwritten when it contains a `.kci-imported.txt`
   marker created by the same plugin. Otherwise it is skipped.
+- When `Restrict to pack roots` is `false`, the importer scans all root-level folders in plugin jars
+  and ignores the folder names listed under `Pack roots`.
 
 ## Supported item fields (current)
 
@@ -88,7 +100,7 @@ Field notes:
 - Use hex with `&#RRGGBB`; on MC 1.16+ it becomes `&x&...`, on older versions it is downgraded to the nearest legacy color.
 - `material` accepts vanilla names like `IRON_SWORD` or namespaced values like `minecraft:iron_sword`.
 - If `material` is not a supported `KciItemType`, it uses `OTHER` and requires MC 1.14+.
-- `type: tool` requires a tool material (`*_SWORD`, `*_AXE`, `*_PICKAXE`, `*_SHOVEL`, `*_HOE`, `SHEARS`, `FISHING_ROD`, `FLINT_AND_STEEL`, `CARROT_STICK`).
+- `type: tool` requires a tool material (`*_SWORD`, `*_AXE`, `*_PICKAXE`, `*_SHOVEL`, `*_HOE`, `SHEARS`, `FISHING_ROD`, `FLINT_AND_STEEL`, `CARROT_STICK`, `MACE`).
 - `type: armor` requires an armor material (`*_HELMET`, `*_CHESTPLATE`, `*_LEGGINGS`, `*_BOOTS`).
 - `type: food` allows any food-compatible item type or a `VMaterial` (MC 1.14+).
 - `stack_size` is supported for `simple` and `food` items only.
@@ -212,6 +224,7 @@ block:
 ## Notes and limitations
 
 - A placeholder texture is used internally so the ItemSet validates.
+- Items without a real texture are skipped in the generated resource pack (they fall back to their vanilla model).
 - `unbreakable` applies to tool/armor durability; it has no effect on simple or food items.
 - Block textures and runtime block models are generated for `simple` and `sided` models.
 - `custom` block models embed textures listed under `model.textures` into the resource pack.
