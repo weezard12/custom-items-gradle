@@ -8,6 +8,7 @@ supported.
 ## How it works
 
 - On startup and on `/kci reload`, the plugin scans `plugins/CustomItems/*`.
+- Before scanning, it imports embedded packs from other plugins (see below).
 - Each subfolder is treated as a pack.
 - Any `.yml` or `.yaml` file with a top-level `item:` or `block:` section is parsed.
 - The plugin builds an ItemSet, generates `plugins/CustomItems/resource-pack.zip`, and writes
@@ -25,6 +26,21 @@ Example `pack.yml`:
 ```yml
 namespace: "my"
 ```
+
+## Embedded packs from other plugins
+
+Other plugins can ship packs inside their jar resources. On startup (and `/kci reload`), CustomItems
+copies those packs into `plugins/CustomItems/` before conversion.
+
+Supported resource roots inside plugin jars:
+- `customitems/<pack>/...`
+- `custom-items/<pack>/...`
+
+Rules:
+- A pack is only imported if it contains at least one `.yml/.yaml` file whose first non-empty line is `item:` or `block:`.
+- Packs are copied to `plugins/CustomItems/<pack>`.
+- If that folder already exists, it is only overwritten when it contains a `.kci-imported.txt`
+  marker created by the same plugin. Otherwise it is skipped.
 
 ## Supported item fields (current)
 
