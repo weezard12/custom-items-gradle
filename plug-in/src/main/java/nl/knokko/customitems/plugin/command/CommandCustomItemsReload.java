@@ -1,10 +1,6 @@
 package nl.knokko.customitems.plugin.command;
 
 import nl.knokko.customitems.plugin.CustomItemsPlugin;
-import net.md_5.bungee.api.chat.ClickEvent;
-import net.md_5.bungee.api.chat.ComponentBuilder;
-import net.md_5.bungee.api.chat.HoverEvent;
-import net.md_5.bungee.api.chat.TextComponent;
 import org.bukkit.ChatColor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
@@ -61,22 +57,47 @@ class CommandCustomItemsReload {
             return;
         }
 
-        ClickEvent.Action clickAction = resolveCopyAction();
-        TextComponent component = new TextComponent(message);
-        component.setClickEvent(new ClickEvent(clickAction, copyText));
-        component.setHoverEvent(new HoverEvent(
-                HoverEvent.Action.SHOW_TEXT,
-                new ComponentBuilder("Click to copy").create()
-        ));
+        try {
+            Class<?> textComponentClass = Class.forName("net.md_5.bungee.api.chat.TextComponent");
+            Class<?> clickEventClass = Class.forName("net.md_5.bungee.api.chat.ClickEvent");
+            Class<?> clickActionClass = Class.forName("net.md_5.bungee.api.chat.ClickEvent$Action");
+            Class<?> hoverEventClass = Class.forName("net.md_5.bungee.api.chat.HoverEvent");
+            Class<?> hoverActionClass = Class.forName("net.md_5.bungee.api.chat.HoverEvent$Action");
+            Class<?> componentBuilderClass = Class.forName("net.md_5.bungee.api.chat.ComponentBuilder");
+            Class<?> baseComponentClass = Class.forName("net.md_5.bungee.api.chat.BaseComponent");
+            Class<?> baseComponentArrayClass = java.lang.reflect.Array.newInstance(baseComponentClass, 0).getClass();
 
-        player.spigot().sendMessage(component);
+            Object component = textComponentClass.getConstructor(String.class).newInstance(message);
+            Object clickAction = resolveCopyAction(clickActionClass);
+            Object clickEvent = clickEventClass.getConstructor(clickActionClass, String.class)
+                    .newInstance(clickAction, copyText);
+            textComponentClass.getMethod("setClickEvent", clickEventClass).invoke(component, clickEvent);
+
+            Object builder = componentBuilderClass.getConstructor(String.class).newInstance("Click to copy");
+            Object hoverComponents = componentBuilderClass.getMethod("create").invoke(builder);
+            Object hoverAction = Enum.valueOf((Class<Enum>) hoverActionClass, "SHOW_TEXT");
+            Object hoverEvent = hoverEventClass.getConstructor(hoverActionClass, baseComponentArrayClass)
+                    .newInstance(hoverAction, hoverComponents);
+            textComponentClass.getMethod("setHoverEvent", hoverEventClass).invoke(component, hoverEvent);
+
+            Object spigot = player.getClass().getMethod("spigot").invoke(player);
+            try {
+                spigot.getClass().getMethod("sendMessage", baseComponentClass).invoke(spigot, component);
+            } catch (NoSuchMethodException ex) {
+                Object array = java.lang.reflect.Array.newInstance(baseComponentClass, 1);
+                java.lang.reflect.Array.set(array, 0, component);
+                spigot.getClass().getMethod("sendMessage", array.getClass()).invoke(spigot, array);
+            }
+        } catch (Throwable ex) {
+            player.sendMessage(message);
+        }
     }
 
-    private static ClickEvent.Action resolveCopyAction() {
+    private static Object resolveCopyAction(Class<?> actionClass) {
         try {
-            return ClickEvent.Action.valueOf("COPY_TO_CLIPBOARD");
+            return Enum.valueOf((Class<Enum>) actionClass, "COPY_TO_CLIPBOARD");
         } catch (IllegalArgumentException ex) {
-            return ClickEvent.Action.SUGGEST_COMMAND;
+            return Enum.valueOf((Class<Enum>) actionClass, "SUGGEST_COMMAND");
         }
     }
 }
