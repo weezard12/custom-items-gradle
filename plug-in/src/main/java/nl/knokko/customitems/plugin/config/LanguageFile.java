@@ -20,7 +20,7 @@ public class LanguageFile {
 	private static final String DEFAULT_INDIRECT_RELOAD = "Reloading...";
 	private static final String DEFAULT_GUN_COOLDOWN_INDICATOR = ChatColor.BLACK + "Cooldown in %REMAINING_TIME%";
 	
-	private static final String DEFAULT_COMMAND_GIVE_USEAGE = ChatColor.YELLOW + "Use /kci give <item name> [player name] [amount]";
+	private static final String DEFAULT_COMMAND_GIVE_USEAGE = ChatColor.YELLOW + "Use /kci give <item name|all> [player name] [amount]";
 	private static final String DEFAULT_COMMAND_NO_ACCESS = ChatColor.DARK_RED + "Only operators can use this command.";
 	private static final String DEFAULT_COMMAND_NO_PLAYER_SPECIFIED = "Non-player operators need to specify a player name";
 	private static final String DEFAULT_COMMAND_PLAYER_NOT_FOUND = ChatColor.RED + "Can't find player PLAYER_NAME. This can only be used on online players.";

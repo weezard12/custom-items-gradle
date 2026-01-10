@@ -1322,6 +1322,10 @@ public abstract class KciItem extends ModelValues {
         if (itemType.lastVersion < version) {
             throw new ValidationException(itemType + " is no longer supported in mc " + MCVersions.createString(version));
         }
+        if (itemType == KciItemType.TRIDENT && version > MCVersions.VERSION1_14
+                && version < MCVersions.VERSION1_21) {
+            throw new ValidationException("Tridents are not supported in MC " + MCVersions.createString(version));
+        }
         if (otherMaterial != null) {
             if (otherMaterial.firstVersion > version) {
                 throw new ValidationException(otherMaterial + " doesn't exist yet in mc " + MCVersions.createString(version));

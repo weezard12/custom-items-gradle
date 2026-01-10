@@ -11,6 +11,7 @@ supported.
 - Before scanning, it imports embedded packs from other plugins (see below).
 - Each subfolder is treated as a pack.
 - Any `.yml` or `.yaml` file with a top-level `item:` or `block:` section is parsed.
+- You can define multiple items/blocks in a single file by separating documents with `---`.
 - The plugin builds an ItemSet, generates `plugins/CustomItems/resource-pack.zip`, and writes
   `plugins/CustomItems/items.cis.txt`.
 - If any YAML errors are found, conversion is skipped and the existing
@@ -25,6 +26,20 @@ supported.
 Example `pack.yml`:
 ```yml
 namespace: "my"
+```
+
+## Multiple entries in one file
+
+You can place multiple `item:` and/or `block:` documents in one YAML file by
+separating them with a line that contains only `---`.
+
+```yml
+item:
+  id: "my:steel_sword"
+  name: "Steel Sword"
+---
+block:
+  id: "my:steel_block"
 ```
 
 ## Embedded packs from other plugins

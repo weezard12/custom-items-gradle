@@ -39,6 +39,10 @@ public class CommandCustomItemsGive {
         }
 
         if (args.length == 2 || args.length == 3 || args.length == 4) {
+            if (args[1].equalsIgnoreCase("all")) {
+                handleGiveAll(args, sender, enableOutput);
+                return;
+            }
 
             // Try to find a custom item with the give name
             KciItem item = itemSet.getItem(args[1]);
@@ -106,6 +110,94 @@ public class CommandCustomItemsGive {
             }
         } else {
             if (enableOutput) sendGiveUseage(sender);
+        }
+    }
+
+    private void handleGiveAll(String[] args, CommandSender sender, boolean enableOutput) {
+        Player receiver = null;
+        int amount = 1;
+
+        if (args.length == 2) {
+            if (sender instanceof Player) {
+                receiver = (Player) sender;
+            } else if (enableOutput) {
+                sender.sendMessage(lang.getCommandNoPlayerSpecified());
+                return;
+            }
+        }
+
+        if (args.length >= 3) {
+            receiver = getOnlinePlayer(args[2]);
+            if (receiver == null) {
+                if (enableOutput) sender.sendMessage(lang.getCommandPlayerNotFound(args[2]));
+                return;
+            }
+        }
+
+        if (args.length == 4) {
+            try {
+                amount = Integer.parseInt(args[3]);
+            } catch (NumberFormatException ex) {
+                if (enableOutput) sender.sendMessage(ChatColor.RED + "The amount (" + args[3] + ") should be an integer.");
+                return;
+            }
+            if (amount < 1) {
+                if (enableOutput) sender.sendMessage(ChatColor.RED + "The amount must be positive");
+                return;
+            }
+        }
+
+        if (receiver == null) {
+            return;
+        }
+
+        if (!CustomItemsPlugin.getInstance().getEnabledAreas().isEnabled(receiver.getLocation())) {
+            if (enableOutput) sender.sendMessage(lang.getCommandWorldDisabled());
+            return;
+        }
+
+        if (receiver != sender && !sender.hasPermission("customitems.give") && !sender.hasPermission("customitems.giveother")) {
+            if (enableOutput) {
+                sender.sendMessage(ChatColor.DARK_RED + "You don't have permission to give custom items to other players");
+            }
+            return;
+        }
+
+        int givenCount = 0;
+        boolean inventoryFull = false;
+        boolean trimmedAmount = false;
+
+        for (KciItem item : itemSet.get().items) {
+            if (!sender.hasPermission("customitems.give")
+                    && !sender.hasPermission("customitems.give." + item.getName())) {
+                continue;
+            }
+
+            int itemAmount = amount;
+            if (itemAmount > item.getMaxStacksize()) {
+                itemAmount = item.getMaxStacksize();
+                trimmedAmount = true;
+            }
+
+            boolean wasGiven = giveCustomItemToInventory(itemSet, receiver.getInventory(), item, itemAmount);
+            if (wasGiven) {
+                givenCount++;
+            } else {
+                inventoryFull = true;
+            }
+        }
+
+        if (!enableOutput) return;
+        if (givenCount > 0) {
+            sender.sendMessage(ChatColor.GREEN + "Gave " + givenCount + " custom items.");
+        } else {
+            sender.sendMessage(ChatColor.RED + "No custom items could be given.");
+        }
+        if (trimmedAmount) {
+            sender.sendMessage(ChatColor.YELLOW + "Some items were given with a lower amount due to stack limits.");
+        }
+        if (inventoryFull) {
+            sender.sendMessage(ChatColor.RED + "Some items could not be given due to full inventory.");
         }
     }
 

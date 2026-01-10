@@ -39,53 +39,69 @@ class YamlBlockReader {
                 if (fileName.equals("pack.yml")) return;
 
                 File file = path.toFile();
-                YamlConfiguration config = YamlConfiguration.loadConfiguration(file);
-                ConfigurationSection blockSection = config.getConfigurationSection("block");
-                if (blockSection == null) return;
+                List<YamlConfiguration> configs = YamlDocumentReader.loadDocuments(file, errors);
+                for (YamlConfiguration config : configs) {
+                    ConfigurationSection blockSection = config.getConfigurationSection("block");
+                    if (blockSection == null) continue;
 
-                String rawId = blockSection.getString("id");
-                if (rawId == null || rawId.trim().isEmpty()) {
-                    errors.add("Missing block.id in " + file.getPath());
-                    return;
+                    int errorCountBefore = errors.size();
+                    YamlBlockDefinition block = parseBlockDefinition(pack, file, blockSection, errors);
+                    if (errors.size() != errorCountBefore) return;
+                    if (block != null) {
+                        blocks.add(block);
+                    }
                 }
-
-                ParsedId parsedId = parseId(rawId.trim(), pack.namespace, file, errors);
-                if (parsedId == null) return;
-
-                int errorCountBefore = errors.size();
-
-                ConfigurationSection requiresSection = getChildSection(blockSection, "requires", file, errors);
-                if (!matchesRequires(requiresSection, file, errors)) {
-                    return;
-                }
-
-                ConfigurationSection modelSection = getChildSection(blockSection, "model", file, errors);
-                ConfigurationSection miningSection = getChildSection(blockSection, "mining_speed", file, errors);
-                ConfigurationSection soundsSection = getChildSection(blockSection, "sounds", file, errors);
-
-                YamlBlockModelDefinition modelDefinition = parseModel(modelSection, file, errors);
-                YamlBlockMiningSpeedDefinition miningSpeed = parseMiningSpeed(miningSection, pack, file, errors);
-                YamlBlockSoundsDefinition sounds = parseSounds(soundsSection, file, errors);
-                List<YamlBlockDropDefinition> drops = parseDrops(blockSection.get("drops"), pack, file, errors);
-
-                if (errors.size() != errorCountBefore) return;
-
-                blocks.add(new YamlBlockDefinition(
-                        parsedId.fullId,
-                        parsedId.internalName,
-                        parsedId.name,
-                        pack.directory,
-                        file,
-                        modelDefinition,
-                        miningSpeed,
-                        sounds,
-                        drops
-                ));
             });
         } catch (IOException ex) {
             errors.add("Failed to scan pack folder " + pack.directory.getPath() + ": " + ex.getMessage());
         }
         return blocks;
+    }
+
+    private static YamlBlockDefinition parseBlockDefinition(
+            YamlPackDefinition pack,
+            File file,
+            ConfigurationSection blockSection,
+            List<String> errors
+    ) {
+        String rawId = blockSection.getString("id");
+        if (rawId == null || rawId.trim().isEmpty()) {
+            errors.add("Missing block.id in " + file.getPath());
+            return null;
+        }
+
+        ParsedId parsedId = parseId(rawId.trim(), pack.namespace, file, errors);
+        if (parsedId == null) return null;
+
+        int errorCountBefore = errors.size();
+
+        ConfigurationSection requiresSection = getChildSection(blockSection, "requires", file, errors);
+        if (!matchesRequires(requiresSection, file, errors)) {
+            return null;
+        }
+
+        ConfigurationSection modelSection = getChildSection(blockSection, "model", file, errors);
+        ConfigurationSection miningSection = getChildSection(blockSection, "mining_speed", file, errors);
+        ConfigurationSection soundsSection = getChildSection(blockSection, "sounds", file, errors);
+
+        YamlBlockModelDefinition modelDefinition = parseModel(modelSection, file, errors);
+        YamlBlockMiningSpeedDefinition miningSpeed = parseMiningSpeed(miningSection, pack, file, errors);
+        YamlBlockSoundsDefinition sounds = parseSounds(soundsSection, file, errors);
+        List<YamlBlockDropDefinition> drops = parseDrops(blockSection.get("drops"), pack, file, errors);
+
+        if (errors.size() != errorCountBefore) return null;
+
+        return new YamlBlockDefinition(
+                parsedId.fullId,
+                parsedId.internalName,
+                parsedId.name,
+                pack.directory,
+                file,
+                modelDefinition,
+                miningSpeed,
+                sounds,
+                drops
+        );
     }
 
     private static YamlBlockModelDefinition parseModel(

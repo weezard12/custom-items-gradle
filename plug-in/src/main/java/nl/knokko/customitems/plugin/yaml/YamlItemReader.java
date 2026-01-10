@@ -35,91 +35,93 @@ class YamlItemReader {
                 if (fileName.equals("pack.yml")) return;
 
                 File file = path.toFile();
-                YamlConfiguration config = YamlConfiguration.loadConfiguration(file);
-                ConfigurationSection itemSection = config.getConfigurationSection("item");
-                if (itemSection == null) return;
+                List<YamlConfiguration> configs = YamlDocumentReader.loadDocuments(file, errors);
+                for (YamlConfiguration config : configs) {
+                    ConfigurationSection itemSection = config.getConfigurationSection("item");
+                    if (itemSection == null) continue;
 
-                String rawId = itemSection.getString("id");
-                String name = itemSection.getString("name");
+                    String rawId = itemSection.getString("id");
+                    String name = itemSection.getString("name");
 
-                if (rawId == null || rawId.trim().isEmpty()) {
-                    errors.add("Missing item.id in " + file.getPath());
-                    return;
+                    if (rawId == null || rawId.trim().isEmpty()) {
+                        errors.add("Missing item.id in " + file.getPath());
+                        return;
+                    }
+                    if (name == null || name.trim().isEmpty()) {
+                        errors.add("Missing item.name in " + file.getPath());
+                        return;
+                    }
+
+                    ParsedId parsedId = parseId(rawId.trim(), pack.namespace, file, errors);
+                    if (parsedId == null) return;
+
+                    int errorCountBefore = errors.size();
+
+                    ConfigurationSection toolSection = getChildSection(itemSection, "tool", file, errors);
+                    ConfigurationSection armorSection = getChildSection(itemSection, "armor", file, errors);
+                    ConfigurationSection foodSection = getChildSection(itemSection, "food", file, errors);
+
+                    YamlItemType type = parseItemType(itemSection.get("type"), file, errors);
+                    if (type == null) {
+                        type = inferItemType(toolSection, armorSection, foodSection, file, errors);
+                    }
+
+                    String displayName = translateColors(name, "name", file, errors);
+                    List<String> lore = parseLore(itemSection.get("lore"), file, errors);
+                    YamlMaterialDefinition material = parseMaterial(itemSection.get("material"), file, errors);
+                    List<YamlEnchantmentDefinition> enchantments = parseEnchantments(itemSection.get("enchantments"), file, errors);
+                    Integer stackSize = parseInteger(itemSection.get("stack_size"), 1, 64, "stack_size", file, errors);
+                    Integer damageValue = parseInteger(itemSection.get("damage_value"), 0, Short.MAX_VALUE, "damage_value", file, errors);
+                    Boolean unbreakable = parseBoolean(itemSection.get("unbreakable"), "unbreakable", file, errors);
+                    Double attackDamage = parseDouble(itemSection.get("attack_damage"), "attack_damage", file, errors);
+                    Double attackSpeed = parseDouble(itemSection.get("attack_speed"), "attack_speed", file, errors);
+
+                    if (errors.size() != errorCountBefore) return;
+
+                    if (type == null) return;
+
+                    validateTypeSections(type, toolSection, armorSection, foodSection, file, errors);
+                    validateMaterialForType(type, material, file, errors);
+                    if ((type == YamlItemType.TOOL || type == YamlItemType.ARMOR) && stackSize != null) {
+                        errors.add("item.stack_size is not supported for type " + type.name().toLowerCase(Locale.ROOT)
+                                + " in " + file.getPath());
+                        return;
+                    }
+
+                    YamlToolDefinition toolDefinition = null;
+                    YamlArmorDefinition armorDefinition = null;
+                    YamlFoodDefinition foodDefinition = null;
+                    if (type == YamlItemType.TOOL) {
+                        toolDefinition = parseToolDefinition(toolSection, file, errors);
+                    } else if (type == YamlItemType.ARMOR) {
+                        armorDefinition = parseArmorDefinition(armorSection, file, errors);
+                    } else if (type == YamlItemType.FOOD) {
+                        foodDefinition = parseFoodDefinition(foodSection, file, errors);
+                    }
+
+                    if (errors.size() != errorCountBefore) return;
+
+                    items.add(new YamlItemDefinition(
+                            parsedId.fullId,
+                            parsedId.internalName,
+                            parsedId.name,
+                            pack.directory,
+                            displayName,
+                            file,
+                            lore,
+                            type,
+                            toolDefinition,
+                            armorDefinition,
+                            foodDefinition,
+                            material,
+                            enchantments,
+                            stackSize,
+                            damageValue,
+                            unbreakable,
+                            attackDamage,
+                            attackSpeed
+                    ));
                 }
-                if (name == null || name.trim().isEmpty()) {
-                    errors.add("Missing item.name in " + file.getPath());
-                    return;
-                }
-
-                ParsedId parsedId = parseId(rawId.trim(), pack.namespace, file, errors);
-                if (parsedId == null) return;
-
-                int errorCountBefore = errors.size();
-
-                ConfigurationSection toolSection = getChildSection(itemSection, "tool", file, errors);
-                ConfigurationSection armorSection = getChildSection(itemSection, "armor", file, errors);
-                ConfigurationSection foodSection = getChildSection(itemSection, "food", file, errors);
-
-                YamlItemType type = parseItemType(itemSection.get("type"), file, errors);
-                if (type == null) {
-                    type = inferItemType(toolSection, armorSection, foodSection, file, errors);
-                }
-
-                String displayName = translateColors(name, "name", file, errors);
-                List<String> lore = parseLore(itemSection.get("lore"), file, errors);
-                YamlMaterialDefinition material = parseMaterial(itemSection.get("material"), file, errors);
-                List<YamlEnchantmentDefinition> enchantments = parseEnchantments(itemSection.get("enchantments"), file, errors);
-                Integer stackSize = parseInteger(itemSection.get("stack_size"), 1, 64, "stack_size", file, errors);
-                Integer damageValue = parseInteger(itemSection.get("damage_value"), 0, Short.MAX_VALUE, "damage_value", file, errors);
-                Boolean unbreakable = parseBoolean(itemSection.get("unbreakable"), "unbreakable", file, errors);
-                Double attackDamage = parseDouble(itemSection.get("attack_damage"), "attack_damage", file, errors);
-                Double attackSpeed = parseDouble(itemSection.get("attack_speed"), "attack_speed", file, errors);
-
-                if (errors.size() != errorCountBefore) return;
-
-                if (type == null) return;
-
-                validateTypeSections(type, toolSection, armorSection, foodSection, file, errors);
-                validateMaterialForType(type, material, file, errors);
-                if ((type == YamlItemType.TOOL || type == YamlItemType.ARMOR) && stackSize != null) {
-                    errors.add("item.stack_size is not supported for type " + type.name().toLowerCase(Locale.ROOT)
-                            + " in " + file.getPath());
-                    return;
-                }
-
-                YamlToolDefinition toolDefinition = null;
-                YamlArmorDefinition armorDefinition = null;
-                YamlFoodDefinition foodDefinition = null;
-                if (type == YamlItemType.TOOL) {
-                    toolDefinition = parseToolDefinition(toolSection, file, errors);
-                } else if (type == YamlItemType.ARMOR) {
-                    armorDefinition = parseArmorDefinition(armorSection, file, errors);
-                } else if (type == YamlItemType.FOOD) {
-                    foodDefinition = parseFoodDefinition(foodSection, file, errors);
-                }
-
-                if (errors.size() != errorCountBefore) return;
-
-                items.add(new YamlItemDefinition(
-                        parsedId.fullId,
-                        parsedId.internalName,
-                        parsedId.name,
-                        pack.directory,
-                        displayName,
-                        file,
-                        lore,
-                        type,
-                        toolDefinition,
-                        armorDefinition,
-                        foodDefinition,
-                        material,
-                        enchantments,
-                        stackSize,
-                        damageValue,
-                        unbreakable,
-                        attackDamage,
-                        attackSpeed
-                ));
             });
         } catch (IOException ex) {
             errors.add("Failed to scan pack folder " + pack.directory.getPath() + ": " + ex.getMessage());
