@@ -28,6 +28,7 @@ public class YamlToCisConverter {
         List<String> errors = new ArrayList<>();
         List<YamlItemDefinition> items = new ArrayList<>();
         List<YamlBlockDefinition> blocks = new ArrayList<>();
+        List<YamlRecipeDefinition> recipes = new ArrayList<>();
 
         File[] packDirs = dataFolder.listFiles(File::isDirectory);
         if (packDirs == null) return false;
@@ -38,10 +39,12 @@ public class YamlToCisConverter {
             if (pack == null) continue;
             List<YamlItemDefinition> packItems = YamlItemReader.readItems(pack, errors);
             List<YamlBlockDefinition> packBlocks = YamlBlockReader.readBlocks(pack, errors);
-            if (!packItems.isEmpty() || !packBlocks.isEmpty()) {
+            List<YamlRecipeDefinition> packRecipes = YamlRecipeReader.readRecipes(pack, errors);
+            if (!packItems.isEmpty() || !packBlocks.isEmpty() || !packRecipes.isEmpty()) {
                 packCount++;
                 items.addAll(packItems);
                 blocks.addAll(packBlocks);
+                recipes.addAll(packRecipes);
             }
         }
 
@@ -51,7 +54,7 @@ public class YamlToCisConverter {
             return false;
         }
 
-        if (items.isEmpty() && blocks.isEmpty()) return false;
+        if (items.isEmpty() && blocks.isEmpty() && recipes.isEmpty()) return false;
 
         Map<String, File> internalNameSources = new HashMap<>();
         for (YamlItemDefinition item : items) {
@@ -69,6 +72,14 @@ public class YamlToCisConverter {
                         + existing.getPath() + " and " + block.sourceFile.getPath());
             }
         }
+        Map<String, File> recipeNameSources = new HashMap<>();
+        for (YamlRecipeDefinition recipe : recipes) {
+            File existing = recipeNameSources.putIfAbsent(recipe.internalName, recipe.sourceFile);
+            if (existing != null) {
+                errors.add("Duplicate recipe id for internal name '" + recipe.internalName + "' in "
+                        + existing.getPath() + " and " + recipe.sourceFile.getPath());
+            }
+        }
 
         if (!errors.isEmpty()) {
             logErrors(errors, log);
@@ -78,9 +89,10 @@ public class YamlToCisConverter {
 
         Collections.sort(items, Comparator.comparing(item -> item.internalName));
         Collections.sort(blocks, Comparator.comparing(block -> block.internalName));
+        Collections.sort(recipes, Comparator.comparing(recipe -> recipe.internalName));
         ItemSet itemSet;
         try {
-            itemSet = YamlItemSetBuilder.build(items, blocks);
+            itemSet = YamlItemSetBuilder.build(items, blocks, recipes);
         } catch (ValidationException | ProgrammingValidationException ex) {
             log.accept(ChatColor.RED + "YAML conversion failed: " + ex.getMessage());
             return false;
@@ -100,8 +112,9 @@ public class YamlToCisConverter {
         try {
             ByteArrayBitOutput output = YamlItemSetBuilder.buildBinary(itemSet);
             writeTextyFile(dataFolder, output);
-            log.accept(ChatColor.GREEN + "Converted " + items.size() + " item(s) and "
-                    + blocks.size() + " block(s) from " + packCount + " pack(s) and generated resource-pack.zip.");
+            log.accept(ChatColor.GREEN + "Converted " + items.size() + " item(s), " + blocks.size()
+                    + " block(s), and " + recipes.size() + " recipe(s) from " + packCount
+                    + " pack(s) and generated resource-pack.zip.");
             return true;
         } catch (IOException ex) {
             log.accept(ChatColor.RED + "Failed to write items.cis.txt: " + ex.getMessage());

@@ -72,7 +72,7 @@ public class CommandCustomItems implements CommandExecutor {
 					break;
 				}
 				case "list": {
-					if (enableOutput) new CommandCustomItemsList(itemSet).handle(sender);
+					if (enableOutput) new CommandCustomItemsList(itemSet).handle(sender, args);
 					break;
 				}
 				case "damage": {

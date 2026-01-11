@@ -28,10 +28,33 @@ import nl.knokko.customitems.item.ToolDurabilityLoss;
 import nl.knokko.customitems.item.model.ModernCustomItemModel;
 import nl.knokko.customitems.itemset.ItemSet;
 import nl.knokko.customitems.itemset.TextureReference;
+import nl.knokko.customitems.itemset.UpgradeReference;
 import nl.knokko.customitems.item.enchantment.LeveledEnchantment;
+import nl.knokko.customitems.recipe.KciCraftingRecipe;
+import nl.knokko.customitems.recipe.KciShapedRecipe;
+import nl.knokko.customitems.recipe.KciShapelessRecipe;
 import nl.knokko.customitems.recipe.OutputTable;
+import nl.knokko.customitems.recipe.ingredient.CopiedIngredient;
+import nl.knokko.customitems.recipe.ingredient.CustomItemIngredient;
+import nl.knokko.customitems.recipe.ingredient.DataVanillaIngredient;
+import nl.knokko.customitems.recipe.ingredient.ItemBridgeIngredient;
+import nl.knokko.customitems.recipe.ingredient.KciIngredient;
+import nl.knokko.customitems.recipe.ingredient.MimicIngredient;
+import nl.knokko.customitems.recipe.ingredient.NoIngredient;
+import nl.knokko.customitems.recipe.ingredient.SimpleVanillaIngredient;
+import nl.knokko.customitems.recipe.ingredient.constraint.DurabilityConstraint;
+import nl.knokko.customitems.recipe.ingredient.constraint.EnchantmentConstraint;
+import nl.knokko.customitems.recipe.ingredient.constraint.IngredientConstraints;
+import nl.knokko.customitems.recipe.ingredient.constraint.VariableConstraint;
 import nl.knokko.customitems.recipe.result.CustomItemResult;
+import nl.knokko.customitems.recipe.result.CopiedResult;
+import nl.knokko.customitems.recipe.result.DataVanillaResult;
+import nl.knokko.customitems.recipe.result.ItemBridgeResult;
+import nl.knokko.customitems.recipe.result.KciResult;
+import nl.knokko.customitems.recipe.result.MimicResult;
 import nl.knokko.customitems.recipe.result.SimpleVanillaResult;
+import nl.knokko.customitems.recipe.result.UpgradeResult;
+import nl.knokko.customitems.recipe.upgrade.Upgrade;
 import nl.knokko.customitems.settings.ExportSettings;
 import nl.knokko.customitems.sound.KciSound;
 import nl.knokko.customitems.texture.KciTexture;
@@ -61,11 +84,19 @@ public class YamlItemSetBuilder {
 
     static ItemSet build(Collection<YamlItemDefinition> items)
             throws ValidationException, ProgrammingValidationException {
-        return build(items, Collections.emptyList());
+        return build(items, Collections.emptyList(), Collections.emptyList());
     }
 
     static ItemSet build(Collection<YamlItemDefinition> items, Collection<YamlBlockDefinition> blocks)
             throws ValidationException, ProgrammingValidationException {
+        return build(items, blocks, Collections.emptyList());
+    }
+
+    static ItemSet build(
+            Collection<YamlItemDefinition> items,
+            Collection<YamlBlockDefinition> blocks,
+            Collection<YamlRecipeDefinition> recipes
+    ) throws ValidationException, ProgrammingValidationException {
         ItemSet itemSet = new ItemSet(ItemSet.Side.EDITOR);
 
         ExportSettings settings = new ExportSettings(true);
@@ -105,6 +136,8 @@ public class YamlItemSetBuilder {
             applyBlockDrops(blockDefinition, block, itemSet);
             itemSet.blocks.add(block);
         }
+
+        applyRecipes(recipes, itemSet);
 
         itemSet.validateExportVersion(mcVersion);
         return itemSet;
@@ -526,6 +559,262 @@ public class YamlItemSetBuilder {
             return Chance.percentage((int) rounded);
         }
         return Chance.nonIntegerPercentage(chancePercentage);
+    }
+
+    private static void applyRecipes(
+            Collection<YamlRecipeDefinition> recipes, ItemSet itemSet
+    ) throws ValidationException, ProgrammingValidationException {
+        if (recipes == null || recipes.isEmpty()) return;
+        for (YamlRecipeDefinition definition : recipes) {
+            KciCraftingRecipe recipe = createRecipe(definition, itemSet);
+            itemSet.craftingRecipes.add(recipe);
+        }
+    }
+
+    private static KciCraftingRecipe createRecipe(
+            YamlRecipeDefinition definition, ItemSet itemSet
+    ) throws ValidationException, ProgrammingValidationException {
+        KciResult result = createResult(definition.result, itemSet, definition.sourceFile);
+
+        if (definition.type == YamlRecipeType.SHAPED) {
+            KciShapedRecipe recipe = new KciShapedRecipe(true);
+            recipe.setIgnoreDisplacement(definition.ignoreDisplacement);
+            recipe.setResult(result);
+            recipe.setRequiredPermission(definition.requiredPermission);
+
+            YamlRecipeIngredientDefinition[] ingredients = definition.shapedIngredients;
+            for (int index = 0; index < ingredients.length; index++) {
+                KciIngredient ingredient = createIngredient(ingredients[index], itemSet, definition.sourceFile);
+                recipe.setIngredientAt(index % 3, index / 3, ingredient);
+            }
+            return recipe;
+        }
+
+        KciShapelessRecipe recipe = new KciShapelessRecipe(true);
+        List<KciIngredient> ingredients = new ArrayList<>(definition.shapelessIngredients.size());
+        for (YamlRecipeIngredientDefinition ingredientDefinition : definition.shapelessIngredients) {
+            ingredients.add(createIngredient(ingredientDefinition, itemSet, definition.sourceFile));
+        }
+        recipe.setIngredients(ingredients);
+        recipe.setResult(result);
+        recipe.setRequiredPermission(definition.requiredPermission);
+        return recipe;
+    }
+
+    private static KciIngredient createIngredient(
+            YamlRecipeIngredientDefinition definition, ItemSet itemSet, File sourceFile
+    ) throws ValidationException {
+        if (definition == null || definition.type == YamlRecipeIngredientType.NONE) {
+            return new NoIngredient();
+        }
+
+        IngredientConstraints constraints = createConstraints(definition.constraints);
+        KciResult remainingItem = definition.remainingItem != null
+                ? createResult(definition.remainingItem, itemSet, sourceFile)
+                : null;
+
+        switch (definition.type) {
+            case VANILLA:
+                if (definition.material == null) {
+                    throw new ValidationException("Missing vanilla material in " + sourceFile.getPath());
+                }
+                return SimpleVanillaIngredient.createQuick(
+                        definition.material, definition.amount, remainingItem, constraints
+                );
+            case VANILLA_DATA:
+                if (definition.dataValue == null) {
+                    throw new ValidationException("Missing data value for vanilla ingredient in " + sourceFile.getPath());
+                }
+                if (definition.material == null) {
+                    throw new ValidationException("Missing vanilla material in " + sourceFile.getPath());
+                }
+                return DataVanillaIngredient.createQuick(
+                        definition.material, definition.dataValue, definition.amount, remainingItem, constraints
+                );
+            case CUSTOM:
+                if (definition.customItemInternalName == null) {
+                    throw new ValidationException("Missing custom item id in " + sourceFile.getPath());
+                }
+                if (!itemSet.items.get(definition.customItemInternalName).isPresent()) {
+                    throw new ValidationException("Unknown custom item '" + definition.customItemInternalName
+                            + "' in " + sourceFile.getPath());
+                }
+                return CustomItemIngredient.createQuick(
+                        itemSet.items.getReference(definition.customItemInternalName),
+                        definition.amount,
+                        remainingItem,
+                        constraints
+                );
+            case MIMIC:
+                if (definition.foreignItemId == null || definition.foreignItemId.isEmpty()) {
+                    throw new ValidationException("Missing mimic item id in " + sourceFile.getPath());
+                }
+                return MimicIngredient.createQuick(
+                        definition.foreignItemId, definition.amount, remainingItem, constraints
+                );
+            case ITEM_BRIDGE:
+                if (definition.foreignItemId == null || definition.foreignItemId.isEmpty()) {
+                    throw new ValidationException("Missing item bridge id in " + sourceFile.getPath());
+                }
+                return ItemBridgeIngredient.createQuick(
+                        definition.foreignItemId, definition.amount, remainingItem, constraints
+                );
+            case COPIED:
+                if (definition.encoded == null || definition.encoded.isEmpty()) {
+                    throw new ValidationException("Missing copied ingredient data in " + sourceFile.getPath());
+                }
+                return CopiedIngredient.createQuick(
+                        definition.amount, definition.encoded, remainingItem, constraints
+                );
+            case NONE:
+            default:
+                return new NoIngredient();
+        }
+    }
+
+    private static KciResult createResult(
+            YamlRecipeResultDefinition definition, ItemSet itemSet, File sourceFile
+    ) throws ValidationException {
+        if (definition == null) return null;
+
+        switch (definition.type) {
+            case CUSTOM:
+                if (definition.customItemInternalName == null) {
+                    throw new ValidationException("Missing recipe result item in " + sourceFile.getPath());
+                }
+                if (!itemSet.items.get(definition.customItemInternalName).isPresent()) {
+                    throw new ValidationException("Unknown recipe result item '" + definition.customItemInternalName
+                            + "' in " + sourceFile.getPath());
+                }
+                return CustomItemResult.createQuick(
+                        itemSet.items.getReference(definition.customItemInternalName),
+                        definition.amount
+                );
+            case VANILLA:
+                if (definition.material == null) {
+                    throw new ValidationException("Missing vanilla material in " + sourceFile.getPath());
+                }
+                return SimpleVanillaResult.createQuick(definition.material, definition.amount);
+            case VANILLA_DATA:
+                if (definition.dataValue == null) {
+                    throw new ValidationException("Missing data value for vanilla result in " + sourceFile.getPath());
+                }
+                if (definition.material == null) {
+                    throw new ValidationException("Missing vanilla material in " + sourceFile.getPath());
+                }
+                return DataVanillaResult.createQuick(definition.material, definition.dataValue, definition.amount);
+            case MIMIC:
+                if (definition.foreignItemId == null || definition.foreignItemId.isEmpty()) {
+                    throw new ValidationException("Missing mimic item id in " + sourceFile.getPath());
+                }
+                return MimicResult.createQuick(definition.foreignItemId, definition.amount);
+            case ITEM_BRIDGE:
+                if (definition.foreignItemId == null || definition.foreignItemId.isEmpty()) {
+                    throw new ValidationException("Missing item bridge id in " + sourceFile.getPath());
+                }
+                return ItemBridgeResult.createQuick(definition.foreignItemId, definition.amount);
+            case COPIED:
+                if (definition.encoded == null || definition.encoded.isEmpty()) {
+                    throw new ValidationException("Missing copied item data in " + sourceFile.getPath());
+                }
+                return CopiedResult.createQuick(definition.encoded);
+            case UPGRADE:
+                return createUpgradeResult(definition.upgrade, itemSet, sourceFile);
+            default:
+                throw new ValidationException("Unknown recipe result type in " + sourceFile.getPath());
+        }
+    }
+
+    private static UpgradeResult createUpgradeResult(
+            YamlUpgradeResultDefinition definition, ItemSet itemSet, File sourceFile
+    ) throws ValidationException {
+        if (definition == null) {
+            throw new ValidationException("Missing upgrade result details in " + sourceFile.getPath());
+        }
+
+        UpgradeResult result = new UpgradeResult(true);
+        if (definition.ingredientIndex != null && definition.inputSlotName != null) {
+            throw new ValidationException("Upgrade result can't define both ingredient index and input slot ("
+                    + sourceFile.getPath() + ")");
+        }
+        if (definition.ingredientIndex != null) {
+            result.setIngredientIndex(definition.ingredientIndex);
+        }
+        if (definition.inputSlotName != null) {
+            result.setInputSlotName(definition.inputSlotName);
+        }
+
+        List<UpgradeReference> upgradeReferences = new ArrayList<>(definition.upgrades.size());
+        for (String upgradeName : definition.upgrades) {
+            upgradeReferences.add(resolveUpgradeReference(itemSet, upgradeName, sourceFile));
+        }
+        result.setUpgrades(upgradeReferences);
+
+        if (definition.repairPercentage != null) {
+            result.setRepairPercentage(definition.repairPercentage);
+        }
+        if (definition.newType != null) {
+            result.setNewType(createResult(definition.newType, itemSet, sourceFile));
+        }
+        if (definition.keepOldUpgrades != null) {
+            result.setKeepOldUpgrades(definition.keepOldUpgrades);
+        }
+        if (definition.keepOldEnchantments != null) {
+            result.setKeepOldEnchantments(definition.keepOldEnchantments);
+        }
+
+        return result;
+    }
+
+    private static UpgradeReference resolveUpgradeReference(
+            ItemSet itemSet, String name, File sourceFile
+    ) throws ValidationException {
+        if (name == null || name.isEmpty()) {
+            throw new ValidationException("Upgrade name must not be empty in " + sourceFile.getPath());
+        }
+        for (Upgrade upgrade : itemSet.upgrades) {
+            if (name.equals(upgrade.getName())) {
+                return itemSet.upgrades.getReference(upgrade.getId());
+            }
+        }
+        throw new ValidationException("Unknown upgrade '" + name + "' in " + sourceFile.getPath());
+    }
+
+    private static IngredientConstraints createConstraints(YamlRecipeConstraintsDefinition definition) {
+        IngredientConstraints constraints = new IngredientConstraints(true);
+        if (definition == null) return constraints;
+
+        List<DurabilityConstraint> durabilityConstraints = new ArrayList<>(
+                definition.durabilityConstraints.size()
+        );
+        for (YamlDurabilityConstraintDefinition durability : definition.durabilityConstraints) {
+            durabilityConstraints.add(DurabilityConstraint.createQuick(durability.operator, durability.percentage));
+        }
+        constraints.setDurabilityConstraints(durabilityConstraints);
+
+        List<EnchantmentConstraint> enchantmentConstraints = new ArrayList<>(
+                definition.enchantmentConstraints.size()
+        );
+        for (YamlEnchantmentConstraintDefinition enchantment : definition.enchantmentConstraints) {
+            enchantmentConstraints.add(EnchantmentConstraint.createQuick(
+                    enchantment.enchantment, enchantment.operator, enchantment.level
+            ));
+        }
+        constraints.setEnchantmentConstraints(enchantmentConstraints);
+
+        List<VariableConstraint> variableConstraints = new ArrayList<>(
+                definition.variableConstraints.size()
+        );
+        for (YamlVariableConstraintDefinition variable : definition.variableConstraints) {
+            VariableConstraint constraint = new VariableConstraint(true);
+            constraint.setVariable(variable.variable);
+            constraint.setOperator(variable.operator);
+            constraint.setValue(variable.value);
+            variableConstraints.add(constraint.copy(false));
+        }
+        constraints.setVariableConstraints(variableConstraints);
+
+        return constraints;
     }
 
     private static RequiredItems createRequiredItems(

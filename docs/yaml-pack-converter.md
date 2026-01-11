@@ -10,7 +10,7 @@ supported.
 - On startup and on `/kci reload`, the plugin scans `plugins/CustomItems/*`.
 - Before scanning, it imports embedded packs from other plugins (see below).
 - Each subfolder is treated as a pack.
-- Any `.yml` or `.yaml` file with a top-level `item:` or `block:` section is parsed.
+- Any `.yml` or `.yaml` file with a top-level `item:`, `block:`, or `recipe:` section is parsed.
 - You can define multiple items/blocks in a single file by separating documents with `---`.
 - The plugin builds an ItemSet, generates `plugins/CustomItems/resource-pack.zip`, and writes
   `plugins/CustomItems/items.cis.txt`.
@@ -30,7 +30,7 @@ namespace: "my"
 
 ## Multiple entries in one file
 
-You can place multiple `item:` and/or `block:` documents in one YAML file by
+You can place multiple `item:`, `block:`, and/or `recipe:` documents in one YAML file by
 separating them with a line that contains only `---`.
 
 ```yml
@@ -62,7 +62,7 @@ Embedded pack importer:
 ```
 
 Rules:
-- A pack is only imported if it contains at least one `.yml/.yaml` file whose first non-empty line is `item:` or `block:`.
+- A pack is only imported if it contains at least one `.yml/.yaml` file whose first non-empty line is `item:`, `block:`, or `recipe:`.
 - Packs are copied to `plugins/CustomItems/<pack>`.
 - If that folder already exists, it is only overwritten when it contains a `.kci-imported.txt`
   marker created by the same plugin. Otherwise it is skipped.
@@ -198,6 +198,93 @@ Rules:
 - `drops.required_held_items` supports `enabled` (default true), `invert` (default false), `vanilla` entries
   (with `material` + `allow_custom_items`) and `custom` entries (list of custom item ids).
 - `drops.biomes` supports `whitelist` and `blacklist` lists of biome names; empty lists mean no restriction.
+
+## Supported recipe fields (current)
+
+```yml
+recipe:
+  id: "my:steel_sword"   # required
+  type: "shaped"         # shaped|shapeless
+  ignore_displacement: true
+  permission: "customitems.recipe.any"
+  result:
+    item: "my:steel_sword"
+    amount: 1
+  shape:                # shaped only
+    - "ab"
+    - " c"
+  ingredients:          # shaped map or shapeless list
+    a:
+      material: "IRON_INGOT"
+    b:
+      item: "my:steel_ingot"
+      amount: 2
+    c:
+      material: "STICK"
+```
+
+Shapeless example:
+```yml
+recipe:
+  id: "my:steel_sword"
+  type: "shapeless"
+  result: "my:steel_sword"
+  ingredients:
+    - "IRON_INGOT"
+    - "my:steel_ingot"
+    - { material: "STICK", amount: 1 }
+```
+
+Recipe fields:
+- `id` can be namespaced (`my:steel_sword`) or use the pack namespace (`steel_sword`).
+- `type` can be omitted if `shape` (shaped) or `ingredients` list (shapeless) is present.
+- `ignore_displacement` defaults to `true` (shaped only).
+- `permission` (or `required_permission`) controls who can craft this recipe.
+- `result` (or `output`) defines the crafted item. You can also use `recipe.item` as shorthand for a custom item.
+
+Ingredient / result definitions:
+- Shorthand string:
+  - `"IRON_INGOT"` -> vanilla
+  - `"my:steel_ingot"` -> custom
+- Use uppercase or the `minecraft:` namespace to force vanilla (`"minecraft:iron_ingot"`).
+- Map form:
+  - `item`: custom item id
+  - `material`: vanilla material
+  - `data_value`: legacy data value (forces vanilla_data)
+  - `mimic`: foreign item id
+  - `item_bridge`: ItemBridge id
+  - `encoded`: copied item data
+  - `amount`: stack size (default 1)
+  - `remaining_item`: result definition returned after crafting
+  - `constraints`: ingredient constraints (see below)
+
+Ingredient constraints:
+```yml
+constraints:
+  durability:
+    - operator: ">="
+      percentage: 50
+  enchantments:
+    - enchantment: "sharpness"
+      operator: ">="
+      level: 3
+  variables:
+    - variable: "gem_level"
+      operator: ">="
+      value: 2
+```
+
+Upgrade results:
+```yml
+result:
+  type: "upgrade"
+  ingredient_index: 4
+  upgrades: ["Reinforced"]
+  repair_percentage: 25
+  new_type: "my:steel_sword"
+  keep_old_upgrades: true
+  keep_old_enchantments: true
+```
 
 ## Textures (runtime resource pack)
 

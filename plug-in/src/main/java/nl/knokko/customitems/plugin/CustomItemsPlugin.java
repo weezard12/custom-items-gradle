@@ -20,6 +20,9 @@ import nl.knokko.customitems.plugin.set.ItemSetWrapper;
 import nl.knokko.customitems.plugin.set.loading.ItemSetLoader;
 import nl.knokko.customitems.plugin.worldgen.LatePopulator;
 import nl.knokko.customitems.plugin.worldgen.WorldgenListener;
+import nl.knokko.customitems.recipe.KciCraftingRecipe;
+import nl.knokko.customitems.util.ProgrammingValidationException;
+import nl.knokko.customitems.util.ValidationException;
 import org.bukkit.Bukkit;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -326,5 +329,15 @@ public class CustomItemsPlugin extends JavaPlugin {
 
 	public ItemSetLoader getItemSetLoader() {
 		return itemSetLoader;
+	}
+
+	public void registerCraftingRecipe(KciCraftingRecipe recipe)
+			throws ValidationException, ProgrammingValidationException {
+		if (recipe == null) throw new ProgrammingValidationException("Recipe is null");
+		itemSet.get().craftingRecipes.add(recipe);
+		if (recipes != null && canRegisterRecipes) {
+			recipes.disable();
+			recipes.register();
+		}
 	}
 }

@@ -8,6 +8,9 @@ import nl.knokko.customitems.plugin.container.ContainerInstance;
 import nl.knokko.customitems.plugin.set.ItemSetWrapper;
 import nl.knokko.customitems.plugin.set.block.MushroomBlockHelper;
 import nl.knokko.customitems.projectile.KciProjectile;
+import nl.knokko.customitems.recipe.KciCraftingRecipe;
+import nl.knokko.customitems.util.ProgrammingValidationException;
+import nl.knokko.customitems.util.ValidationException;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
@@ -176,5 +179,30 @@ public class CustomItemsApi {
         } else {
             return -1;
         }
+    }
+
+    /**
+     * Registers a new custom crafting recipe at runtime. Returns false when validation fails.
+     */
+    public static boolean registerCraftingRecipe(KciCraftingRecipe recipe) {
+        try {
+            CustomItemsPlugin.getInstance().registerCraftingRecipe(recipe);
+            return true;
+        } catch (ValidationException | ProgrammingValidationException ex) {
+            CustomItemsPlugin.getInstance().getLogger().warning("Failed to register crafting recipe: " + ex.getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Returns a snapshot of all custom crafting recipes.
+     */
+    public static Collection<KciCraftingRecipe> getCraftingRecipes() {
+        ItemSet itemSet = CustomItemsPlugin.getInstance().getSet().get();
+        Collection<KciCraftingRecipe> recipes = new ArrayList<>(itemSet.craftingRecipes.size());
+        for (KciCraftingRecipe recipe : itemSet.craftingRecipes) {
+            recipes.add(recipe);
+        }
+        return recipes;
     }
 }

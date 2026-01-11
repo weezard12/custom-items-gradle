@@ -96,6 +96,10 @@ public class CustomItemsTabCompletions implements TabCompleter {
                 return filter(result, prefix);
             }
 
+            if (first.equals("list") && sender.hasPermission("customitems.list")) {
+                return filter(Lists.newArrayList("items", "blocks", "recipes"), prefix);
+            }
+
             if (first.equals("container")) {
                 return Lists.newArrayList("open", "destroy");
             }
