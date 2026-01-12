@@ -30,11 +30,11 @@ If you only want to build a subset of NMS modules, pass `-PonlyVersions` to
 Gradle or `-OnlyVersions` to the build script:
 
 ```powershell
-./gradlew :plug-in:shadowJar -PonlyVersions=1.21.1
+./gradlew :plug-in:shadowJar -PonlyVersions=1.21.11
 ```
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File scripts\build-plugin.ps1 -OnlyVersions 1.21.1
+powershell -ExecutionPolicy Bypass -File scripts\build-plugin.ps1 -OnlyVersions 1.21.11
 ```
 
 By default this excludes `ce-event-handler` and `test-custom-recipes`. If you

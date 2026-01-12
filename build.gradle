@@ -291,7 +291,7 @@ if (hasProject(':kci-nms21plus')) {
             compileOnly project(':kci-nms13plus')
             compileOnly project(':kci-nms16plus')
             compileOnly project(':kci-nms18plus')
-            compileOnly "io.papermc.paper:paper-api:1.21.10-R0.1-SNAPSHOT"
+            compileOnly "io.papermc.paper:paper-api:1.21.11-R0.1-SNAPSHOT"
         }
     }
 }
@@ -304,7 +304,7 @@ if (hasProject(':kci-nms21')) {
             compileOnly project(':kci-nms16plus')
             compileOnly project(':kci-nms18plus')
             compileOnly project(':kci-nms21plus')
-            compileOnly 'org.spigotmc:spigot:1.21.10-R0.1-SNAPSHOT'
+            compileOnly 'org.spigotmc:spigot:1.21.11-R0.1-SNAPSHOT'
         }
     }
 }

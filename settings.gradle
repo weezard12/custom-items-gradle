@@ -21,7 +21,8 @@ if (onlyVersions) {
             '1.19.4': 'kci-nms19',
             '1.20.6': 'kci-nms20',
             '1.21.1': 'kci-nms21r1',
-            '1.21.10': 'kci-nms21'
+            '1.21.10': 'kci-nms21',
+            '1.21.11': 'kci-nms21'
     ]
     def moduleRequirements = [
             'kci-nms13': ['kci-nms13plus'],

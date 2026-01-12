@@ -28,17 +28,26 @@ public abstract class KciNms {
         for (NmsCandidate candidate : candidates) {
             try {
                 Class<?> nmsClass = Class.forName(candidate.className);
-                String nmsVersion = (String) nmsClass.getField("NMS_VERSION_STRING").get(null);
-
-                // If the candidate version matches the actual NMS version of the server implementation, we are good to go
-                Class.forName("org.bukkit.craftbukkit.v" + nmsVersion + ".inventory.CraftItemStack");
-                supportedInstance = (KciNms) nmsClass.getConstructor().newInstance();
-                chosenMcVersion = candidate.mcVersion;
-                if (!supportedInstance.isCompatible()) {
-                    supportedInstance = null;
-                    chosenMcVersion = -1;
+                String[] nmsVersions = resolveNmsVersions(nmsClass);
+                boolean matched = false;
+                for (String nmsVersion : nmsVersions) {
+                    try {
+                        // If the candidate version matches the actual NMS version of the server implementation,
+                        // we are good to go.
+                        Class.forName("org.bukkit.craftbukkit.v" + nmsVersion + ".inventory.CraftItemStack");
+                        supportedInstance = (KciNms) nmsClass.getConstructor().newInstance();
+                        chosenMcVersion = candidate.mcVersion;
+                        if (!supportedInstance.isCompatible()) {
+                            supportedInstance = null;
+                            chosenMcVersion = -1;
+                        }
+                        matched = supportedInstance != null;
+                        if (matched) break;
+                    } catch (ClassNotFoundException unavailable) {
+                        // Try the next NMS version string for this candidate
+                    }
                 }
-                break;
+                if (matched) break;
             } catch (ClassNotFoundException unavailable) {
                 // This block will be reached if this candidate version doesn't match the NMS version of the server
                 // To handle this, we just continue with the next candidate version
@@ -52,6 +61,20 @@ public abstract class KciNms {
 
         instance = supportedInstance;
         mcVersion = chosenMcVersion;
+    }
+
+    private static String[] resolveNmsVersions(Class<?> nmsClass) throws NoSuchFieldException, IllegalAccessException {
+        try {
+            Object fieldValue = nmsClass.getField("NMS_VERSION_STRINGS").get(null);
+            if (fieldValue instanceof String[]) {
+                String[] values = (String[]) fieldValue;
+                if (values.length > 0) return values;
+            }
+        } catch (NoSuchFieldException ignored) {
+            // Fallback to the single version field
+        }
+        String single = (String) nmsClass.getField("NMS_VERSION_STRING").get(null);
+        return new String[] { single };
     }
 
     private static final class NmsCandidate {

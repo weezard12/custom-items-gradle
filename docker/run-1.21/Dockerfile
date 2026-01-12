@@ -39,7 +39,7 @@ RUN zip -r CustomItems.jar *
 FROM knokkogator/kci:0.1.6-mc1.21 AS prepared
 
 RUN mkdir /server
-RUN cp /build-tools/spigot-1.21.10.jar /server/server.jar
+RUN cp /build-tools/spigot-1.21.11.jar /server/server.jar
 WORKDIR /server
 
 RUN mkdir plugins
