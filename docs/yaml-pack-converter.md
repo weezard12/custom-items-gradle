@@ -145,7 +145,7 @@ block:
     type: "simple"         # simple|sided|custom
     texture: "steel_block" # optional (defaults to assets/block/<id>.png, or global assets for simple blocks)
   mining_speed:
-    default: 0
+    default: -1
     vanilla:
       - tool: "DIAMOND_PICKAXE"
         value: 5
@@ -190,8 +190,10 @@ Rules:
 - `requires.mc` supports operators (`>=`, `<=`, `>`, `<`, `=`) and versions like `1.16` or `1.16.5`.
 - `model.type: simple` uses a single texture; `sided` uses `model.textures.north/east/south/west/up/down`.
 - `model.type: custom` expects `model.json`, `model.editor_texture`, and `model.textures` (map of model texture keys to png paths).
-- `mining_speed` values are between `-5` and `25`.
+- `mining_speed` values are between `-5` and `25`. Positive values apply Haste, negative values apply Mining Fatigue.
+- Use `mining_speed.default` to override the base mushroom-block speed (e.g., set a negative default to slow down all tools).
 - `mining_speed.vanilla` entries accept `tool` or `material`; `allow_custom_items` defaults to true.
+- `mining_speed.vanilla` and `mining_speed.custom` also accept `speed` as an alias for `value`.
 - `mining_speed.custom.item` uses a custom item id and applies only when that item is held.
 - `sounds` supports string shorthand (`"BLOCK_STONE_HIT"`) or map with `sound`, `volume`, `pitch`.
 - `drops.outputs` chances are percentages (0..100), decimals allowed.

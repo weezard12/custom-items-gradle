@@ -214,8 +214,12 @@ class YamlBlockReader {
                 Object materialValue = map.get("tool");
                 if (materialValue == null) materialValue = map.get("material");
                 VMaterial material = parseVMaterial(materialValue, "mining_speed.vanilla[" + index + "].tool", sourceFile, errors);
-                Integer value = parseInteger(map.get("value"), MIN_MINING_SPEED, MAX_MINING_SPEED,
-                        "mining_speed.vanilla[" + index + "].value", sourceFile, errors);
+                Object rawValue = map.containsKey("value") ? map.get("value") : map.get("speed");
+                String valueField = map.containsKey("value")
+                        ? "mining_speed.vanilla[" + index + "].value"
+                        : "mining_speed.vanilla[" + index + "].speed";
+                Integer value = parseInteger(rawValue, MIN_MINING_SPEED, MAX_MINING_SPEED,
+                        valueField, sourceFile, errors);
                 Boolean allowCustom = parseBoolean(map.get("allow_custom_items"),
                         "mining_speed.vanilla[" + index + "].allow_custom_items", sourceFile, errors);
                 if (material == null || value == null) return null;
@@ -240,8 +244,12 @@ class YamlBlockReader {
                 Map<?, ?> map = (Map<?, ?>) entry;
                 Object itemValue = map.get("item");
                 String itemId = parseRequiredString(itemValue, "mining_speed.custom[" + index + "].item", sourceFile, errors);
-                Integer value = parseInteger(map.get("value"), MIN_MINING_SPEED, MAX_MINING_SPEED,
-                        "mining_speed.custom[" + index + "].value", sourceFile, errors);
+                Object rawValue = map.containsKey("value") ? map.get("value") : map.get("speed");
+                String valueField = map.containsKey("value")
+                        ? "mining_speed.custom[" + index + "].value"
+                        : "mining_speed.custom[" + index + "].speed";
+                Integer value = parseInteger(rawValue, MIN_MINING_SPEED, MAX_MINING_SPEED,
+                        valueField, sourceFile, errors);
                 if (itemId == null || value == null) return null;
                 ParsedId parsedItem = parseId(itemId, pack.namespace, sourceFile, errors);
                 if (parsedItem == null) return null;
