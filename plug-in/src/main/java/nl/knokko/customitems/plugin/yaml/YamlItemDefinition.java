@@ -16,6 +16,7 @@ class YamlItemDefinition {
     final YamlToolDefinition toolDefinition;
     final YamlArmorDefinition armorDefinition;
     final YamlFoodDefinition foodDefinition;
+    final String blockInternalName;
     final YamlMaterialDefinition material;
     final List<YamlEnchantmentDefinition> enchantments;
     final Integer stackSize;
@@ -36,6 +37,7 @@ class YamlItemDefinition {
             YamlToolDefinition toolDefinition,
             YamlArmorDefinition armorDefinition,
             YamlFoodDefinition foodDefinition,
+            String blockInternalName,
             YamlMaterialDefinition material,
             List<YamlEnchantmentDefinition> enchantments,
             Integer stackSize,
@@ -55,6 +57,7 @@ class YamlItemDefinition {
         this.toolDefinition = toolDefinition;
         this.armorDefinition = armorDefinition;
         this.foodDefinition = foodDefinition;
+        this.blockInternalName = blockInternalName;
         this.material = material;
         this.enchantments = enchantments;
         this.stackSize = stackSize;

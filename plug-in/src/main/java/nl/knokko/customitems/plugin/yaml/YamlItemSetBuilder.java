@@ -19,6 +19,7 @@ import nl.knokko.customitems.drops.AllowedBiomes;
 import nl.knokko.customitems.drops.KciDrop;
 import nl.knokko.customitems.item.KciAttributeModifier;
 import nl.knokko.customitems.item.KciArmor;
+import nl.knokko.customitems.item.KciBlockItem;
 import nl.knokko.customitems.item.KciFood;
 import nl.knokko.customitems.item.KciItem;
 import nl.knokko.customitems.item.KciItemType;
@@ -110,7 +111,12 @@ public class YamlItemSetBuilder {
         placeholderTexture.setImage(createPlaceholderImage());
         itemSet.textures.add(placeholderTexture);
 
+        List<YamlItemDefinition> blockItems = new ArrayList<>();
         for (YamlItemDefinition itemDefinition : items) {
+            if (itemDefinition.type == YamlItemType.BLOCK) {
+                blockItems.add(itemDefinition);
+                continue;
+            }
             KciItem item = createItem(itemDefinition);
             applyBaseProperties(itemDefinition, item);
             applyTexture(itemDefinition, item, itemSet);
@@ -127,14 +133,31 @@ public class YamlItemSetBuilder {
             itemSet.items.add(item);
         }
 
+        Map<String, KciBlock> blockByName = new HashMap<>();
         for (YamlBlockDefinition blockDefinition : blocks) {
             KciBlock block = new KciBlock(true);
             block.setName(blockDefinition.internalName);
             block.setModel(createBlockModel(blockDefinition, itemSet));
+            itemSet.blocks.add(block);
+            blockByName.put(blockDefinition.internalName, block);
+        }
+
+        for (YamlItemDefinition itemDefinition : blockItems) {
+            KciBlockItem item = (KciBlockItem) createItem(itemDefinition);
+            applyBaseProperties(itemDefinition, item);
+            applyBlockItemDefinition(itemDefinition, item, itemSet);
+            applyStackSize(itemDefinition, item);
+            applyEnchantments(itemDefinition, item);
+            applyAttributes(itemDefinition, item);
+            itemSet.items.add(item);
+        }
+
+        for (YamlBlockDefinition blockDefinition : blocks) {
+            KciBlock block = blockByName.get(blockDefinition.internalName);
+            if (block == null) continue;
             applyBlockMiningSpeed(blockDefinition, block, itemSet);
             applyBlockSounds(blockDefinition, block);
             applyBlockDrops(blockDefinition, block, itemSet);
-            itemSet.blocks.add(block);
         }
 
         applyRecipes(recipes, itemSet);
@@ -152,6 +175,9 @@ public class YamlItemSetBuilder {
         }
         if (itemDefinition.type == YamlItemType.FOOD) {
             return new KciFood(true);
+        }
+        if (itemDefinition.type == YamlItemType.BLOCK) {
+            return new KciBlockItem(true);
         }
         return new KciSimpleItem(true);
     }
@@ -222,7 +248,24 @@ public class YamlItemSetBuilder {
             ((KciSimpleItem) item).setMaxStacksize(itemDefinition.stackSize.byteValue());
         } else if (item instanceof KciFood) {
             ((KciFood) item).setMaxStacksize(itemDefinition.stackSize.byteValue());
+        } else if (item instanceof KciBlockItem) {
+            ((KciBlockItem) item).setMaxStacksize(itemDefinition.stackSize.byteValue());
         }
+    }
+
+    private static void applyBlockItemDefinition(
+            YamlItemDefinition itemDefinition, KciBlockItem item, ItemSet itemSet
+    ) throws ValidationException {
+        if (itemDefinition.blockInternalName == null) {
+            throw new ValidationException("Missing block reference for " + itemDefinition.fullId
+                    + " (" + itemDefinition.sourceFile.getPath() + ")");
+        }
+        KciBlock block = itemSet.blocks.get(itemDefinition.blockInternalName).orElse(null);
+        if (block == null) {
+            throw new ValidationException("Unknown block '" + itemDefinition.blockInternalName + "' for item "
+                    + itemDefinition.fullId + " (" + itemDefinition.sourceFile.getPath() + ")");
+        }
+        item.setBlock(itemSet.blocks.getReference(block.getInternalID()));
     }
 
     private static void applyEnchantments(YamlItemDefinition itemDefinition, KciItem item) {

@@ -75,7 +75,7 @@ Rules:
 item:
   id: "my:steel_sword"    # required
   name: "Steel Sword"     # required
-  type: "tool"            # simple|tool|armor|food (optional)
+  type: "tool"            # simple|tool|armor|food|block (optional)
   lore:                   # optional
     - "&7A blazing sword that protects its wielder from flames."
     - "&#FF5500Grants &6Fire Resistance &7while held"
@@ -102,6 +102,7 @@ item:
   food:                   # optional (type: food)
     food_value: 6
     eat_time: 32
+  block: "my:steel_block" # optional (type: block; defaults to same id)
 ```
 
 Rules:
@@ -118,14 +119,17 @@ Field notes:
 - `type: tool` requires a tool material (`*_SWORD`, `*_AXE`, `*_PICKAXE`, `*_SHOVEL`, `*_HOE`, `SHEARS`, `FISHING_ROD`, `FLINT_AND_STEEL`, `CARROT_STICK`, `MACE`).
 - `type: armor` requires an armor material (`*_HELMET`, `*_CHESTPLATE`, `*_LEGGINGS`, `*_BOOTS`).
 - `type: food` allows any food-compatible item type or a `VMaterial` (MC 1.14+).
-- `stack_size` is supported for `simple` and `food` items only.
+- `type: block` creates a placeable block item. Use `item.block` to reference the custom block id.
+- `stack_size` is supported for `simple`, `food`, and `block` items only.
 - `damage_value` locks the internal model data value when set to a positive number.
 - `enchantments` supports list entries as strings (`"sharpness:3"`) or maps (`id` + optional `level`).
 - `attack_damage` and `attack_speed` are added as attribute modifiers for the main hand.
 - `type` controls which item class is used. If `type` is omitted, it defaults to `simple` unless a single
-  type block (`tool`, `armor`, or `food`) is present.
+  type block (`tool`, `armor`, `food`, or `block`) is present.
 - `tool` and `armor` blocks control durability defaults. If omitted, vanilla defaults are used based on `material`.
 - `food` block controls custom food value and eat time.
+- `block` creates a placeable block item linked to a custom block. The item model automatically references
+  the block model, and the item texture uses the block texture. If `block` is omitted, it defaults to the item id.
 - `armor.armor_value` and `armor.armor_toughness` are applied as armor attribute modifiers on the slot implied
   by `material` (helmet/head, chestplate/chest, leggings/legs, boots/feet).
 - If `armor.armor_value` or `armor.armor_toughness` are omitted, vanilla defaults are applied for the chosen armor.
@@ -296,6 +300,7 @@ generated resource pack.
 Texture paths:
 - Items: `plugins/CustomItems/<pack>/assets/item/<id>.png`
 - Blocks: `plugins/CustomItems/<pack>/assets/block/<id>.png`
+- Block items use the linked block texture (item textures are ignored).
 - Simple blocks also fall back to `plugins/CustomItems/assets/block/<id>.png` if the pack texture is missing.
 - For namespaced ids, `<id>` is the part after the colon (e.g. `my:steel_sword` -> `steel_sword.png`).
 - `model.texture` and `model.textures.*` can also point to explicit png paths relative to the pack folder.

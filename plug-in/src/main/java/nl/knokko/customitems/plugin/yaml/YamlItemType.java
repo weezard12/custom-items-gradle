@@ -4,5 +4,6 @@ enum YamlItemType {
     SIMPLE,
     TOOL,
     ARMOR,
-    FOOD
+    FOOD,
+    BLOCK
 }

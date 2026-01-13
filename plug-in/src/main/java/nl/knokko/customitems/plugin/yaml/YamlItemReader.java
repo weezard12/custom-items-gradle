@@ -60,10 +60,13 @@ class YamlItemReader {
                     ConfigurationSection toolSection = getChildSection(itemSection, "tool", file, errors);
                     ConfigurationSection armorSection = getChildSection(itemSection, "armor", file, errors);
                     ConfigurationSection foodSection = getChildSection(itemSection, "food", file, errors);
+                    Object rawBlock = itemSection.get("block");
+                    if (rawBlock == null) rawBlock = itemSection.get("block_id");
+                    String blockId = parseOptionalString(rawBlock, "block", file, errors);
 
                     YamlItemType type = parseItemType(itemSection.get("type"), file, errors);
                     if (type == null) {
-                        type = inferItemType(toolSection, armorSection, foodSection, file, errors);
+                        type = inferItemType(toolSection, armorSection, foodSection, blockId != null, file, errors);
                     }
 
                     String displayName = translateColors(name, "name", file, errors);
@@ -80,7 +83,7 @@ class YamlItemReader {
 
                     if (type == null) return;
 
-                    validateTypeSections(type, toolSection, armorSection, foodSection, file, errors);
+                    validateTypeSections(type, toolSection, armorSection, foodSection, blockId != null, file, errors);
                     validateMaterialForType(type, material, file, errors);
                     if ((type == YamlItemType.TOOL || type == YamlItemType.ARMOR) && stackSize != null) {
                         errors.add("item.stack_size is not supported for type " + type.name().toLowerCase(Locale.ROOT)
@@ -101,6 +104,14 @@ class YamlItemReader {
 
                     if (errors.size() != errorCountBefore) return;
 
+                    String blockInternalName = null;
+                    if (type == YamlItemType.BLOCK) {
+                        String targetId = blockId != null ? blockId : rawId.trim();
+                        ParsedId parsedBlock = parseId(targetId, pack.namespace, file, errors);
+                        if (parsedBlock == null) return;
+                        blockInternalName = parsedBlock.internalName;
+                    }
+
                     items.add(new YamlItemDefinition(
                             parsedId.fullId,
                             parsedId.internalName,
@@ -113,6 +124,7 @@ class YamlItemReader {
                             toolDefinition,
                             armorDefinition,
                             foodDefinition,
+                            blockInternalName,
                             material,
                             enchantments,
                             stackSize,
@@ -221,6 +233,9 @@ class YamlItemReader {
                 return YamlItemType.ARMOR;
             case "food":
                 return YamlItemType.FOOD;
+            case "block":
+            case "block_item":
+                return YamlItemType.BLOCK;
             default:
                 errors.add("Unknown item.type '" + trimmed + "' in " + sourceFile.getPath());
                 return null;
@@ -231,6 +246,7 @@ class YamlItemReader {
             ConfigurationSection toolSection,
             ConfigurationSection armorSection,
             ConfigurationSection foodSection,
+            boolean hasBlockReference,
             File sourceFile,
             List<String> errors
     ) {
@@ -248,6 +264,10 @@ class YamlItemReader {
             count++;
             inferred = YamlItemType.FOOD;
         }
+        if (hasBlockReference) {
+            count++;
+            inferred = YamlItemType.BLOCK;
+        }
 
         if (count > 1) {
             errors.add("item.type must be set when multiple type blocks are present in " + sourceFile.getPath());
@@ -262,6 +282,7 @@ class YamlItemReader {
             ConfigurationSection toolSection,
             ConfigurationSection armorSection,
             ConfigurationSection foodSection,
+            boolean hasBlockReference,
             File sourceFile,
             List<String> errors
     ) {
@@ -274,6 +295,9 @@ class YamlItemReader {
         if (type != YamlItemType.FOOD && foodSection != null) {
             errors.add("item.food is only allowed for type food in " + sourceFile.getPath());
         }
+        if (type != YamlItemType.BLOCK && hasBlockReference) {
+            errors.add("item.block is only allowed for type block in " + sourceFile.getPath());
+        }
     }
 
     private static void validateMaterialForType(
@@ -283,6 +307,11 @@ class YamlItemReader {
             List<String> errors
     ) {
         if (material == null) return;
+
+        if (type == YamlItemType.BLOCK) {
+            errors.add("item.material is not supported for type block in " + sourceFile.getPath());
+            return;
+        }
 
         if (type == YamlItemType.SIMPLE) return;
 
@@ -580,6 +609,22 @@ class YamlItemReader {
         }
 
         return value;
+    }
+
+    private static String parseOptionalString(
+            Object rawValue, String fieldName, File sourceFile, List<String> errors
+    ) {
+        if (rawValue == null) return null;
+        if (!(rawValue instanceof String)) {
+            errors.add("item." + fieldName + " must be a string in " + sourceFile.getPath());
+            return null;
+        }
+        String trimmed = ((String) rawValue).trim();
+        if (trimmed.isEmpty()) {
+            errors.add("item." + fieldName + " must not be empty in " + sourceFile.getPath());
+            return null;
+        }
+        return trimmed;
     }
 
     private static Double parseDouble(
