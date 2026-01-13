@@ -1,3 +1,5 @@
+import org.gradle.api.attributes.java.TargetJvmVersion
+
 plugins {
     id 'java'
     id 'io.github.goooler.shadow' version '8.1.5'
@@ -24,6 +26,18 @@ allprojects {
 
         mavenLocal()
         maven { url = 'https://repo.skriptlang.org/releases' }
+    }
+
+    java {
+        toolchain {
+            languageVersion = JavaLanguageVersion.of(21)
+        }
+        sourceCompatibility = JavaVersion.VERSION_1_8
+        targetCompatibility = JavaVersion.VERSION_1_8
+    }
+
+    tasks.withType(JavaCompile).configureEach {
+        options.release.set(8)
     }
 
     dependencies {
@@ -76,6 +90,9 @@ project(':plug-in') {
 
         testImplementation project(':bit-helper')
         testImplementation 'org.bukkit:bukkit:1.12.2-R0.1-SNAPSHOT'
+    }
+    configurations.runtimeClasspath {
+        attributes.attribute(TargetJvmVersion.TARGET_JVM_VERSION_ATTRIBUTE, 21)
     }
     shadowJar {
         relocate('de.tr7zw.changeme.nbtapi', 'nl.knokko.customitems.plugin.shadow.nbtapi')
@@ -226,6 +243,13 @@ if (hasProject(':kci-nms16')) {
 
 if (hasProject(':kci-nms17')) {
     project(':kci-nms17') {
+        java {
+            sourceCompatibility = JavaVersion.VERSION_16
+            targetCompatibility = JavaVersion.VERSION_16
+        }
+        tasks.withType(JavaCompile).configureEach {
+            options.release.set(16)
+        }
         dependencies {
             compileOnly project(':kci-nms')
             compileOnly project(':kci-nms13plus')
@@ -237,6 +261,13 @@ if (hasProject(':kci-nms17')) {
 
 if (hasProject(':kci-nms18plus')) {
     project(':kci-nms18plus') {
+        java {
+            sourceCompatibility = JavaVersion.VERSION_17
+            targetCompatibility = JavaVersion.VERSION_17
+        }
+        tasks.withType(JavaCompile).configureEach {
+            options.release.set(17)
+        }
         dependencies {
             compileOnly project(':kci-nms')
             compileOnly project(':kci-nms13plus')
@@ -248,6 +279,13 @@ if (hasProject(':kci-nms18plus')) {
 
 if (hasProject(':kci-nms18')) {
     project(':kci-nms18') {
+        java {
+            sourceCompatibility = JavaVersion.VERSION_17
+            targetCompatibility = JavaVersion.VERSION_17
+        }
+        tasks.withType(JavaCompile).configureEach {
+            options.release.set(17)
+        }
         dependencies {
             compileOnly project(':kci-nms')
             compileOnly project(':kci-nms13plus')
@@ -260,6 +298,13 @@ if (hasProject(':kci-nms18')) {
 
 if (hasProject(':kci-nms19')) {
     project(':kci-nms19') {
+        java {
+            sourceCompatibility = JavaVersion.VERSION_17
+            targetCompatibility = JavaVersion.VERSION_17
+        }
+        tasks.withType(JavaCompile).configureEach {
+            options.release.set(17)
+        }
         dependencies {
             compileOnly project(':kci-nms')
             compileOnly project(':kci-nms13plus')
@@ -272,6 +317,13 @@ if (hasProject(':kci-nms19')) {
 
 if (hasProject(':kci-nms20')) {
     project(':kci-nms20') {
+        java {
+            sourceCompatibility = JavaVersion.VERSION_21
+            targetCompatibility = JavaVersion.VERSION_21
+        }
+        tasks.withType(JavaCompile).configureEach {
+            options.release.set(21)
+        }
         dependencies {
             compileOnly project(':kci-nms')
             compileOnly project(':kci-nms13plus')
@@ -286,6 +338,13 @@ if (hasProject(':kci-nms20')) {
 
 if (hasProject(':kci-nms21plus')) {
     project(':kci-nms21plus') {
+        java {
+            sourceCompatibility = JavaVersion.VERSION_21
+            targetCompatibility = JavaVersion.VERSION_21
+        }
+        tasks.withType(JavaCompile).configureEach {
+            options.release.set(21)
+        }
         dependencies {
             compileOnly project(':kci-nms')
             compileOnly project(':kci-nms13plus')
@@ -298,6 +357,13 @@ if (hasProject(':kci-nms21plus')) {
 
 if (hasProject(':kci-nms21')) {
     project(':kci-nms21') {
+        java {
+            sourceCompatibility = JavaVersion.VERSION_21
+            targetCompatibility = JavaVersion.VERSION_21
+        }
+        tasks.withType(JavaCompile).configureEach {
+            options.release.set(21)
+        }
         dependencies {
             compileOnly project(':kci-nms')
             compileOnly project(':kci-nms13plus')
@@ -311,6 +377,13 @@ if (hasProject(':kci-nms21')) {
 
 if (hasProject(':kci-nms21r1')) {
     project(':kci-nms21r1') {
+        java {
+            sourceCompatibility = JavaVersion.VERSION_21
+            targetCompatibility = JavaVersion.VERSION_21
+        }
+        tasks.withType(JavaCompile).configureEach {
+            options.release.set(21)
+        }
         dependencies {
             compileOnly project(':kci-nms')
             compileOnly project(':kci-nms13plus')
