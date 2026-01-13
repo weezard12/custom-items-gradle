@@ -935,10 +935,18 @@ public class YamlItemSetBuilder {
             boolean required
     ) throws ValidationException, ProgrammingValidationException {
         String rawValue = rawTexture;
+        boolean useIdFallback = false;
         if (rawValue == null || rawValue.trim().isEmpty()) {
             rawValue = blockDefinition.idName;
+            useIdFallback = true;
         }
         File textureFile = resolveTextureFile(blockDefinition.packDirectory, rawValue);
+        if ((textureFile == null || !textureFile.isFile()) && useIdFallback) {
+            File globalTexture = resolveGlobalBlockTextureFile(blockDefinition.packDirectory, rawValue);
+            if (globalTexture != null && globalTexture.isFile()) {
+                textureFile = globalTexture;
+            }
+        }
         if (textureFile == null || !textureFile.isFile()) {
             if (required) {
                 throw new ValidationException("Missing block texture " + rawValue + " for "
@@ -948,6 +956,22 @@ public class YamlItemSetBuilder {
         }
         BufferedImage image = loadTextureImage(textureFile, "block texture");
         return addTexture(itemSet, textureName, image);
+    }
+
+    private static File resolveGlobalBlockTextureFile(File packDirectory, String rawValue) {
+        if (rawValue == null) return null;
+        String trimmed = rawValue.trim();
+        if (trimmed.isEmpty()) return null;
+        String name = trimmed;
+        int colonIndex = name.indexOf(':');
+        if (colonIndex >= 0) {
+            name = name.substring(colonIndex + 1);
+        }
+        if (name.isEmpty()) return null;
+        File parent = packDirectory.getParentFile();
+        if (parent == null) return null;
+        File assetsDir = new File(parent, "assets/block");
+        return new File(assetsDir, name + ".png");
     }
 
     private static File resolveModelFile(File packDirectory, String rawPath) {

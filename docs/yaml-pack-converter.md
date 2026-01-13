@@ -143,7 +143,7 @@ block:
     mc: ">=1.16"
   model:
     type: "simple"         # simple|sided|custom
-    texture: "steel_block" # optional (defaults to assets/block/<id>.png)
+    texture: "steel_block" # optional (defaults to assets/block/<id>.png, or global assets for simple blocks)
   mining_speed:
     default: 0
     vanilla:
@@ -294,6 +294,7 @@ generated resource pack.
 Texture paths:
 - Items: `plugins/CustomItems/<pack>/assets/item/<id>.png`
 - Blocks: `plugins/CustomItems/<pack>/assets/block/<id>.png`
+- Simple blocks also fall back to `plugins/CustomItems/assets/block/<id>.png` if the pack texture is missing.
 - For namespaced ids, `<id>` is the part after the colon (e.g. `my:steel_sword` -> `steel_sword.png`).
 - `model.texture` and `model.textures.*` can also point to explicit png paths relative to the pack folder.
 - Textures must be square, power-of-two, and at most 512x512.

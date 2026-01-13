@@ -386,16 +386,14 @@ class YamlItemReader {
             return null;
         }
 
-        try {
-            KciItemType itemType = KciItemType.valueOf(normalized);
+        KciItemType itemType = resolveItemType(normalized);
+        if (itemType != null) {
             if (mcVersion < itemType.firstVersion || mcVersion > itemType.lastVersion) {
                 errors.add("item.material '" + raw + "' is not available in MC "
                         + MCVersions.createString(mcVersion) + " (" + sourceFile.getPath() + ")");
                 return null;
             }
             return new YamlMaterialDefinition(itemType, null);
-        } catch (IllegalArgumentException notItemType) {
-            // Try VMaterial
         }
 
         try {
@@ -412,6 +410,25 @@ class YamlItemReader {
             return new YamlMaterialDefinition(KciItemType.OTHER, material);
         } catch (IllegalArgumentException notMaterial) {
             errors.add("Unknown item.material '" + raw + "' in " + sourceFile.getPath());
+            return null;
+        }
+    }
+
+    private static KciItemType resolveItemType(String normalized) {
+        KciItemType direct = tryParseItemType(normalized);
+        if (direct != null) return direct;
+
+        if ("WOODEN_SPEAR".equals(normalized)) {
+            return tryParseItemType("WOOD_SPEAR");
+        }
+
+        return null;
+    }
+
+    private static KciItemType tryParseItemType(String name) {
+        try {
+            return KciItemType.valueOf(name);
+        } catch (IllegalArgumentException notFound) {
             return null;
         }
     }

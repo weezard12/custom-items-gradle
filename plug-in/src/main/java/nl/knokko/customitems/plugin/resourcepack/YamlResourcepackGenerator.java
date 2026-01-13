@@ -30,6 +30,10 @@ public class YamlResourcepackGenerator {
 
             ResourcepackModelWriter modelWriter = new ResourcepackModelWriter(itemSet, zipOutput);
             modelWriter.writeCustomItemModels();
+            modelWriter.writeCustomBlockModels();
+
+            ResourcepackBlockOverrider blockOverrider = new ResourcepackBlockOverrider(itemSet, zipOutput);
+            blockOverrider.overrideMushroomBlocks();
 
             ResourcepackItemOverrider itemOverrider = new ResourcepackItemOverrider(itemSet, zipOutput, assignments);
             itemOverrider.overrideItems();
