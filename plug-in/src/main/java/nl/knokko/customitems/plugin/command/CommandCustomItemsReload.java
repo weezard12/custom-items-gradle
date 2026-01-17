@@ -25,6 +25,8 @@ class CommandCustomItemsReload {
             return;
         }
 
+        instance.reloadPluginConfig();
+
         if (args.length == 1) {
             instance.getItemSetLoader().reload(sendMessage);
         } else if (args.length == 2) {

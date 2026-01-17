@@ -32,7 +32,8 @@ public class YamlPackImporter {
             Consumer<String> log,
             boolean enabled,
             boolean restrictToRoots,
-            List<String> roots
+            List<String> roots,
+            boolean overrideExisting
     ) {
         if (!enabled) {
             log.accept(ChatColor.DARK_GRAY + "Embedded pack import is disabled.");
@@ -56,7 +57,7 @@ public class YamlPackImporter {
                 continue;
             }
             int importedFromPlugin = importFromJar(
-                    plugin, jarFile, dataFolder, log, restrictToRoots, normalizedRoots
+                    plugin, jarFile, dataFolder, log, restrictToRoots, normalizedRoots, overrideExisting
             );
             if (importedFromPlugin == 0) {
                 log.accept(ChatColor.DARK_GRAY + "No embedded packs imported from " + plugin.getName() + ".");
@@ -87,7 +88,8 @@ public class YamlPackImporter {
             File dataFolder,
             Consumer<String> log,
             boolean restrictToRoots,
-            List<String> roots
+            List<String> roots,
+            boolean overrideExisting
     ) {
         Map<String, PackInfo> packs = new HashMap<>();
         try (JarFile jar = new JarFile(jarFile)) {
@@ -136,7 +138,7 @@ public class YamlPackImporter {
             }
 
             File targetPackDir = new File(dataFolder, packName);
-            if (targetPackDir.exists() && !shouldOverwrite(targetPackDir, plugin)) {
+            if (targetPackDir.exists() && !overrideExisting) {
                 log.accept(ChatColor.YELLOW + "Skipping embedded pack '" + packName + "' from " + plugin.getName()
                         + " because " + targetPackDir.getPath() + " already exists.");
                 continue;

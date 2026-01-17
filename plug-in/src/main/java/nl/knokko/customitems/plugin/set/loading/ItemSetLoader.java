@@ -148,7 +148,8 @@ public class ItemSetLoader implements Listener {
                 sendMessage,
                 plugin.isEmbeddedPackImportEnabled(),
                 plugin.isEmbeddedPackImportRestrictToRoots(),
-                plugin.getEmbeddedPackImportRoots()
+                plugin.getEmbeddedPackImportRoots(),
+                plugin.isEmbeddedPackImportOverrideExisting()
         );
         YamlToCisConverter.convertIfNeeded(dataFolder, sendMessage);
         File itemsFile = getItemSetFile();

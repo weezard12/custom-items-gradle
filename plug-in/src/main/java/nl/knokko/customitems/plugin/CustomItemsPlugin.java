@@ -57,6 +57,7 @@ public class CustomItemsPlugin extends JavaPlugin {
 	private boolean embeddedPackImportEnabled = true;
 	private boolean embeddedPackImportRestrictToRoots = false;
 	private java.util.List<String> embeddedPackImportRoots = defaultEmbeddedPackImportRoots();
+	private boolean embeddedPackImportOverrideExisting = true;
 
 	/**
 	 * To avoid compatibility issues with other plug-ins, recipes can't be registered the first 5 seconds
@@ -216,6 +217,7 @@ public class CustomItemsPlugin extends JavaPlugin {
 	private static final String KEY_EMBEDDED_PACK_IMPORT_ENABLED = KEY_EMBEDDED_PACK_IMPORT + ".Enabled";
 	private static final String KEY_EMBEDDED_PACK_IMPORT_RESTRICT = KEY_EMBEDDED_PACK_IMPORT + ".Restrict to pack roots";
 	private static final String KEY_EMBEDDED_PACK_IMPORT_ROOTS = KEY_EMBEDDED_PACK_IMPORT + ".Pack roots";
+	private static final String KEY_EMBEDDED_PACK_IMPORT_OVERRIDE = KEY_EMBEDDED_PACK_IMPORT + ".OverrideExistingPacks";
 
 	private void loadConfig() {
 		reloadConfig();
@@ -282,6 +284,19 @@ public class CustomItemsPlugin extends JavaPlugin {
 			saveConfig = true;
 		}
 
+		if (config.contains(KEY_EMBEDDED_PACK_IMPORT_OVERRIDE)) {
+			this.embeddedPackImportOverrideExisting = config.getBoolean(KEY_EMBEDDED_PACK_IMPORT_OVERRIDE);
+		} else if (config.contains("OverrideExistingPacks")) {
+			this.embeddedPackImportOverrideExisting = config.getBoolean("OverrideExistingPacks");
+			config.set(KEY_EMBEDDED_PACK_IMPORT_OVERRIDE, embeddedPackImportOverrideExisting);
+			config.set("OverrideExistingPacks", null);
+			saveConfig = true;
+		} else {
+			this.embeddedPackImportOverrideExisting = true;
+			config.set(KEY_EMBEDDED_PACK_IMPORT_OVERRIDE, true);
+			saveConfig = true;
+		}
+
 		if (this.enabledAreas.update(config)) saveConfig = true;
 
 		if (saveConfig) {
@@ -304,6 +319,14 @@ public class CustomItemsPlugin extends JavaPlugin {
 	public java.util.List<String> getEmbeddedPackImportRoots() {
 		if (embeddedPackImportRoots == null) return defaultEmbeddedPackImportRoots();
 		return new java.util.ArrayList<>(embeddedPackImportRoots);
+	}
+
+	public boolean isEmbeddedPackImportOverrideExisting() {
+		return embeddedPackImportOverrideExisting;
+	}
+
+	public void reloadPluginConfig() {
+		loadConfig();
 	}
 
 	private static java.util.List<String> defaultEmbeddedPackImportRoots() {
