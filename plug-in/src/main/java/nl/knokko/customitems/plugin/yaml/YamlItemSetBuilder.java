@@ -553,7 +553,7 @@ public class YamlItemSetBuilder {
                 OutputTable.Entry entry = new OutputTable.Entry(true);
                 entry.setChance(createChance(output.chance));
                 if (output.customItemInternalName != null) {
-                    entry.setResult(createCustomItemResult(itemSet, output));
+                    entry.setResult(createCustomItemResult(itemSet, output, blockDefinition.sourceFile));
                 } else {
                     entry.setResult(SimpleVanillaResult.createQuick(output.material, output.amount));
                 }
@@ -576,8 +576,12 @@ public class YamlItemSetBuilder {
     }
 
     private static CustomItemResult createCustomItemResult(
-            ItemSet itemSet, YamlBlockDropOutputDefinition output
+            ItemSet itemSet, YamlBlockDropOutputDefinition output, File sourceFile
     ) throws ValidationException {
+        if (!itemSet.items.get(output.customItemInternalName).isPresent()) {
+            throw new ValidationException("Unknown custom item '" + output.customItemInternalName
+                    + "' in " + sourceFile.getPath());
+        }
         CustomItemResult result = CustomItemResult.createQuick(
                 itemSet.items.getReference(output.customItemInternalName),
                 output.amount

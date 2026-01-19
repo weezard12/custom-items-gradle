@@ -26,7 +26,7 @@ import static nl.knokko.customitems.nms.KciNms.mcVersion;
 
 class YamlItemReader {
 
-    static List<YamlItemDefinition> readItems(YamlPackDefinition pack, List<String> errors) {
+    static List<YamlItemDefinition> readItems(YamlPackDefinition pack, List<String> errors, List<String> warnings) {
         List<YamlItemDefinition> items = new ArrayList<>();
         try (Stream<Path> paths = Files.walk(pack.directory.toPath())) {
             paths.filter(Files::isRegularFile).forEach(path -> {
@@ -84,7 +84,7 @@ class YamlItemReader {
                     if (type == null) return;
 
                     validateTypeSections(type, toolSection, armorSection, foodSection, blockId != null, file, errors);
-                    validateMaterialForType(type, material, file, errors);
+                    validateMaterialForType(type, material, file, errors, warnings);
                     if ((type == YamlItemType.TOOL || type == YamlItemType.ARMOR) && stackSize != null) {
                         errors.add("item.stack_size is not supported for type " + type.name().toLowerCase(Locale.ROOT)
                                 + " in " + file.getPath());
@@ -304,12 +304,14 @@ class YamlItemReader {
             YamlItemType type,
             YamlMaterialDefinition material,
             File sourceFile,
-            List<String> errors
+            List<String> errors,
+            List<String> warnings
     ) {
         if (material == null) return;
 
         if (type == YamlItemType.BLOCK) {
-            errors.add("item.material is not supported for type block in " + sourceFile.getPath());
+            warnings.add("WARNING - item.material is not supported for type block in "
+                    + sourceFile.getPath() + ". (This field will be ignored.)");
             return;
         }
 

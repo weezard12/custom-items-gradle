@@ -26,6 +26,7 @@ public class YamlToCisConverter {
 
     public static boolean convertIfNeeded(File dataFolder, Consumer<String> log) {
         List<String> errors = new ArrayList<>();
+        List<String> warnings = new ArrayList<>();
         List<YamlItemDefinition> items = new ArrayList<>();
         List<YamlBlockDefinition> blocks = new ArrayList<>();
         List<YamlRecipeDefinition> recipes = new ArrayList<>();
@@ -37,7 +38,7 @@ public class YamlToCisConverter {
         for (File packDir : packDirs) {
             YamlPackDefinition pack = YamlPackReader.readPack(packDir, errors);
             if (pack == null) continue;
-            List<YamlItemDefinition> packItems = YamlItemReader.readItems(pack, errors);
+            List<YamlItemDefinition> packItems = YamlItemReader.readItems(pack, errors, warnings);
             List<YamlBlockDefinition> packBlocks = YamlBlockReader.readBlocks(pack, errors);
             List<YamlRecipeDefinition> packRecipes = YamlRecipeReader.readRecipes(pack, errors);
             if (!packItems.isEmpty() || !packBlocks.isEmpty() || !packRecipes.isEmpty()) {
@@ -46,6 +47,10 @@ public class YamlToCisConverter {
                 blocks.addAll(packBlocks);
                 recipes.addAll(packRecipes);
             }
+        }
+
+        if (!warnings.isEmpty()) {
+            logWarnings(warnings, log);
         }
 
         if (!errors.isEmpty()) {
@@ -139,6 +144,13 @@ public class YamlToCisConverter {
         log.accept(ChatColor.RED + "YAML conversion errors:");
         for (String error : errors) {
             log.accept(ChatColor.RED + "- " + error);
+        }
+    }
+
+    private static void logWarnings(List<String> warnings, Consumer<String> log) {
+        log.accept(ChatColor.YELLOW + "YAML conversion warnings:");
+        for (String warning : warnings) {
+            log.accept(ChatColor.YELLOW + "- " + warning);
         }
     }
 }
