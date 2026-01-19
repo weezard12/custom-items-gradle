@@ -114,7 +114,7 @@ public enum VFurnaceInput {
     public final int firstVersion, lastVersion;
 
     VFurnaceInput(int firstVersion, int lastVersion) {
-        this.firstVersion = firstVersion;
-        this.lastVersion = lastVersion;
+        this.firstVersion = normalizeLowerBound(firstVersion);
+        this.lastVersion = normalizeUpperBound(lastVersion);
     }
 }

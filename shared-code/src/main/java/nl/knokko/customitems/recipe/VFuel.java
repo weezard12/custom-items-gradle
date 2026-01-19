@@ -293,7 +293,7 @@ public enum VFuel {
     public final int firstVersion, lastVersion;
 
     VFuel(int firstVersion, int lastVersion) {
-        this.firstVersion = firstVersion;
-        this.lastVersion = lastVersion;
+        this.firstVersion = normalizeLowerBound(firstVersion);
+        this.lastVersion = normalizeUpperBound(lastVersion);
     }
 }

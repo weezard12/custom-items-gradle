@@ -281,7 +281,7 @@ public class TreeGenerator extends ModelValues {
 
     public void validateExportVersion(int version) throws ValidationException, ProgrammingValidationException {
         if (version < VERSION1_13) throw new ValidationException("Custom trees are only supported in MC 1.13 and later");
-        if (version == VERSION1_16) throw new ValidationException("Custom trees are not supported in MC 1.16");
+        if (MCVersions.getMinor(version) == 16) throw new ValidationException("Custom trees are not supported in MC 1.16");
 
         if (version < treeType.firstVersion) {
             throw new ValidationException(treeType + " doesn't exist yet in MC " + MCVersions.createString(version));

@@ -16,7 +16,7 @@ import nl.knokko.customitems.util.ValidationException;
 import java.util.*;
 
 import static java.lang.Math.abs;
-import static nl.knokko.customitems.MCVersions.VERSION1_20;
+import static nl.knokko.customitems.MCVersions.VERSION1_20_6;
 import static nl.knokko.customitems.util.Checks.isClose;
 
 public class UpgradeResult extends KciResult {
@@ -260,7 +260,7 @@ public class UpgradeResult extends KciResult {
         // Upgrading vanilla items requires the plug-in to know the default attribute modifiers of the item,
         // which are not available in Spigot 1.20.6 due to https://hub.spigotmc.org/jira/browse/SPIGOT-7771 .
         // This bug was fixed in Spigot 1.21, but the fix won't be ported to Spigot 1.20.6...
-        if (version == VERSION1_20 && !(toUpgrade instanceof CustomItemIngredient)) {
+        if (version == VERSION1_20_6 && !(toUpgrade instanceof CustomItemIngredient)) {
             throw new ValidationException("Upgrading non-custom items in MC 1.20.6 is not supported.");
         }
     }

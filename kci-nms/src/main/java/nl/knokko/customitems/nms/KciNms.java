@@ -1,10 +1,13 @@
 package nl.knokko.customitems.nms;
 
+import nl.knokko.customitems.MCVersions;
+import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.entity.Entity;
 import org.bukkit.util.Vector;
 
 import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 
 public abstract class KciNms {
 
@@ -60,7 +63,38 @@ public abstract class KciNms {
         }
 
         instance = supportedInstance;
-        mcVersion = chosenMcVersion;
+        mcVersion = chosenMcVersion >= 0 ? detectMinecraftVersion(chosenMcVersion) : chosenMcVersion;
+    }
+
+    private static int detectMinecraftVersion(int fallbackMajor) {
+        String raw = null;
+        try {
+            raw = Bukkit.getVersion();
+        } catch (RuntimeException | NoClassDefFoundError ignored) {
+            raw = null;
+        }
+        Integer parsed = MCVersions.parseVersion(raw);
+        if (parsed != null) return parsed;
+
+        raw = reflectServerString("getMinecraftVersion");
+        parsed = MCVersions.parseVersion(raw);
+        if (parsed != null) return parsed;
+
+        raw = reflectServerString("getBukkitVersion");
+        parsed = MCVersions.parseVersion(raw);
+        if (parsed != null) return parsed;
+
+        return MCVersions.normalize(fallbackMajor);
+    }
+
+    private static String reflectServerString(String methodName) {
+        try {
+            Method method = Bukkit.getServer().getClass().getMethod(methodName);
+            Object value = method.invoke(Bukkit.getServer());
+            return value != null ? value.toString() : null;
+        } catch (ReflectiveOperationException | RuntimeException | NoClassDefFoundError ignored) {
+            return null;
+        }
     }
 
     private static String[] resolveNmsVersions(Class<?> nmsClass) throws NoSuchFieldException, IllegalAccessException {

@@ -168,6 +168,7 @@ if (hasProject(':ce-event-handler')) {
 
 project(':kci-nms') {
     dependencies {
+        compileOnly project(':shared-code')
         compileOnly 'org.bukkit:bukkit:1.12.2-R0.1-SNAPSHOT'
     }
 }

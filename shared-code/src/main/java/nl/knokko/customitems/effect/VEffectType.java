@@ -49,8 +49,8 @@ public enum VEffectType {
 	public final int firstVersion, lastVersion;
 	
 	VEffectType(int firstVersion, int lastVersion) {
-		this.firstVersion = firstVersion;
-		this.lastVersion = lastVersion;
+		this.firstVersion = normalizeLowerBound(firstVersion);
+		this.lastVersion = normalizeUpperBound(lastVersion);
 	}
 	
 	@Override

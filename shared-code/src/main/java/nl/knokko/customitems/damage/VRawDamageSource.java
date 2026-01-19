@@ -42,8 +42,8 @@ public enum VRawDamageSource {
 
     VRawDamageSource(String rawName, int minVersion, int maxVersion) {
         this.rawName = rawName;
-        this.minVersion = minVersion;
-        this.maxVersion = maxVersion;
+        this.minVersion = normalizeLowerBound(minVersion);
+        this.maxVersion = normalizeUpperBound(maxVersion);
     }
 
     @Override

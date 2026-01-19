@@ -1,5 +1,6 @@
 package nl.knokko.customitems.editor.resourcepack;
 
+import nl.knokko.customitems.MCVersions;
 import nl.knokko.customitems.editor.resourcepack.geyser.GeyserMappingsGenerator;
 import nl.knokko.customitems.editor.resourcepack.geyser.GeyserPackGenerator;
 import nl.knokko.customitems.itemset.ItemSet;
@@ -115,29 +116,28 @@ public class ResourcepackGenerator {
     }
 
     private static int getPackFormat(int mcVersion) throws ProgrammingValidationException {
-        int packFormat;
-        if (mcVersion == VERSION1_12) {
-            packFormat = 3;
-        } else if (mcVersion == VERSION1_13 || mcVersion == VERSION1_14) {
-            packFormat = 4;
-        } else if (mcVersion == VERSION1_15) {
-            packFormat = 5;
-        } else if (mcVersion == VERSION1_16) {
-            packFormat = 6;
-        } else if (mcVersion == VERSION1_17) {
-            packFormat = 7;
-        } else if (mcVersion == VERSION1_18) {
-            packFormat = 8;
-        } else if (mcVersion == VERSION1_19) {
-            packFormat = 13;
-        } else if (mcVersion == VERSION1_20) {
-            packFormat = 32;
-        } else if (mcVersion == VERSION1_21) {
-            packFormat = 55;
+        int minor = MCVersions.getMinor(mcVersion);
+        if (minor == 12) {
+            return 3;
+        } else if (minor == 13 || minor == 14) {
+            return 4;
+        } else if (minor == 15) {
+            return 5;
+        } else if (minor == 16) {
+            return 6;
+        } else if (minor == 17) {
+            return 7;
+        } else if (minor == 18) {
+            return 8;
+        } else if (minor == 19) {
+            return 13;
+        } else if (minor == 20) {
+            return 32;
+        } else if (minor == 21) {
+            return MCVersions.isAtLeast(mcVersion, 1, 21, 10) ? 55 : 34;
         } else {
             throw new ProgrammingValidationException("Unknown pack format for mc version " + mcVersion);
         }
-        return packFormat;
     }
 
     private void writeAtlases(ZipOutputStream zipOutput) throws IOException {

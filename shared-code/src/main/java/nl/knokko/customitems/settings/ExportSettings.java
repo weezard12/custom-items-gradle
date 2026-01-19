@@ -21,7 +21,7 @@ public class ExportSettings extends ModelValues {
         if (encoding < 1 || encoding > 2) throw new UnknownEncodingException("ExportSettings", encoding);
 
         ExportSettings settings = new ExportSettings(false);
-        settings.mcVersion = input.readInt();
+        settings.mcVersion = MCVersions.normalize(input.readInt());
         settings.mode = Mode.valueOf(input.readString());
         settings.reloadMessage = input.readString();
         if (encoding == 1) {
@@ -166,7 +166,7 @@ public class ExportSettings extends ModelValues {
 
     public void setMcVersion(int mcVersion) {
         assertMutable();
-        this.mcVersion = mcVersion;
+        this.mcVersion = MCVersions.normalize(mcVersion);
     }
 
     public void setMode(Mode mode) {
@@ -253,8 +253,9 @@ public class ExportSettings extends ModelValues {
     }
 
     public void validate() throws ValidationException, ProgrammingValidationException {
-        if (mcVersion < MCVersions.FIRST_VERSION || mcVersion > MCVersions.LAST_VERSION) {
-            throw new ValidationException("Unsupported MC version: " + mcVersion);
+        int normalizedVersion = MCVersions.normalize(mcVersion);
+        if (normalizedVersion < MCVersions.FIRST_VERSION || normalizedVersion > MCVersions.LAST_VERSION) {
+            throw new ValidationException("Unsupported MC version: " + MCVersions.createString(mcVersion));
         }
         if (mode == null) throw new ProgrammingValidationException("No mode");
         if (reloadMessage == null) throw new ProgrammingValidationException("No reload message");

@@ -34,8 +34,8 @@ public enum VTreeType {
     public final int firstVersion, lastVersion;
 
     VTreeType(int firstVersion, int lastVersion) {
-        this.firstVersion = firstVersion;
-        this.lastVersion = lastVersion;
+        this.firstVersion = normalizeLowerBound(firstVersion);
+        this.lastVersion = normalizeUpperBound(lastVersion);
     }
 
     @Override

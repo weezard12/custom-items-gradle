@@ -11,7 +11,6 @@ import java.util.regex.Pattern;
 final class ResourcepackVersionHelper {
 
     private static final Pattern CRAFTBUKKIT_VERSION = Pattern.compile("v(\\d+)_(\\d+)_R(\\d+)");
-    private static final Pattern MC_VERSION = Pattern.compile("(\\d+)\\.(\\d+)(?:\\.(\\d+))?");
     private static final int MODERN_1_21_CRAFTBUKKIT_REVISION = 6;
     private static final int LEGACY_1_21_PACK_FORMAT = 34;
     private static final int MODERN_1_21_PACK_FORMAT = 55;
@@ -20,40 +19,40 @@ final class ResourcepackVersionHelper {
     }
 
     static boolean useModernItemModels(int mcVersion) {
-        if (mcVersion < MCVersions.VERSION1_21) return false;
-        if (mcVersion > MCVersions.VERSION1_21) return true;
+        int minor = MCVersions.getMinor(mcVersion);
+        if (minor < 21) return false;
+        if (minor > 21) return true;
 
         Integer craftBukkitRevision = getCraftBukkitRevision();
         if (craftBukkitRevision != null) {
             return craftBukkitRevision >= MODERN_1_21_CRAFTBUKKIT_REVISION;
         }
 
-        McVersion version = getMinecraftVersion();
-        if (version != null) {
-            return version.isAtLeast(1, 21, 10);
-        }
+        Integer version = getMinecraftVersion();
+        if (version != null) return MCVersions.isAtLeast(version, 1, 21, 10);
 
-        return true;
+        return MCVersions.isAtLeast(mcVersion, 1, 21, 10);
     }
 
     static int getPackFormat(int mcVersion) throws ProgrammingValidationException {
-        if (mcVersion == MCVersions.VERSION1_12) {
+        int minor = MCVersions.getMinor(mcVersion);
+        if (minor == 12) {
             return 3;
-        } else if (mcVersion == MCVersions.VERSION1_13 || mcVersion == MCVersions.VERSION1_14) {
+        } else if (minor == 13 || minor == 14) {
             return 4;
-        } else if (mcVersion == MCVersions.VERSION1_15) {
+        } else if (minor == 15) {
             return 5;
-        } else if (mcVersion == MCVersions.VERSION1_16) {
+        } else if (minor == 16) {
             return 6;
-        } else if (mcVersion == MCVersions.VERSION1_17) {
+        } else if (minor == 17) {
             return 7;
-        } else if (mcVersion == MCVersions.VERSION1_18) {
+        } else if (minor == 18) {
             return 8;
-        } else if (mcVersion == MCVersions.VERSION1_19) {
+        } else if (minor == 19) {
             return 13;
-        } else if (mcVersion == MCVersions.VERSION1_20) {
+        } else if (minor == 20) {
             return 32;
-        } else if (mcVersion == MCVersions.VERSION1_21) {
+        } else if (minor == 21) {
             return useModernItemModels(mcVersion) ? MODERN_1_21_PACK_FORMAT : LEGACY_1_21_PACK_FORMAT;
         } else {
             throw new ProgrammingValidationException("Unknown pack format for mc version " + mcVersion);
@@ -79,22 +78,22 @@ final class ResourcepackVersionHelper {
         return null;
     }
 
-    private static McVersion getMinecraftVersion() {
+    private static Integer getMinecraftVersion() {
         String raw = null;
         try {
             raw = Bukkit.getVersion();
         } catch (RuntimeException | NoClassDefFoundError ignored) {
             raw = null;
         }
-        McVersion parsed = parseMinecraftVersion(raw);
+        Integer parsed = MCVersions.parseVersion(raw);
         if (parsed != null) return parsed;
 
         raw = reflectServerString("getMinecraftVersion");
-        parsed = parseMinecraftVersion(raw);
+        parsed = MCVersions.parseVersion(raw);
         if (parsed != null) return parsed;
 
         raw = reflectServerString("getBukkitVersion");
-        return parseMinecraftVersion(raw);
+        return MCVersions.parseVersion(raw);
     }
 
     private static String reflectServerString(String methodName) {
@@ -104,36 +103,6 @@ final class ResourcepackVersionHelper {
             return value != null ? value.toString() : null;
         } catch (ReflectiveOperationException | RuntimeException | NoClassDefFoundError ignored) {
             return null;
-        }
-    }
-
-    private static McVersion parseMinecraftVersion(String raw) {
-        if (raw == null) return null;
-        Matcher matcher = MC_VERSION.matcher(raw);
-        if (!matcher.find()) return null;
-
-        int major = Integer.parseInt(matcher.group(1));
-        int minor = Integer.parseInt(matcher.group(2));
-        int patch = matcher.group(3) != null ? Integer.parseInt(matcher.group(3)) : 0;
-        return new McVersion(major, minor, patch);
-    }
-
-    private static final class McVersion {
-
-        private final int major;
-        private final int minor;
-        private final int patch;
-
-        McVersion(int major, int minor, int patch) {
-            this.major = major;
-            this.minor = minor;
-            this.patch = patch;
-        }
-
-        boolean isAtLeast(int major, int minor, int patch) {
-            if (this.major != major) return this.major > major;
-            if (this.minor != minor) return this.minor > minor;
-            return this.patch >= patch;
         }
     }
 }

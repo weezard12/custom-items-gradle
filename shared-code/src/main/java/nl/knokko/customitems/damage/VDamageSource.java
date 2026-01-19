@@ -69,8 +69,8 @@ public enum VDamageSource {
 	public final int lastVersion;
 	
 	VDamageSource(int firstMcVersion, int lastMcVersion) {
-		this.firstVersion = firstMcVersion;
-		this.lastVersion = lastMcVersion;
+		this.firstVersion = normalizeLowerBound(firstMcVersion);
+		this.lastVersion = normalizeUpperBound(lastMcVersion);
 	}
 	
 	@Override

@@ -158,8 +158,8 @@ public enum VBiome {
     public final int lastVersion;
 
     VBiome(int firstVersion, int lastVersion){
-        this.firstVersion = firstVersion;
-        this.lastVersion = lastVersion;
+        this.firstVersion = normalizeLowerBound(firstVersion);
+        this.lastVersion = normalizeUpperBound(lastVersion);
     }
 
     @Override

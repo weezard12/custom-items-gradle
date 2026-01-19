@@ -55,7 +55,7 @@ public enum VContainerType {
 	public final int lastVersion;
 	
 	VContainerType(int firstVersion, int lastVersion) {
-		this.firstVersion = firstVersion;
-		this.lastVersion = lastVersion;
+		this.firstVersion = normalizeLowerBound(firstVersion);
+		this.lastVersion = normalizeUpperBound(lastVersion);
 	}
 }

@@ -137,8 +137,8 @@ public enum VEntityType {
 	public final int firstVersion, lastVersion;
 	
 	VEntityType(int firstMcVersion, int lastMcVersion) {
-		this.firstVersion = firstMcVersion;
-		this.lastVersion = lastMcVersion;
+		this.firstVersion = normalizeLowerBound(firstMcVersion);
+		this.lastVersion = normalizeUpperBound(lastMcVersion);
 	}
 	
 	@Override

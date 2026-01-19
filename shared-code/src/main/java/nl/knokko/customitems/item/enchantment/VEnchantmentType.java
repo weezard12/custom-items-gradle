@@ -155,13 +155,13 @@ public enum VEnchantmentType {
 	public final CustomEnchantmentProvider provider;
 
 	VEnchantmentType(String key, int mcVersion) {
-		this.version = mcVersion;
+		this.version = normalizeLowerBound(mcVersion);
 		this.key = key;
 		this.provider = null;
 	}
 
 	VEnchantmentType(String key, CustomEnchantmentProvider provider) {
-		this.version = VERSION1_12;
+		this.version = normalizeLowerBound(VERSION1_12);
 		this.key = key;
 		this.provider = provider;
 	}

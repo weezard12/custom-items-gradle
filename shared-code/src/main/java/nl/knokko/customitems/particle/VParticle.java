@@ -161,8 +161,8 @@ public enum VParticle {
 	public final int firstVersion, lastVersion;
 
 	VParticle(int firstMcVersion, int lastMcVersion){
-		this.firstVersion = firstMcVersion;
-		this.lastVersion = lastMcVersion;
+		this.firstVersion = normalizeLowerBound(firstMcVersion);
+		this.lastVersion = normalizeUpperBound(lastMcVersion);
 	}
 	
 	@Override

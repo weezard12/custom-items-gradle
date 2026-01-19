@@ -1770,8 +1770,8 @@ public enum VSoundType {
     public final int lastVersion;
 
     VSoundType(int firstVersion, int lastVersion) {
-        this.firstVersion = firstVersion;
-        this.lastVersion = lastVersion;
+        this.firstVersion = normalizeLowerBound(firstVersion);
+        this.lastVersion = normalizeUpperBound(lastVersion);
     }
 
     @Override
