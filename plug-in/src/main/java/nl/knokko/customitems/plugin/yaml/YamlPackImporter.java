@@ -92,8 +92,16 @@ public class YamlPackImporter {
             boolean overrideExisting
     ) {
         Map<String, PackInfo> packs = new HashMap<>();
+        List<PackResource> globalAssets = new ArrayList<>();
         try (JarFile jar = new JarFile(jarFile)) {
             jar.stream().forEach(entry -> {
+                String globalAssetPath = parseGlobalAssetsPath(entry.getName(), roots);
+                if (globalAssetPath != null) {
+                    if (!entry.isDirectory()) {
+                        globalAssets.add(new PackResource(entry.getName(), globalAssetPath));
+                    }
+                    return;
+                }
                 PackPath path = parsePackPath(entry.getName(), restrictToRoots, roots);
                 if (path == null || path.relativePath.isEmpty()) return;
                 PackInfo info = packs.computeIfAbsent(path.packName, name -> new PackInfo(path.root));
@@ -161,6 +169,20 @@ public class YamlPackImporter {
             }
         }
 
+        if (!globalAssets.isEmpty()) {
+            try (JarFile jar = new JarFile(jarFile)) {
+                int copied = copyGlobalAssets(
+                        jar, dataFolder, globalAssets, log, plugin.getName(), overrideExisting
+                );
+                if (copied > 0) {
+                    log.accept(ChatColor.GREEN + "Imported " + copied + " global asset(s) from " + plugin.getName() + ".");
+                }
+            } catch (IOException ex) {
+                log.accept(ChatColor.RED + "Failed to read plugin jar " + jarFile.getName()
+                        + " for global assets: " + ex.getMessage());
+            }
+        }
+
         return imported;
     }
 
@@ -193,6 +215,54 @@ public class YamlPackImporter {
             }
         }
         return true;
+    }
+
+    private static int copyGlobalAssets(
+            JarFile jar,
+            File dataFolder,
+            List<PackResource> resources,
+            Consumer<String> log,
+            String pluginName,
+            boolean overrideExisting
+    ) {
+        File targetAssetsDir = new File(dataFolder, "assets");
+        if (!targetAssetsDir.exists() && !targetAssetsDir.mkdirs()) {
+            log.accept(ChatColor.RED + "Failed to create global assets directory " + targetAssetsDir.getPath()
+                    + " for " + pluginName);
+            return 0;
+        }
+
+        int copied = 0;
+        for (PackResource resource : resources) {
+            if (!isSafeRelativePath(resource.relativePath)) {
+                log.accept(ChatColor.RED + "Skipping suspicious global asset path from " + pluginName
+                        + ": " + resource.relativePath);
+                continue;
+            }
+            File targetFile = new File(targetAssetsDir, resource.relativePath);
+            if (targetFile.exists() && !overrideExisting) continue;
+
+            File parent = targetFile.getParentFile();
+            if (parent != null && !parent.exists() && !parent.mkdirs()) {
+                log.accept(ChatColor.RED + "Failed to create directory " + parent.getPath()
+                        + " for global assets from " + pluginName);
+                continue;
+            }
+            java.util.jar.JarEntry jarEntry = jar.getJarEntry(resource.entryName);
+            if (jarEntry == null) {
+                log.accept(ChatColor.RED + "Missing global asset entry " + resource.entryName + " in " + pluginName);
+                continue;
+            }
+            try (InputStream input = jar.getInputStream(jarEntry)) {
+                Files.copy(input, targetFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
+                copied++;
+            } catch (IOException ex) {
+                log.accept(ChatColor.RED + "Failed to copy " + resource.entryName + " from " + pluginName
+                        + " (global assets): " + ex.getMessage());
+            }
+        }
+
+        return copied;
     }
 
     private static boolean shouldOverwrite(File targetPackDir, Plugin plugin) {
@@ -239,6 +309,25 @@ public class YamlPackImporter {
             String relativePath = entryName.substring(slash + 1);
             return new PackPath(packName, relativePath, "");
         }
+    }
+
+    private static String parseGlobalAssetsPath(String entryName, List<String> roots) {
+        if (entryName == null) return null;
+        String normalized = entryName;
+        String directPrefix = "assets/";
+        if (normalized.startsWith(directPrefix)) {
+            String relative = normalized.substring(directPrefix.length());
+            return relative.isEmpty() ? null : relative;
+        }
+        for (String root : roots) {
+            String normalizedRoot = ensureTrailingSlash(root);
+            String assetsPrefix = normalizedRoot + "assets/";
+            if (normalized.startsWith(assetsPrefix)) {
+                String relative = normalized.substring(assetsPrefix.length());
+                return relative.isEmpty() ? null : relative;
+            }
+        }
+        return null;
     }
 
     private static boolean isYamlFile(String path) {

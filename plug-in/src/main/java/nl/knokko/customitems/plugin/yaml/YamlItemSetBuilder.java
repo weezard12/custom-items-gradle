@@ -237,6 +237,15 @@ public class YamlItemSetBuilder {
         File byInternalName = new File(assetsDir, itemDefinition.internalName + ".png");
         if (byInternalName.isFile()) return byInternalName;
 
+        File globalAssetsDir = resolveGlobalAssetsDirectory(itemDefinition.packDirectory, "item");
+        if (globalAssetsDir != null) {
+            File globalByName = new File(globalAssetsDir, itemDefinition.idName + ".png");
+            if (globalByName.isFile()) return globalByName;
+
+            File globalByInternalName = new File(globalAssetsDir, itemDefinition.internalName + ".png");
+            if (globalByInternalName.isFile()) return globalByInternalName;
+        }
+
         return null;
     }
 
@@ -1021,10 +1030,16 @@ public class YamlItemSetBuilder {
             name = name.substring(colonIndex + 1);
         }
         if (name.isEmpty()) return null;
+        File assetsDir = resolveGlobalAssetsDirectory(packDirectory, "block");
+        if (assetsDir == null) return null;
+        return new File(assetsDir, name + ".png");
+    }
+
+    private static File resolveGlobalAssetsDirectory(File packDirectory, String subFolder) {
+        if (packDirectory == null) return null;
         File parent = packDirectory.getParentFile();
         if (parent == null) return null;
-        File assetsDir = new File(parent, "assets/block");
-        return new File(assetsDir, name + ".png");
+        return new File(new File(parent, "assets"), subFolder);
     }
 
     private static File resolveModelFile(File packDirectory, String rawPath) {
@@ -1059,7 +1074,16 @@ public class YamlItemSetBuilder {
         int colonIndex = trimmed.indexOf(':');
         String name = colonIndex >= 0 ? trimmed.substring(colonIndex + 1) : trimmed;
         File assetsDir = new File(packDirectory, "assets/block");
-        return new File(assetsDir, name + ".png");
+        File localFile = new File(assetsDir, name + ".png");
+        if (localFile.isFile()) return localFile;
+
+        File globalAssetsDir = resolveGlobalAssetsDirectory(packDirectory, "block");
+        if (globalAssetsDir != null) {
+            File globalFile = new File(globalAssetsDir, name + ".png");
+            if (globalFile.isFile()) return globalFile;
+        }
+
+        return localFile;
     }
 
     private static BufferedImage loadTextureImage(

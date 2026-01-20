@@ -51,6 +51,10 @@ Supported resource roots inside plugin jars:
 - `customitems/<pack>/...`
 - `custom-items/<pack>/...`
 
+Global assets (shared across all packs):
+- `assets/...` is copied to `plugins/CustomItems/assets/...`
+- `customitems/assets/...` and `custom-items/assets/...` are also supported
+
 Importer config (in `config.yml`):
 ```yml
 Embedded pack importer:
@@ -301,8 +305,10 @@ Texture paths:
 - Items: `plugins/CustomItems/<pack>/assets/item/<id>.png`
 - Blocks: `plugins/CustomItems/<pack>/assets/block/<id>.png`
 - Block items use the linked block texture (item textures are ignored).
-- Simple blocks also fall back to `plugins/CustomItems/assets/block/<id>.png` if the pack texture is missing.
+- Items also fall back to `plugins/CustomItems/assets/item/<id>.png` if the pack texture is missing.
+- Block textures referenced by name also fall back to `plugins/CustomItems/assets/block/<id>.png`.
 - For namespaced ids, `<id>` is the part after the colon (e.g. `my:steel_sword` -> `steel_sword.png`).
+- You can also use the internal name `<namespace>_<name>.png` (e.g. `my_ruby_axe.png`).
 - `model.texture` and `model.textures.*` can also point to explicit png paths relative to the pack folder.
 - Textures must be square, power-of-two, and at most 512x512.
 
