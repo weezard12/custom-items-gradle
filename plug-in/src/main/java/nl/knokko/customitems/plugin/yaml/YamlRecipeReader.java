@@ -29,7 +29,9 @@ import static nl.knokko.customitems.nms.KciNms.mcVersion;
 
 class YamlRecipeReader {
 
-    static List<YamlRecipeDefinition> readRecipes(YamlPackDefinition pack, List<String> errors) {
+    static List<YamlRecipeDefinition> readRecipes(
+            YamlPackDefinition pack, List<String> errors, List<String> warnings
+    ) {
         List<YamlRecipeDefinition> recipes = new ArrayList<>();
         try (Stream<Path> paths = Files.walk(pack.directory.toPath())) {
             paths.filter(Files::isRegularFile).forEach(path -> {
@@ -44,7 +46,7 @@ class YamlRecipeReader {
                     if (recipeSection == null) continue;
 
                     int errorCountBefore = errors.size();
-                    YamlRecipeDefinition definition = parseRecipeDefinition(pack, file, recipeSection, errors);
+                    YamlRecipeDefinition definition = parseRecipeDefinition(pack, file, recipeSection, errors, warnings);
                     if (errors.size() != errorCountBefore) return;
                     if (definition != null) recipes.add(definition);
                 }
@@ -59,7 +61,8 @@ class YamlRecipeReader {
             YamlPackDefinition pack,
             File file,
             ConfigurationSection section,
-            List<String> errors
+            List<String> errors,
+            List<String> warnings
     ) {
         String rawId = section.getString("id");
         if (rawId == null || rawId.trim().isEmpty()) {
@@ -74,11 +77,11 @@ class YamlRecipeReader {
         if (type == null) return null;
 
         boolean ignoreDisplacement = parseBoolean(section.get("ignore_displacement"), true,
-                "recipe.ignore_displacement", file, errors);
+                "recipe.ignore_displacement", file, warnings);
 
-        String permission = parseOptionalString(section.get("permission"), "recipe.permission", file, errors);
+        String permission = parseOptionalString(section.get("permission"), "recipe.permission", file, warnings);
         if (permission == null) {
-            permission = parseOptionalString(section.get("required_permission"), "recipe.required_permission", file, errors);
+            permission = parseOptionalString(section.get("required_permission"), "recipe.required_permission", file, warnings);
         }
 
         YamlRecipeResultDefinition result = parseResultRoot(section, pack, file, errors);
@@ -152,7 +155,9 @@ class YamlRecipeReader {
         if (rawResult == null) {
             Object itemId = section.get("item");
             if (itemId != null) {
-                YamlRecipeResultDefinition simpleResult = parseResultDefinition(itemId, pack, file, errors, "recipe.item");
+                YamlRecipeResultDefinition simpleResult = parseResultDefinition(
+                        itemId, pack, file, errors, "recipe.item"
+                );
                 if (simpleResult != null && simpleResult.type != YamlRecipeResultType.CUSTOM) {
                     errors.add("recipe.item must reference a custom item in " + file.getPath());
                     return null;
@@ -686,7 +691,7 @@ class YamlRecipeReader {
             Object rawUpgrade = map.get("upgrade");
             if (rawUpgrade == null) rawUpgrade = map;
             YamlUpgradeResultDefinition upgrade = parseUpgradeDefinition(
-                    rawUpgrade, pack, file, errors, context + ".upgrade"
+                    rawUpgrade, pack, file, errors, null, context + ".upgrade"
             );
             if (upgrade == null) return null;
             return new YamlRecipeResultDefinition(type, null, null, null, null, null, amount, upgrade);
@@ -701,6 +706,7 @@ class YamlRecipeReader {
             YamlPackDefinition pack,
             File file,
             List<String> errors,
+            List<String> warnings,
             String context
     ) {
         Map<?, ?> map = toMap(rawValue);
@@ -716,9 +722,9 @@ class YamlRecipeReader {
                     context + ".ingredient", file, errors);
         }
 
-        String inputSlotName = parseOptionalString(map.get("input_slot"), context + ".input_slot", file, errors);
+        String inputSlotName = parseOptionalString(map.get("input_slot"), context + ".input_slot", file, warnings);
         if (inputSlotName == null) {
-            inputSlotName = parseOptionalString(map.get("input_slot_name"), context + ".input_slot_name", file, errors);
+            inputSlotName = parseOptionalString(map.get("input_slot_name"), context + ".input_slot_name", file, warnings);
         }
 
         Object rawUpgrades = map.get("upgrades");
@@ -760,9 +766,9 @@ class YamlRecipeReader {
         }
 
         Boolean keepOldUpgrades = parseBoolean(map.get("keep_old_upgrades"), true,
-                context + ".keep_old_upgrades", file, errors);
+                context + ".keep_old_upgrades", file, warnings);
         Boolean keepOldEnchantments = parseBoolean(map.get("keep_old_enchantments"), true,
-                context + ".keep_old_enchantments", file, errors);
+                context + ".keep_old_enchantments", file, warnings);
 
         if (ingredientIndex == null && (inputSlotName == null || inputSlotName.isEmpty())) {
             errors.add(context + " must set ingredient_index or input_slot in " + file.getPath());
@@ -1210,7 +1216,7 @@ class YamlRecipeReader {
     }
 
     private static Boolean parseBoolean(
-            Object rawValue, boolean defaultValue, String fieldName, File file, List<String> errors
+            Object rawValue, boolean defaultValue, String fieldName, File file, List<String> warnings
     ) {
         if (rawValue == null) return defaultValue;
         if (rawValue instanceof Boolean) return (Boolean) rawValue;
@@ -1219,20 +1225,24 @@ class YamlRecipeReader {
             if (trimmed.equals("true")) return true;
             if (trimmed.equals("false")) return false;
         }
-        errors.add(fieldName + " must be true or false in " + file.getPath());
+        warnOptional(warnings, fieldName + " must be true or false in " + file.getPath());
         return defaultValue;
     }
 
     private static String parseOptionalString(
-            Object rawValue, String fieldName, File file, List<String> errors
+            Object rawValue, String fieldName, File file, List<String> warnings
     ) {
         if (rawValue == null) return null;
         if (!(rawValue instanceof String)) {
-            errors.add(fieldName + " must be a string in " + file.getPath());
+            warnOptional(warnings, fieldName + " must be a string in " + file.getPath());
             return null;
         }
         String trimmed = ((String) rawValue).trim();
-        return trimmed.isEmpty() ? null : trimmed;
+        if (trimmed.isEmpty()) {
+            warnOptional(warnings, fieldName + " must not be empty in " + file.getPath());
+            return null;
+        }
+        return trimmed;
     }
 
     private static VEnchantmentType parseEnchantmentType(String rawId) {
@@ -1249,6 +1259,11 @@ class YamlRecipeReader {
             if (type.getKey().equalsIgnoreCase(lowered)) return type;
         }
         return null;
+    }
+
+    private static void warnOptional(List<String> warnings, String message) {
+        if (warnings == null) return;
+        warnings.add("WARNING - " + message + ". (This field will be ignored.)");
     }
 
     private static boolean isInteger(String value) {

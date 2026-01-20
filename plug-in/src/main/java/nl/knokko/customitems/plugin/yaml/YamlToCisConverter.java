@@ -39,8 +39,8 @@ public class YamlToCisConverter {
             YamlPackDefinition pack = YamlPackReader.readPack(packDir, errors);
             if (pack == null) continue;
             List<YamlItemDefinition> packItems = YamlItemReader.readItems(pack, errors, warnings);
-            List<YamlBlockDefinition> packBlocks = YamlBlockReader.readBlocks(pack, errors);
-            List<YamlRecipeDefinition> packRecipes = YamlRecipeReader.readRecipes(pack, errors);
+            List<YamlBlockDefinition> packBlocks = YamlBlockReader.readBlocks(pack, errors, warnings);
+            List<YamlRecipeDefinition> packRecipes = YamlRecipeReader.readRecipes(pack, errors, warnings);
             if (!packItems.isEmpty() || !packBlocks.isEmpty() || !packRecipes.isEmpty()) {
                 packCount++;
                 items.addAll(packItems);

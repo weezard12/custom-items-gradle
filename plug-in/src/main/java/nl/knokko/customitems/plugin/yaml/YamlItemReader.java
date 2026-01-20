@@ -62,22 +62,22 @@ class YamlItemReader {
                     ConfigurationSection foodSection = getChildSection(itemSection, "food", file, errors);
                     Object rawBlock = itemSection.get("block");
                     if (rawBlock == null) rawBlock = itemSection.get("block_id");
-                    String blockId = parseOptionalString(rawBlock, "block", file, errors);
+                    String blockId = parseOptionalString(rawBlock, "block", file, warnings);
 
-                    YamlItemType type = parseItemType(itemSection.get("type"), file, errors);
+                    YamlItemType type = parseItemType(itemSection.get("type"), file, warnings);
                     if (type == null) {
                         type = inferItemType(toolSection, armorSection, foodSection, blockId != null, file, errors);
                     }
 
                     String displayName = translateColors(name, "name", file, errors);
-                    List<String> lore = parseLore(itemSection.get("lore"), file, errors);
-                    YamlMaterialDefinition material = parseMaterial(itemSection.get("material"), file, errors);
-                    List<YamlEnchantmentDefinition> enchantments = parseEnchantments(itemSection.get("enchantments"), file, errors);
-                    Integer stackSize = parseInteger(itemSection.get("stack_size"), 1, 64, "stack_size", file, errors);
-                    Integer damageValue = parseInteger(itemSection.get("damage_value"), 0, Short.MAX_VALUE, "damage_value", file, errors);
-                    Boolean unbreakable = parseBoolean(itemSection.get("unbreakable"), "unbreakable", file, errors);
-                    Double attackDamage = parseDouble(itemSection.get("attack_damage"), "attack_damage", file, errors);
-                    Double attackSpeed = parseDouble(itemSection.get("attack_speed"), "attack_speed", file, errors);
+                    List<String> lore = parseLore(itemSection.get("lore"), file, warnings);
+                    YamlMaterialDefinition material = parseMaterial(itemSection.get("material"), file, warnings);
+                    List<YamlEnchantmentDefinition> enchantments = parseEnchantments(itemSection.get("enchantments"), file, warnings);
+                    Integer stackSize = parseInteger(itemSection.get("stack_size"), 1, 64, "stack_size", file, warnings);
+                    Integer damageValue = parseInteger(itemSection.get("damage_value"), 0, Short.MAX_VALUE, "damage_value", file, warnings);
+                    Boolean unbreakable = parseBoolean(itemSection.get("unbreakable"), "unbreakable", file, warnings);
+                    Double attackDamage = parseDouble(itemSection.get("attack_damage"), "attack_damage", file, warnings);
+                    Double attackSpeed = parseDouble(itemSection.get("attack_speed"), "attack_speed", file, warnings);
 
                     if (errors.size() != errorCountBefore) return;
 
@@ -95,11 +95,11 @@ class YamlItemReader {
                     YamlArmorDefinition armorDefinition = null;
                     YamlFoodDefinition foodDefinition = null;
                     if (type == YamlItemType.TOOL) {
-                        toolDefinition = parseToolDefinition(toolSection, file, errors);
+                        toolDefinition = parseToolDefinition(toolSection, file, warnings);
                     } else if (type == YamlItemType.ARMOR) {
-                        armorDefinition = parseArmorDefinition(armorSection, file, errors);
+                        armorDefinition = parseArmorDefinition(armorSection, file, warnings);
                     } else if (type == YamlItemType.FOOD) {
-                        foodDefinition = parseFoodDefinition(foodSection, file, errors);
+                        foodDefinition = parseFoodDefinition(foodSection, file, warnings);
                     }
 
                     if (errors.size() != errorCountBefore) return;
@@ -209,16 +209,16 @@ class YamlItemReader {
         return section;
     }
 
-    private static YamlItemType parseItemType(Object rawType, File sourceFile, List<String> errors) {
+    private static YamlItemType parseItemType(Object rawType, File sourceFile, List<String> warnings) {
         if (rawType == null) return null;
         if (!(rawType instanceof String)) {
-            errors.add("item.type must be a string in " + sourceFile.getPath());
+            warnOptional(warnings, "item.type must be a string in " + sourceFile.getPath());
             return null;
         }
 
         String trimmed = ((String) rawType).trim();
         if (trimmed.isEmpty()) {
-            errors.add("item.type must not be empty in " + sourceFile.getPath());
+            warnOptional(warnings, "item.type must not be empty in " + sourceFile.getPath());
             return null;
         }
 
@@ -237,7 +237,7 @@ class YamlItemReader {
             case "block_item":
                 return YamlItemType.BLOCK;
             default:
-                errors.add("Unknown item.type '" + trimmed + "' in " + sourceFile.getPath());
+                warnOptional(warnings, "Unknown item.type '" + trimmed + "' in " + sourceFile.getPath());
                 return null;
         }
     }
@@ -355,56 +355,56 @@ class YamlItemReader {
     }
 
     private static YamlToolDefinition parseToolDefinition(
-            ConfigurationSection toolSection, File sourceFile, List<String> errors
+            ConfigurationSection toolSection, File sourceFile, List<String> warnings
     ) {
         if (toolSection == null) return new YamlToolDefinition(null, null, null);
         Integer maxDurability = parseInteger(toolSection.get("max_durability"), 1, Integer.MAX_VALUE,
-                "tool.max_durability", sourceFile, errors);
+                "tool.max_durability", sourceFile, warnings);
         Integer entityHitLoss = parseInteger(toolSection.get("entity_hit_durability_loss"), 0, Integer.MAX_VALUE,
-                "tool.entity_hit_durability_loss", sourceFile, errors);
+                "tool.entity_hit_durability_loss", sourceFile, warnings);
         Integer blockBreakLoss = parseInteger(toolSection.get("block_break_durability_loss"), 0, Integer.MAX_VALUE,
-                "tool.block_break_durability_loss", sourceFile, errors);
+                "tool.block_break_durability_loss", sourceFile, warnings);
         return new YamlToolDefinition(maxDurability, entityHitLoss, blockBreakLoss);
     }
 
     private static YamlArmorDefinition parseArmorDefinition(
-            ConfigurationSection armorSection, File sourceFile, List<String> errors
+            ConfigurationSection armorSection, File sourceFile, List<String> warnings
     ) {
         if (armorSection == null) return new YamlArmorDefinition(null, null, null, null, null);
         Integer maxDurability = parseInteger(armorSection.get("max_durability"), 1, Integer.MAX_VALUE,
-                "armor.max_durability", sourceFile, errors);
+                "armor.max_durability", sourceFile, warnings);
         Integer entityHitLoss = parseInteger(armorSection.get("entity_hit_durability_loss"), 0, Integer.MAX_VALUE,
-                "armor.entity_hit_durability_loss", sourceFile, errors);
+                "armor.entity_hit_durability_loss", sourceFile, warnings);
         Integer blockBreakLoss = parseInteger(armorSection.get("block_break_durability_loss"), 0, Integer.MAX_VALUE,
-                "armor.block_break_durability_loss", sourceFile, errors);
-        Double armorValue = parseDouble(armorSection.get("armor_value"), "armor.armor_value", sourceFile, errors);
-        Double armorToughness = parseDouble(armorSection.get("armor_toughness"), "armor.armor_toughness", sourceFile, errors);
+                "armor.block_break_durability_loss", sourceFile, warnings);
+        Double armorValue = parseDouble(armorSection.get("armor_value"), "armor.armor_value", sourceFile, warnings);
+        Double armorToughness = parseDouble(armorSection.get("armor_toughness"), "armor.armor_toughness", sourceFile, warnings);
         if (armorValue != null && armorValue < 0.0) {
-            errors.add("item.armor.armor_value must be non-negative in " + sourceFile.getPath());
-            return null;
+            warnOptional(warnings, "item.armor.armor_value must be non-negative in " + sourceFile.getPath());
+            armorValue = null;
         }
         if (armorToughness != null && armorToughness < 0.0) {
-            errors.add("item.armor.armor_toughness must be non-negative in " + sourceFile.getPath());
-            return null;
+            warnOptional(warnings, "item.armor.armor_toughness must be non-negative in " + sourceFile.getPath());
+            armorToughness = null;
         }
         return new YamlArmorDefinition(maxDurability, entityHitLoss, blockBreakLoss, armorValue, armorToughness);
     }
 
     private static YamlFoodDefinition parseFoodDefinition(
-            ConfigurationSection foodSection, File sourceFile, List<String> errors
+            ConfigurationSection foodSection, File sourceFile, List<String> warnings
     ) {
         if (foodSection == null) return new YamlFoodDefinition(null, null);
         Integer foodValue = parseInteger(foodSection.get("food_value"), 0, Integer.MAX_VALUE,
-                "food.food_value", sourceFile, errors);
+                "food.food_value", sourceFile, warnings);
         Integer eatTime = parseInteger(foodSection.get("eat_time"), 1, Integer.MAX_VALUE,
-                "food.eat_time", sourceFile, errors);
+                "food.eat_time", sourceFile, warnings);
         return new YamlFoodDefinition(foodValue, eatTime);
     }
 
-    private static YamlMaterialDefinition parseMaterial(Object rawMaterial, File sourceFile, List<String> errors) {
+    private static YamlMaterialDefinition parseMaterial(Object rawMaterial, File sourceFile, List<String> warnings) {
         if (rawMaterial == null) return null;
         if (!(rawMaterial instanceof String)) {
-            errors.add("item.material must be a string in " + sourceFile.getPath());
+            warnOptional(warnings, "item.material must be a string in " + sourceFile.getPath());
             return null;
         }
 
@@ -413,14 +413,14 @@ class YamlItemReader {
 
         String normalized = normalizeNamespacedValue(raw);
         if (normalized == null) {
-            errors.add("Invalid item.material '" + raw + "' in " + sourceFile.getPath());
+            warnOptional(warnings, "Invalid item.material '" + raw + "' in " + sourceFile.getPath());
             return null;
         }
 
         KciItemType itemType = resolveItemType(normalized);
         if (itemType != null) {
             if (mcVersion < itemType.firstVersion || mcVersion > itemType.lastVersion) {
-                errors.add("item.material '" + raw + "' is not available in MC "
+                warnOptional(warnings, "item.material '" + raw + "' is not available in MC "
                         + MCVersions.createString(mcVersion) + " (" + sourceFile.getPath() + ")");
                 return null;
             }
@@ -430,17 +430,17 @@ class YamlItemReader {
         try {
             VMaterial material = VMaterial.valueOf(normalized);
             if (mcVersion < material.firstVersion || mcVersion > material.lastVersion) {
-                errors.add("item.material '" + raw + "' is not available in MC "
+                warnOptional(warnings, "item.material '" + raw + "' is not available in MC "
                         + MCVersions.createString(mcVersion) + " (" + sourceFile.getPath() + ")");
                 return null;
             }
             if (mcVersion < MCVersions.VERSION1_14) {
-                errors.add("item.material '" + raw + "' requires MC 1.14+ (" + sourceFile.getPath() + ")");
+                warnOptional(warnings, "item.material '" + raw + "' requires MC 1.14+ (" + sourceFile.getPath() + ")");
                 return null;
             }
             return new YamlMaterialDefinition(KciItemType.OTHER, material);
         } catch (IllegalArgumentException notMaterial) {
-            errors.add("Unknown item.material '" + raw + "' in " + sourceFile.getPath());
+            warnOptional(warnings, "Unknown item.material '" + raw + "' in " + sourceFile.getPath());
             return null;
         }
     }
@@ -465,17 +465,17 @@ class YamlItemReader {
     }
 
     private static List<YamlEnchantmentDefinition> parseEnchantments(
-            Object rawEnchantments, File sourceFile, List<String> errors
+            Object rawEnchantments, File sourceFile, List<String> warnings
     ) {
         if (rawEnchantments == null) return Collections.emptyList();
         if (!(rawEnchantments instanceof List<?>)) {
-            errors.add("item.enchantments must be a list in " + sourceFile.getPath());
+            warnOptional(warnings, "item.enchantments must be a list in " + sourceFile.getPath());
             return Collections.emptyList();
         }
 
         List<YamlEnchantmentDefinition> result = new ArrayList<>();
         for (Object entry : (List<?>) rawEnchantments) {
-            ParsedEnchantment parsed = parseEnchantmentEntry(entry, sourceFile, errors);
+            ParsedEnchantment parsed = parseEnchantmentEntry(entry, sourceFile, warnings);
             if (parsed != null) {
                 result.add(new YamlEnchantmentDefinition(parsed.type, parsed.level));
             }
@@ -485,10 +485,10 @@ class YamlItemReader {
     }
 
     private static ParsedEnchantment parseEnchantmentEntry(
-            Object entry, File sourceFile, List<String> errors
+            Object entry, File sourceFile, List<String> warnings
     ) {
         if (entry instanceof String) {
-            return parseEnchantmentString((String) entry, sourceFile, errors);
+            return parseEnchantmentString((String) entry, sourceFile, warnings);
         }
 
         if (entry instanceof Map<?, ?>) {
@@ -496,42 +496,43 @@ class YamlItemReader {
             Object idValue = map.get("id");
             Object levelValue = map.get("level");
             if (idValue == null) {
-                errors.add("item.enchantments entry is missing id in " + sourceFile.getPath());
+                warnOptional(warnings, "item.enchantments entry is missing id in " + sourceFile.getPath());
                 return null;
             }
             if (!(idValue instanceof String)) {
-                errors.add("item.enchantments id must be a string in " + sourceFile.getPath());
+                warnOptional(warnings, "item.enchantments id must be a string in " + sourceFile.getPath());
                 return null;
             }
             String id = ((String) idValue).trim();
             if (id.isEmpty()) {
-                errors.add("item.enchantments id is empty in " + sourceFile.getPath());
+                warnOptional(warnings, "item.enchantments id is empty in " + sourceFile.getPath());
                 return null;
             }
             int level = 1;
             if (levelValue != null) {
-                Integer parsedLevel = parseInteger(levelValue, 1, Integer.MAX_VALUE, "enchantments.level", sourceFile, errors);
+                Integer parsedLevel = parseInteger(levelValue, 1, Integer.MAX_VALUE,
+                        "enchantments.level", sourceFile, warnings);
                 if (parsedLevel == null) return null;
                 level = parsedLevel;
             }
             VEnchantmentType type = parseEnchantmentType(id);
             if (type == null) {
-                errors.add("Unknown enchantment id '" + id + "' in " + sourceFile.getPath());
+                warnOptional(warnings, "Unknown enchantment id '" + id + "' in " + sourceFile.getPath());
                 return null;
             }
             return new ParsedEnchantment(type, level);
         }
 
-        errors.add("item.enchantments entry must be a string or map in " + sourceFile.getPath());
+        warnOptional(warnings, "item.enchantments entry must be a string or map in " + sourceFile.getPath());
         return null;
     }
 
     private static ParsedEnchantment parseEnchantmentString(
-            String raw, File sourceFile, List<String> errors
+            String raw, File sourceFile, List<String> warnings
     ) {
         String value = raw.trim();
         if (value.isEmpty()) {
-            errors.add("item.enchantments entry is empty in " + sourceFile.getPath());
+            warnOptional(warnings, "item.enchantments entry is empty in " + sourceFile.getPath());
             return null;
         }
 
@@ -548,13 +549,13 @@ class YamlItemReader {
 
         VEnchantmentType type = parseEnchantmentType(id);
         if (type == null) {
-            errors.add("Unknown enchantment id '" + id + "' in " + sourceFile.getPath());
+            warnOptional(warnings, "Unknown enchantment id '" + id + "' in " + sourceFile.getPath());
             return null;
         }
 
         int finalLevel = level != null ? level : 1;
         if (finalLevel < 1) {
-            errors.add("enchantment level must be positive in " + sourceFile.getPath());
+            warnOptional(warnings, "enchantment level must be positive in " + sourceFile.getPath());
             return null;
         }
 
@@ -582,31 +583,32 @@ class YamlItemReader {
     }
 
     private static Integer parseInteger(
-            Object rawValue, int min, int max, String fieldName, File sourceFile, List<String> errors
+            Object rawValue, int min, int max, String fieldName, File sourceFile, List<String> warnings
     ) {
         if (rawValue == null) return null;
         Integer value = null;
         if (rawValue instanceof Number) {
             double numeric = ((Number) rawValue).doubleValue();
             if (numeric % 1 != 0) {
-                errors.add("item." + fieldName + " must be an integer in " + sourceFile.getPath());
+                warnOptional(warnings, "item." + fieldName + " must be an integer in " + sourceFile.getPath());
                 return null;
             }
             value = (int) numeric;
         } else if (rawValue instanceof String) {
             String trimmed = ((String) rawValue).trim();
             if (!isInteger(trimmed)) {
-                errors.add("item." + fieldName + " must be an integer in " + sourceFile.getPath());
+                warnOptional(warnings, "item." + fieldName + " must be an integer in " + sourceFile.getPath());
                 return null;
             }
             value = Integer.parseInt(trimmed);
         } else {
-            errors.add("item." + fieldName + " must be an integer in " + sourceFile.getPath());
+            warnOptional(warnings, "item." + fieldName + " must be an integer in " + sourceFile.getPath());
             return null;
         }
 
         if (value < min || value > max) {
-            errors.add("item." + fieldName + " must be between " + min + " and " + max + " in " + sourceFile.getPath());
+            warnOptional(warnings, "item." + fieldName + " must be between " + min + " and " + max
+                    + " in " + sourceFile.getPath());
             return null;
         }
 
@@ -614,23 +616,23 @@ class YamlItemReader {
     }
 
     private static String parseOptionalString(
-            Object rawValue, String fieldName, File sourceFile, List<String> errors
+            Object rawValue, String fieldName, File sourceFile, List<String> warnings
     ) {
         if (rawValue == null) return null;
         if (!(rawValue instanceof String)) {
-            errors.add("item." + fieldName + " must be a string in " + sourceFile.getPath());
+            warnOptional(warnings, "item." + fieldName + " must be a string in " + sourceFile.getPath());
             return null;
         }
         String trimmed = ((String) rawValue).trim();
         if (trimmed.isEmpty()) {
-            errors.add("item." + fieldName + " must not be empty in " + sourceFile.getPath());
+            warnOptional(warnings, "item." + fieldName + " must not be empty in " + sourceFile.getPath());
             return null;
         }
         return trimmed;
     }
 
     private static Double parseDouble(
-            Object rawValue, String fieldName, File sourceFile, List<String> errors
+            Object rawValue, String fieldName, File sourceFile, List<String> warnings
     ) {
         if (rawValue == null) return null;
         Double value;
@@ -641,16 +643,16 @@ class YamlItemReader {
             try {
                 value = Double.parseDouble(trimmed);
             } catch (NumberFormatException ex) {
-                errors.add("item." + fieldName + " must be a number in " + sourceFile.getPath());
+                warnOptional(warnings, "item." + fieldName + " must be a number in " + sourceFile.getPath());
                 return null;
             }
         } else {
-            errors.add("item." + fieldName + " must be a number in " + sourceFile.getPath());
+            warnOptional(warnings, "item." + fieldName + " must be a number in " + sourceFile.getPath());
             return null;
         }
 
         if (!Double.isFinite(value)) {
-            errors.add("item." + fieldName + " must be finite in " + sourceFile.getPath());
+            warnOptional(warnings, "item." + fieldName + " must be finite in " + sourceFile.getPath());
             return null;
         }
 
@@ -658,7 +660,7 @@ class YamlItemReader {
     }
 
     private static Boolean parseBoolean(
-            Object rawValue, String fieldName, File sourceFile, List<String> errors
+            Object rawValue, String fieldName, File sourceFile, List<String> warnings
     ) {
         if (rawValue == null) return null;
         if (rawValue instanceof Boolean) return (Boolean) rawValue;
@@ -667,7 +669,7 @@ class YamlItemReader {
             if (trimmed.equals("true")) return true;
             if (trimmed.equals("false")) return false;
         }
-        errors.add("item." + fieldName + " must be true or false in " + sourceFile.getPath());
+        warnOptional(warnings, "item." + fieldName + " must be true or false in " + sourceFile.getPath());
         return null;
     }
 
@@ -694,10 +696,10 @@ class YamlItemReader {
         return normalized;
     }
 
-    private static List<String> parseLore(Object rawLore, File sourceFile, List<String> errors) {
+    private static List<String> parseLore(Object rawLore, File sourceFile, List<String> warnings) {
         if (rawLore == null) return Collections.emptyList();
         if (!(rawLore instanceof List<?>)) {
-            errors.add("item.lore must be a list in " + sourceFile.getPath());
+            warnOptional(warnings, "item.lore must be a list in " + sourceFile.getPath());
             return Collections.emptyList();
         }
 
@@ -705,12 +707,14 @@ class YamlItemReader {
         int index = 0;
         for (Object entry : (List<?>) rawLore) {
             if (!(entry instanceof String)) {
-                errors.add("item.lore entry " + index + " must be a string in " + sourceFile.getPath());
-                return Collections.emptyList();
+                warnOptional(warnings, "item.lore entry " + index + " must be a string in " + sourceFile.getPath());
+                index++;
+                continue;
             }
-            String translated = translateColors((String) entry, "lore", sourceFile, errors);
-            if (translated == null) return Collections.emptyList();
-            result.add(translated);
+            String translated = translateColorsOptional((String) entry, "lore", sourceFile, warnings);
+            if (translated != null) {
+                result.add(translated);
+            }
             index++;
         }
 
@@ -766,6 +770,54 @@ class YamlItemReader {
         return result.toString();
     }
 
+    private static String translateColorsOptional(
+            String rawText, String fieldName, File sourceFile, List<String> warnings
+    ) {
+        if (rawText == null) return null;
+        StringBuilder result = new StringBuilder(rawText.length());
+        int index = 0;
+        while (index < rawText.length()) {
+            int ampIndex = rawText.indexOf('&', index);
+            if (ampIndex < 0) {
+                result.append(rawText, index, rawText.length());
+                break;
+            }
+
+            result.append(rawText, index, ampIndex);
+            if (ampIndex + 1 >= rawText.length()) {
+                result.append('&');
+                break;
+            }
+
+            char next = rawText.charAt(ampIndex + 1);
+            if (next == '#') {
+                if (ampIndex + 8 > rawText.length()) {
+                    warnOptional(warnings, "item." + fieldName + " has invalid hex color in " + sourceFile.getPath());
+                    return null;
+                }
+                String hex = rawText.substring(ampIndex + 2, ampIndex + 8);
+                if (!isHex(hex)) {
+                    warnOptional(warnings, "item." + fieldName + " has invalid hex color in " + sourceFile.getPath());
+                    return null;
+                }
+
+                if (mcVersion >= MCVersions.VERSION1_16) {
+                    result.append(toAmpersandHex(hex));
+                } else {
+                    result.append(toLegacyColor(hex));
+                }
+                index = ampIndex + 8;
+            } else if (isColorCodeChar(next)) {
+                result.append('&').append(Character.toLowerCase(next));
+                index = ampIndex + 2;
+            } else {
+                result.append('&').append(next);
+                index = ampIndex + 2;
+            }
+        }
+        return result.toString();
+    }
+
     private static String toAmpersandHex(String hex) {
         String lower = hex.toLowerCase(Locale.ROOT);
         return "&x&" + lower.charAt(0) + "&" + lower.charAt(1)
@@ -782,6 +834,11 @@ class YamlItemReader {
             if (!digit && !upper && !lower) return false;
         }
         return value.length() == 6;
+    }
+
+    private static void warnOptional(List<String> warnings, String message) {
+        if (warnings == null) return;
+        warnings.add("WARNING - " + message + ". (This field will be ignored.)");
     }
 
     private static boolean isColorCodeChar(char value) {

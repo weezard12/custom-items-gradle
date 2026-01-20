@@ -30,7 +30,9 @@ class YamlBlockReader {
     private static final int MIN_MINING_SPEED = -5;
     private static final int MAX_MINING_SPEED = 25;
 
-    static List<YamlBlockDefinition> readBlocks(YamlPackDefinition pack, List<String> errors) {
+    static List<YamlBlockDefinition> readBlocks(
+            YamlPackDefinition pack, List<String> errors, List<String> warnings
+    ) {
         List<YamlBlockDefinition> blocks = new ArrayList<>();
         try (Stream<Path> paths = Files.walk(pack.directory.toPath())) {
             paths.filter(Files::isRegularFile).forEach(path -> {
@@ -45,7 +47,7 @@ class YamlBlockReader {
                     if (blockSection == null) continue;
 
                     int errorCountBefore = errors.size();
-                    YamlBlockDefinition block = parseBlockDefinition(pack, file, blockSection, errors);
+                    YamlBlockDefinition block = parseBlockDefinition(pack, file, blockSection, errors, warnings);
                     if (errors.size() != errorCountBefore) return;
                     if (block != null) {
                         blocks.add(block);
@@ -62,7 +64,8 @@ class YamlBlockReader {
             YamlPackDefinition pack,
             File file,
             ConfigurationSection blockSection,
-            List<String> errors
+            List<String> errors,
+            List<String> warnings
     ) {
         String rawId = blockSection.getString("id");
         if (rawId == null || rawId.trim().isEmpty()) {
@@ -75,19 +78,19 @@ class YamlBlockReader {
 
         int errorCountBefore = errors.size();
 
-        ConfigurationSection requiresSection = getChildSection(blockSection, "requires", file, errors);
+        ConfigurationSection requiresSection = getChildSection(blockSection, "requires", file, errors, warnings);
         if (!matchesRequires(requiresSection, file, errors)) {
             return null;
         }
 
-        ConfigurationSection modelSection = getChildSection(blockSection, "model", file, errors);
-        ConfigurationSection miningSection = getChildSection(blockSection, "mining_speed", file, errors);
-        ConfigurationSection soundsSection = getChildSection(blockSection, "sounds", file, errors);
+        ConfigurationSection modelSection = getChildSection(blockSection, "model", file, errors, warnings);
+        ConfigurationSection miningSection = getChildSection(blockSection, "mining_speed", file, errors, warnings);
+        ConfigurationSection soundsSection = getChildSection(blockSection, "sounds", file, errors, warnings);
 
-        YamlBlockModelDefinition modelDefinition = parseModel(modelSection, file, errors);
-        YamlBlockMiningSpeedDefinition miningSpeed = parseMiningSpeed(miningSection, pack, file, errors);
-        YamlBlockSoundsDefinition sounds = parseSounds(soundsSection, file, errors);
-        List<YamlBlockDropDefinition> drops = parseDrops(blockSection.get("drops"), pack, file, errors);
+        YamlBlockModelDefinition modelDefinition = parseModel(modelSection, file, errors, warnings);
+        YamlBlockMiningSpeedDefinition miningSpeed = parseMiningSpeed(miningSection, pack, file, errors, warnings);
+        YamlBlockSoundsDefinition sounds = parseSounds(soundsSection, file, warnings);
+        List<YamlBlockDropDefinition> drops = parseDrops(blockSection.get("drops"), pack, file, errors, warnings);
 
         if (errors.size() != errorCountBefore) return null;
 
@@ -105,22 +108,24 @@ class YamlBlockReader {
     }
 
     private static YamlBlockModelDefinition parseModel(
-            ConfigurationSection modelSection, File sourceFile, List<String> errors
+            ConfigurationSection modelSection, File sourceFile, List<String> errors, List<String> warnings
     ) {
         if (modelSection == null) {
             return new YamlBlockModelDefinition(YamlBlockModelType.SIMPLE, null, null, null);
         }
 
-        YamlBlockModelType type = parseModelType(modelSection.get("type"), sourceFile, errors);
-        if (type == null) return null;
+        YamlBlockModelType type = parseModelType(modelSection.get("type"), sourceFile, warnings);
+        if (type == null) {
+            return new YamlBlockModelDefinition(YamlBlockModelType.SIMPLE, null, null, null);
+        }
 
         if (type == YamlBlockModelType.SIMPLE) {
-            String texture = parseOptionalString(modelSection.get("texture"), "model.texture", sourceFile, errors);
+            String texture = parseOptionalString(modelSection.get("texture"), "model.texture", sourceFile, warnings);
             return new YamlBlockModelDefinition(type, texture, null, null);
         }
 
         if (type == YamlBlockModelType.SIDED) {
-            ConfigurationSection texturesSection = getChildSection(modelSection, "textures", sourceFile, errors);
+            ConfigurationSection texturesSection = getChildSection(modelSection, "textures", sourceFile, errors, warnings);
             if (texturesSection == null) {
                 errors.add("block.model.textures is required for type sided in " + sourceFile.getPath());
                 return null;
@@ -128,7 +133,7 @@ class YamlBlockReader {
             Map<String, String> textures = new HashMap<>();
             String[] directions = { "north", "east", "south", "west", "up", "down" };
             for (String direction : directions) {
-                String value = parseOptionalString(texturesSection.get(direction), "model.textures." + direction, sourceFile, errors);
+                String value = parseOptionalString(texturesSection.get(direction), "model.textures." + direction, sourceFile, warnings);
                 if (value == null) {
                     errors.add("block.model.textures." + direction + " is required in " + sourceFile.getPath());
                     return null;
@@ -138,16 +143,16 @@ class YamlBlockReader {
             return new YamlBlockModelDefinition(type, null, textures, null);
         }
 
-        String modelPath = parseOptionalString(modelSection.get("json"), "model.json", sourceFile, errors);
+        String modelPath = parseOptionalString(modelSection.get("json"), "model.json", sourceFile, warnings);
         if (modelPath == null) {
-            modelPath = parseOptionalString(modelSection.get("model"), "model.model", sourceFile, errors);
+            modelPath = parseOptionalString(modelSection.get("model"), "model.model", sourceFile, warnings);
         }
         if (modelPath == null) {
             errors.add("block.model.json is required for type custom in " + sourceFile.getPath());
             return null;
         }
         String editorTexture = parseRequiredString(modelSection.get("editor_texture"), "model.editor_texture", sourceFile, errors);
-        ConfigurationSection texturesSection = getChildSection(modelSection, "textures", sourceFile, errors);
+        ConfigurationSection texturesSection = getChildSection(modelSection, "textures", sourceFile, errors, warnings);
         if (texturesSection == null) {
             errors.add("block.model.textures is required for type custom in " + sourceFile.getPath());
             return null;
@@ -165,15 +170,15 @@ class YamlBlockReader {
         return new YamlBlockModelDefinition(type, null, null, customModel);
     }
 
-    private static YamlBlockModelType parseModelType(Object rawType, File sourceFile, List<String> errors) {
+    private static YamlBlockModelType parseModelType(Object rawType, File sourceFile, List<String> warnings) {
         if (rawType == null) return YamlBlockModelType.SIMPLE;
         if (!(rawType instanceof String)) {
-            errors.add("block.model.type must be a string in " + sourceFile.getPath());
+            warnOptional(warnings, "block.model.type must be a string in " + sourceFile.getPath());
             return null;
         }
         String trimmed = ((String) rawType).trim();
         if (trimmed.isEmpty()) {
-            errors.add("block.model.type must not be empty in " + sourceFile.getPath());
+            warnOptional(warnings, "block.model.type must not be empty in " + sourceFile.getPath());
             return null;
         }
         switch (trimmed.toLowerCase(Locale.ROOT)) {
@@ -184,47 +189,61 @@ class YamlBlockReader {
             case "custom":
                 return YamlBlockModelType.CUSTOM;
             default:
-                errors.add("Unknown block.model.type '" + trimmed + "' in " + sourceFile.getPath());
+                warnOptional(warnings, "Unknown block.model.type '" + trimmed + "' in " + sourceFile.getPath());
                 return null;
         }
     }
 
     private static YamlBlockMiningSpeedDefinition parseMiningSpeed(
-            ConfigurationSection miningSection, YamlPackDefinition pack, File sourceFile, List<String> errors
+            ConfigurationSection miningSection,
+            YamlPackDefinition pack,
+            File sourceFile,
+            List<String> errors,
+            List<String> warnings
     ) {
         if (miningSection == null) return null;
 
-        Integer defaultValue = parseInteger(miningSection.get("default"), MIN_MINING_SPEED, MAX_MINING_SPEED,
-                "mining_speed.default", sourceFile, errors);
+        Integer defaultValue = parseOptionalInteger(miningSection.get("default"), MIN_MINING_SPEED, MAX_MINING_SPEED,
+                "mining_speed.default", sourceFile, warnings);
 
         List<YamlBlockVanillaMiningSpeedEntry> vanillaEntries = new ArrayList<>();
         if (miningSection.isSet("vanilla")) {
             Object rawVanilla = miningSection.get("vanilla");
             if (!(rawVanilla instanceof List<?>)) {
-                errors.add("block.mining_speed.vanilla must be a list in " + sourceFile.getPath());
-                return null;
+                warnOptional(warnings, "block.mining_speed.vanilla must be a list in " + sourceFile.getPath());
+                rawVanilla = null;
             }
-            int index = 0;
-            for (Object entry : (List<?>) rawVanilla) {
-                if (!(entry instanceof Map<?, ?>)) {
-                    errors.add("block.mining_speed.vanilla entry " + index + " must be a map in " + sourceFile.getPath());
-                    return null;
+            if (rawVanilla instanceof List<?>) {
+                int index = 0;
+                for (Object entry : (List<?>) rawVanilla) {
+                    if (!(entry instanceof Map<?, ?>)) {
+                        warnOptional(warnings, "block.mining_speed.vanilla entry " + index + " must be a map in "
+                                + sourceFile.getPath());
+                        index++;
+                        continue;
+                    }
+                    Map<?, ?> map = (Map<?, ?>) entry;
+                    Object materialValue = map.get("tool");
+                    if (materialValue == null) materialValue = map.get("material");
+                    VMaterial material = parseOptionalVMaterial(materialValue,
+                            "mining_speed.vanilla[" + index + "].tool", sourceFile, warnings);
+                    Object rawValue = map.containsKey("value") ? map.get("value") : map.get("speed");
+                    String valueField = map.containsKey("value")
+                            ? "mining_speed.vanilla[" + index + "].value"
+                            : "mining_speed.vanilla[" + index + "].speed";
+                    Integer value = parseOptionalInteger(rawValue, MIN_MINING_SPEED, MAX_MINING_SPEED,
+                            valueField, sourceFile, warnings);
+                    Boolean allowCustom = parseOptionalBoolean(map.get("allow_custom_items"),
+                            "mining_speed.vanilla[" + index + "].allow_custom_items", sourceFile, warnings);
+                    if (material == null || value == null) {
+                        index++;
+                        continue;
+                    }
+                    vanillaEntries.add(new YamlBlockVanillaMiningSpeedEntry(
+                            material, value, allowCustom == null || allowCustom
+                    ));
+                    index++;
                 }
-                Map<?, ?> map = (Map<?, ?>) entry;
-                Object materialValue = map.get("tool");
-                if (materialValue == null) materialValue = map.get("material");
-                VMaterial material = parseVMaterial(materialValue, "mining_speed.vanilla[" + index + "].tool", sourceFile, errors);
-                Object rawValue = map.containsKey("value") ? map.get("value") : map.get("speed");
-                String valueField = map.containsKey("value")
-                        ? "mining_speed.vanilla[" + index + "].value"
-                        : "mining_speed.vanilla[" + index + "].speed";
-                Integer value = parseInteger(rawValue, MIN_MINING_SPEED, MAX_MINING_SPEED,
-                        valueField, sourceFile, errors);
-                Boolean allowCustom = parseBoolean(map.get("allow_custom_items"),
-                        "mining_speed.vanilla[" + index + "].allow_custom_items", sourceFile, errors);
-                if (material == null || value == null) return null;
-                vanillaEntries.add(new YamlBlockVanillaMiningSpeedEntry(material, value, allowCustom == null || allowCustom));
-                index++;
             }
         }
 
@@ -232,29 +251,40 @@ class YamlBlockReader {
         if (miningSection.isSet("custom")) {
             Object rawCustom = miningSection.get("custom");
             if (!(rawCustom instanceof List<?>)) {
-                errors.add("block.mining_speed.custom must be a list in " + sourceFile.getPath());
-                return null;
+                warnOptional(warnings, "block.mining_speed.custom must be a list in " + sourceFile.getPath());
+                rawCustom = null;
             }
-            int index = 0;
-            for (Object entry : (List<?>) rawCustom) {
-                if (!(entry instanceof Map<?, ?>)) {
-                    errors.add("block.mining_speed.custom entry " + index + " must be a map in " + sourceFile.getPath());
-                    return null;
+            if (rawCustom instanceof List<?>) {
+                int index = 0;
+                for (Object entry : (List<?>) rawCustom) {
+                    if (!(entry instanceof Map<?, ?>)) {
+                        warnOptional(warnings, "block.mining_speed.custom entry " + index + " must be a map in "
+                                + sourceFile.getPath());
+                        index++;
+                        continue;
+                    }
+                    Map<?, ?> map = (Map<?, ?>) entry;
+                    Object itemValue = map.get("item");
+                    String itemId = parseOptionalString(itemValue, "mining_speed.custom[" + index + "].item",
+                            sourceFile, warnings);
+                    Object rawValue = map.containsKey("value") ? map.get("value") : map.get("speed");
+                    String valueField = map.containsKey("value")
+                            ? "mining_speed.custom[" + index + "].value"
+                            : "mining_speed.custom[" + index + "].speed";
+                    Integer value = parseOptionalInteger(rawValue, MIN_MINING_SPEED, MAX_MINING_SPEED,
+                            valueField, sourceFile, warnings);
+                    if (itemId == null || value == null) {
+                        index++;
+                        continue;
+                    }
+                    ParsedId parsedItem = parseOptionalId(itemId, pack.namespace, sourceFile, warnings);
+                    if (parsedItem == null) {
+                        index++;
+                        continue;
+                    }
+                    customEntries.add(new YamlBlockCustomMiningSpeedEntry(parsedItem.internalName, value));
+                    index++;
                 }
-                Map<?, ?> map = (Map<?, ?>) entry;
-                Object itemValue = map.get("item");
-                String itemId = parseRequiredString(itemValue, "mining_speed.custom[" + index + "].item", sourceFile, errors);
-                Object rawValue = map.containsKey("value") ? map.get("value") : map.get("speed");
-                String valueField = map.containsKey("value")
-                        ? "mining_speed.custom[" + index + "].value"
-                        : "mining_speed.custom[" + index + "].speed";
-                Integer value = parseInteger(rawValue, MIN_MINING_SPEED, MAX_MINING_SPEED,
-                        valueField, sourceFile, errors);
-                if (itemId == null || value == null) return null;
-                ParsedId parsedItem = parseId(itemId, pack.namespace, sourceFile, errors);
-                if (parsedItem == null) return null;
-                customEntries.add(new YamlBlockCustomMiningSpeedEntry(parsedItem.internalName, value));
-                index++;
             }
         }
 
@@ -263,46 +293,56 @@ class YamlBlockReader {
     }
 
     private static YamlBlockSoundsDefinition parseSounds(
-            ConfigurationSection soundsSection, File sourceFile, List<String> errors
+            ConfigurationSection soundsSection, File sourceFile, List<String> warnings
     ) {
         if (soundsSection == null) return null;
 
-        YamlSoundDefinition leftClick = parseSoundEntry(soundsSection.get("left_click"), "sounds.left_click", sourceFile, errors);
-        YamlSoundDefinition rightClick = parseSoundEntry(soundsSection.get("right_click"), "sounds.right_click", sourceFile, errors);
-        YamlSoundDefinition breakSound = parseSoundEntry(soundsSection.get("break"), "sounds.break", sourceFile, errors);
-        YamlSoundDefinition step = parseSoundEntry(soundsSection.get("step"), "sounds.step", sourceFile, errors);
+        YamlSoundDefinition leftClick = parseSoundEntry(soundsSection.get("left_click"), "sounds.left_click",
+                sourceFile, warnings);
+        YamlSoundDefinition rightClick = parseSoundEntry(soundsSection.get("right_click"), "sounds.right_click",
+                sourceFile, warnings);
+        YamlSoundDefinition breakSound = parseSoundEntry(soundsSection.get("break"), "sounds.break",
+                sourceFile, warnings);
+        YamlSoundDefinition step = parseSoundEntry(soundsSection.get("step"), "sounds.step",
+                sourceFile, warnings);
 
         if (leftClick == null && rightClick == null && breakSound == null && step == null) return null;
         return new YamlBlockSoundsDefinition(leftClick, rightClick, breakSound, step);
     }
 
     private static YamlSoundDefinition parseSoundEntry(
-            Object rawValue, String fieldName, File sourceFile, List<String> errors
+            Object rawValue, String fieldName, File sourceFile, List<String> warnings
     ) {
         if (rawValue == null) return null;
         if (rawValue instanceof String) {
-            VSoundType sound = parseSoundType(rawValue, fieldName, sourceFile, errors);
+            VSoundType sound = parseSoundTypeOptional(rawValue, fieldName, sourceFile, warnings);
             return sound == null ? null : new YamlSoundDefinition(sound, 1f, 1f);
         }
-        if (!(rawValue instanceof Map<?, ?>)) {
-            errors.add("block." + fieldName + " must be a string or map in " + sourceFile.getPath());
+        ConfigurationSection section = rawValue instanceof ConfigurationSection ? (ConfigurationSection) rawValue : null;
+        Map<?, ?> map = rawValue instanceof Map<?, ?> ? (Map<?, ?>) rawValue : null;
+        if (section == null && map == null) {
+            warnOptional(warnings, "block." + fieldName + " must be a string or map in " + sourceFile.getPath());
             return null;
         }
 
-        Map<?, ?> map = (Map<?, ?>) rawValue;
-        VSoundType sound = parseSoundType(map.get("sound"), fieldName + ".sound", sourceFile, errors);
-        Float volume = parseFloat(map.get("volume"), 0.001f, Float.MAX_VALUE, fieldName + ".volume", sourceFile, errors);
-        Float pitch = parseFloat(map.get("pitch"), 0.001f, Float.MAX_VALUE, fieldName + ".pitch", sourceFile, errors);
+        Object rawSound = section != null ? section.get("sound") : map.get("sound");
+        Object rawVolume = section != null ? section.get("volume") : map.get("volume");
+        Object rawPitch = section != null ? section.get("pitch") : map.get("pitch");
+        VSoundType sound = parseSoundTypeOptional(rawSound, fieldName + ".sound", sourceFile, warnings);
+        Float volume = parseOptionalFloat(rawVolume, 0.001f, Float.MAX_VALUE, fieldName + ".volume",
+                sourceFile, warnings);
+        Float pitch = parseOptionalFloat(rawPitch, 0.001f, Float.MAX_VALUE, fieldName + ".pitch",
+                sourceFile, warnings);
         if (sound == null) return null;
         return new YamlSoundDefinition(sound, volume == null ? 1f : volume, pitch == null ? 1f : pitch);
     }
 
     private static List<YamlBlockDropDefinition> parseDrops(
-            Object rawDrops, YamlPackDefinition pack, File sourceFile, List<String> errors
+            Object rawDrops, YamlPackDefinition pack, File sourceFile, List<String> errors, List<String> warnings
     ) {
         if (rawDrops == null) return Collections.emptyList();
         if (!(rawDrops instanceof List<?>)) {
-            errors.add("block.drops must be a list in " + sourceFile.getPath());
+            warnOptional(warnings, "block.drops must be a list in " + sourceFile.getPath());
             return Collections.emptyList();
         }
 
@@ -310,41 +350,51 @@ class YamlBlockReader {
         int dropIndex = 0;
         for (Object rawEntry : (List<?>) rawDrops) {
             if (!(rawEntry instanceof Map<?, ?>)) {
-                errors.add("block.drops entry " + dropIndex + " must be a map in " + sourceFile.getPath());
-                return Collections.emptyList();
+                warnOptional(warnings, "block.drops entry " + dropIndex + " must be a map in " + sourceFile.getPath());
+                dropIndex++;
+                continue;
             }
             Map<?, ?> map = (Map<?, ?>) rawEntry;
 
-            List<YamlBlockDropOutputDefinition> outputs = parseDropOutputs(map.get("outputs"),
-                    pack, sourceFile, errors, dropIndex);
-            if (outputs.isEmpty()) return Collections.emptyList();
+            List<YamlBlockDropOutputDefinition> outputs = parseDropOutputs(
+                    map.get("outputs"), pack, sourceFile, errors, warnings, dropIndex
+            );
+            if (outputs == null || outputs.isEmpty()) {
+                warnOptional(warnings, "block.drops[" + dropIndex + "].outputs is invalid in " + sourceFile.getPath());
+                dropIndex++;
+                continue;
+            }
 
-            SilkTouchRequirement silkTouch = parseSilkTouch(map.get("silk_touch"), sourceFile, errors);
+            SilkTouchRequirement silkTouch = parseSilkTouch(map.get("silk_touch"), sourceFile, warnings);
             Integer minFortune = null;
             Integer maxFortune = null;
             Object fortuneValue = map.get("fortune");
             if (fortuneValue != null) {
                 if (!(fortuneValue instanceof Map<?, ?>)) {
-                    errors.add("block.drops[" + dropIndex + "].fortune must be a map in " + sourceFile.getPath());
-                    return Collections.emptyList();
-                }
-                Map<?, ?> fortuneMap = (Map<?, ?>) fortuneValue;
-                minFortune = parseInteger(fortuneMap.get("min"), 0, Integer.MAX_VALUE,
-                        "drops[" + dropIndex + "].fortune.min", sourceFile, errors);
-                maxFortune = parseInteger(fortuneMap.get("max"), 0, Integer.MAX_VALUE,
-                        "drops[" + dropIndex + "].fortune.max", sourceFile, errors);
-                if (minFortune != null && maxFortune != null && maxFortune < minFortune) {
-                    errors.add("block.drops[" + dropIndex + "].fortune.max must be >= min in " + sourceFile.getPath());
-                    return Collections.emptyList();
+                    warnOptional(warnings, "block.drops[" + dropIndex + "].fortune must be a map in " + sourceFile.getPath());
+                } else {
+                    Map<?, ?> fortuneMap = (Map<?, ?>) fortuneValue;
+                    minFortune = parseOptionalInteger(fortuneMap.get("min"), 0, Integer.MAX_VALUE,
+                            "drops[" + dropIndex + "].fortune.min", sourceFile, warnings);
+                    maxFortune = parseOptionalInteger(fortuneMap.get("max"), 0, Integer.MAX_VALUE,
+                            "drops[" + dropIndex + "].fortune.max", sourceFile, warnings);
+                    if (minFortune != null && maxFortune != null && maxFortune < minFortune) {
+                        warnOptional(warnings, "block.drops[" + dropIndex + "].fortune.max must be >= min in "
+                                + sourceFile.getPath());
+                        minFortune = null;
+                        maxFortune = null;
+                    }
                 }
             }
 
-            Boolean cancelNormalDrops = parseBoolean(map.get("cancel_normal_drops"),
-                    "drops[" + dropIndex + "].cancel_normal_drops", sourceFile, errors);
-            YamlRequiredItemsDefinition requiredItems = parseRequiredItems(map.get("required_held_items"),
-                    pack, sourceFile, errors, dropIndex);
-            YamlAllowedBiomesDefinition allowedBiomes = parseAllowedBiomes(map.get("biomes"),
-                    sourceFile, errors, dropIndex);
+            Boolean cancelNormalDrops = parseOptionalBoolean(map.get("cancel_normal_drops"),
+                    "drops[" + dropIndex + "].cancel_normal_drops", sourceFile, warnings);
+            YamlRequiredItemsDefinition requiredItems = parseRequiredItems(
+                    map.get("required_held_items"), pack, sourceFile, warnings, dropIndex
+            );
+            YamlAllowedBiomesDefinition allowedBiomes = parseAllowedBiomes(
+                    map.get("biomes"), sourceFile, warnings, dropIndex
+            );
 
             drops.add(new YamlBlockDropDefinition(outputs, silkTouch, minFortune, maxFortune,
                     cancelNormalDrops, requiredItems, allowedBiomes));
@@ -355,14 +405,19 @@ class YamlBlockReader {
     }
 
     private static List<YamlBlockDropOutputDefinition> parseDropOutputs(
-            Object rawOutputs, YamlPackDefinition pack, File sourceFile, List<String> errors, int dropIndex
+            Object rawOutputs,
+            YamlPackDefinition pack,
+            File sourceFile,
+            List<String> errors,
+            List<String> warnings,
+            int dropIndex
     ) {
         if (rawOutputs == null) {
-            errors.add("block.drops[" + dropIndex + "].outputs is required in " + sourceFile.getPath());
+            warnOptional(warnings, "block.drops[" + dropIndex + "].outputs is required in " + sourceFile.getPath());
             return Collections.emptyList();
         }
         if (!(rawOutputs instanceof List<?>)) {
-            errors.add("block.drops[" + dropIndex + "].outputs must be a list in " + sourceFile.getPath());
+            warnOptional(warnings, "block.drops[" + dropIndex + "].outputs must be a list in " + sourceFile.getPath());
             return Collections.emptyList();
         }
 
@@ -370,33 +425,39 @@ class YamlBlockReader {
         int outputIndex = 0;
         for (Object rawEntry : (List<?>) rawOutputs) {
             if (!(rawEntry instanceof Map<?, ?>)) {
-                errors.add("block.drops[" + dropIndex + "].outputs[" + outputIndex + "] must be a map in "
+                warnOptional(warnings, "block.drops[" + dropIndex + "].outputs[" + outputIndex + "] must be a map in "
                         + sourceFile.getPath());
-                return Collections.emptyList();
+                outputIndex++;
+                continue;
             }
             Map<?, ?> map = (Map<?, ?>) rawEntry;
 
-            String itemId = parseOptionalString(map.get("item"), "drops[" + dropIndex + "].outputs[" + outputIndex + "].item", sourceFile, errors);
+            String itemId = parseOptionalString(map.get("item"),
+                    "drops[" + dropIndex + "].outputs[" + outputIndex + "].item", sourceFile, warnings);
             Object rawMaterial = map.get("material");
-            VMaterial material = rawMaterial != null ? parseVMaterial(rawMaterial,
-                    "drops[" + dropIndex + "].outputs[" + outputIndex + "].material", sourceFile, errors) : null;
+            VMaterial material = rawMaterial != null ? parseOptionalVMaterial(rawMaterial,
+                    "drops[" + dropIndex + "].outputs[" + outputIndex + "].material", sourceFile, warnings) : null;
             if ((itemId == null) == (material == null)) {
-                errors.add("block.drops[" + dropIndex + "].outputs[" + outputIndex + "] must define exactly one of item or material in "
-                        + sourceFile.getPath());
-                return Collections.emptyList();
+                warnOptional(warnings, "block.drops[" + dropIndex + "].outputs[" + outputIndex
+                        + "] must define exactly one of item or material in " + sourceFile.getPath());
+                outputIndex++;
+                continue;
             }
 
-            Integer amount = parseInteger(map.get("amount"), 1, 64,
-                    "drops[" + dropIndex + "].outputs[" + outputIndex + "].amount", sourceFile, errors);
-            Double chance = parseDouble(map.get("chance"), 0.0, 100.0,
-                    "drops[" + dropIndex + "].outputs[" + outputIndex + "].chance", sourceFile, errors);
+            Integer amount = parseOptionalInteger(map.get("amount"), 1, 64,
+                    "drops[" + dropIndex + "].outputs[" + outputIndex + "].amount", sourceFile, warnings);
+            Double chance = parseOptionalDouble(map.get("chance"), 0.0, 100.0,
+                    "drops[" + dropIndex + "].outputs[" + outputIndex + "].chance", sourceFile, warnings);
             if (amount == null) amount = 1;
             if (chance == null) chance = 100.0;
 
             String customInternalName = null;
             if (itemId != null) {
-                ParsedId parsedItem = parseId(itemId, pack.namespace, sourceFile, errors);
-                if (parsedItem == null) return Collections.emptyList();
+                ParsedId parsedItem = parseOptionalId(itemId, pack.namespace, sourceFile, warnings);
+                if (parsedItem == null) {
+                    outputIndex++;
+                    continue;
+                }
                 customInternalName = parsedItem.internalName;
             }
 
@@ -408,42 +469,50 @@ class YamlBlockReader {
     }
 
     private static YamlRequiredItemsDefinition parseRequiredItems(
-            Object rawValue, YamlPackDefinition pack, File sourceFile, List<String> errors, int dropIndex
+            Object rawValue, YamlPackDefinition pack, File sourceFile, List<String> warnings, int dropIndex
     ) {
         if (rawValue == null) return null;
         if (!(rawValue instanceof Map<?, ?>)) {
-            errors.add("block.drops[" + dropIndex + "].required_held_items must be a map in " + sourceFile.getPath());
+            warnOptional(warnings, "block.drops[" + dropIndex + "].required_held_items must be a map in "
+                    + sourceFile.getPath());
             return null;
         }
         Map<?, ?> map = (Map<?, ?>) rawValue;
 
-        Boolean enabled = parseBoolean(map.get("enabled"),
-                "drops[" + dropIndex + "].required_held_items.enabled", sourceFile, errors);
-        Boolean invert = parseBoolean(map.get("invert"),
-                "drops[" + dropIndex + "].required_held_items.invert", sourceFile, errors);
+        Boolean enabled = parseOptionalBoolean(map.get("enabled"),
+                "drops[" + dropIndex + "].required_held_items.enabled", sourceFile, warnings);
+        Boolean invert = parseOptionalBoolean(map.get("invert"),
+                "drops[" + dropIndex + "].required_held_items.invert", sourceFile, warnings);
 
         List<YamlRequiredVanillaItemDefinition> vanillaItems = new ArrayList<>();
         Object rawVanilla = map.get("vanilla");
         if (rawVanilla != null) {
             if (!(rawVanilla instanceof List<?>)) {
-                errors.add("block.drops[" + dropIndex + "].required_held_items.vanilla must be a list in " + sourceFile.getPath());
-                return null;
-            }
-            int index = 0;
-            for (Object entry : (List<?>) rawVanilla) {
-                if (!(entry instanceof Map<?, ?>)) {
-                    errors.add("block.drops[" + dropIndex + "].required_held_items.vanilla[" + index + "] must be a map in "
-                            + sourceFile.getPath());
-                    return null;
+                warnOptional(warnings, "block.drops[" + dropIndex + "].required_held_items.vanilla must be a list in "
+                        + sourceFile.getPath());
+            } else {
+                int index = 0;
+                for (Object entry : (List<?>) rawVanilla) {
+                    if (!(entry instanceof Map<?, ?>)) {
+                        warnOptional(warnings, "block.drops[" + dropIndex + "].required_held_items.vanilla[" + index
+                                + "] must be a map in " + sourceFile.getPath());
+                        index++;
+                        continue;
+                    }
+                    Map<?, ?> entryMap = (Map<?, ?>) entry;
+                    VMaterial material = parseOptionalVMaterial(entryMap.get("material"),
+                            "drops[" + dropIndex + "].required_held_items.vanilla[" + index + "].material",
+                            sourceFile, warnings);
+                    Boolean allowCustom = parseOptionalBoolean(entryMap.get("allow_custom_items"),
+                            "drops[" + dropIndex + "].required_held_items.vanilla[" + index + "].allow_custom_items",
+                            sourceFile, warnings);
+                    if (material != null) {
+                        vanillaItems.add(new YamlRequiredVanillaItemDefinition(
+                                material, allowCustom == null || allowCustom
+                        ));
+                    }
+                    index++;
                 }
-                Map<?, ?> entryMap = (Map<?, ?>) entry;
-                VMaterial material = parseVMaterial(entryMap.get("material"),
-                        "drops[" + dropIndex + "].required_held_items.vanilla[" + index + "].material", sourceFile, errors);
-                Boolean allowCustom = parseBoolean(entryMap.get("allow_custom_items"),
-                        "drops[" + dropIndex + "].required_held_items.vanilla[" + index + "].allow_custom_items", sourceFile, errors);
-                if (material == null) return null;
-                vanillaItems.add(new YamlRequiredVanillaItemDefinition(material, allowCustom == null || allowCustom));
-                index++;
             }
         }
 
@@ -451,18 +520,24 @@ class YamlBlockReader {
         Object rawCustom = map.get("custom");
         if (rawCustom != null) {
             if (!(rawCustom instanceof List<?>)) {
-                errors.add("block.drops[" + dropIndex + "].required_held_items.custom must be a list in " + sourceFile.getPath());
-                return null;
-            }
-            int index = 0;
-            for (Object entry : (List<?>) rawCustom) {
-                String id = parseRequiredString(entry, "drops[" + dropIndex + "].required_held_items.custom[" + index + "]",
-                        sourceFile, errors);
-                if (id == null) return null;
-                ParsedId parsedId = parseId(id, pack.namespace, sourceFile, errors);
-                if (parsedId == null) return null;
-                customItems.add(parsedId.internalName);
-                index++;
+                warnOptional(warnings, "block.drops[" + dropIndex + "].required_held_items.custom must be a list in "
+                        + sourceFile.getPath());
+            } else {
+                int index = 0;
+                for (Object entry : (List<?>) rawCustom) {
+                    String id = parseOptionalString(entry,
+                            "drops[" + dropIndex + "].required_held_items.custom[" + index + "]",
+                            sourceFile, warnings);
+                    if (id == null) {
+                        index++;
+                        continue;
+                    }
+                    ParsedId parsedId = parseOptionalId(id, pack.namespace, sourceFile, warnings);
+                    if (parsedId != null) {
+                        customItems.add(parsedId.internalName);
+                    }
+                    index++;
+                }
             }
         }
 
@@ -470,38 +545,38 @@ class YamlBlockReader {
     }
 
     private static YamlAllowedBiomesDefinition parseAllowedBiomes(
-            Object rawValue, File sourceFile, List<String> errors, int dropIndex
+            Object rawValue, File sourceFile, List<String> warnings, int dropIndex
     ) {
         if (rawValue == null) return null;
         if (!(rawValue instanceof Map<?, ?>)) {
-            errors.add("block.drops[" + dropIndex + "].biomes must be a map in " + sourceFile.getPath());
+            warnOptional(warnings, "block.drops[" + dropIndex + "].biomes must be a map in " + sourceFile.getPath());
             return null;
         }
 
         Map<?, ?> map = (Map<?, ?>) rawValue;
         List<VBiome> whitelist = parseBiomeList(map.get("whitelist"),
-                "drops[" + dropIndex + "].biomes.whitelist", sourceFile, errors);
+                "drops[" + dropIndex + "].biomes.whitelist", sourceFile, warnings);
         List<VBiome> blacklist = parseBiomeList(map.get("blacklist"),
-                "drops[" + dropIndex + "].biomes.blacklist", sourceFile, errors);
-        if (whitelist == null || blacklist == null) return null;
+                "drops[" + dropIndex + "].biomes.blacklist", sourceFile, warnings);
         return new YamlAllowedBiomesDefinition(whitelist, blacklist);
     }
 
     private static List<VBiome> parseBiomeList(
-            Object rawValue, String fieldName, File sourceFile, List<String> errors
+            Object rawValue, String fieldName, File sourceFile, List<String> warnings
     ) {
         if (rawValue == null) return Collections.emptyList();
         if (!(rawValue instanceof List<?>)) {
-            errors.add("block." + fieldName + " must be a list in " + sourceFile.getPath());
-            return null;
+            warnOptional(warnings, "block." + fieldName + " must be a list in " + sourceFile.getPath());
+            return Collections.emptyList();
         }
 
         List<VBiome> result = new ArrayList<>();
         int index = 0;
         for (Object entry : (List<?>) rawValue) {
-            VBiome biome = parseVBiome(entry, fieldName + "[" + index + "]", sourceFile, errors);
-            if (biome == null) return null;
-            result.add(biome);
+            VBiome biome = parseOptionalVBiome(entry, fieldName + "[" + index + "]", sourceFile, warnings);
+            if (biome != null) {
+                result.add(biome);
+            }
             index++;
         }
         return result;
@@ -540,6 +615,50 @@ class YamlBlockReader {
             Validation.safeName(name);
         } catch (ValidationException | ProgrammingValidationException ex) {
             errors.add("Invalid id '" + rawId + "' in " + sourceFile.getPath() + ": " + ex.getMessage());
+            return null;
+        }
+
+        String fullId = namespace + ":" + name;
+        String internalName = namespace + "_" + name;
+        return new ParsedId(fullId, internalName, name);
+    }
+
+    private static ParsedId parseOptionalId(
+            String rawId, String defaultNamespace, File sourceFile, List<String> warnings
+    ) {
+        if (rawId == null || rawId.trim().isEmpty()) return null;
+        String namespace;
+        String name;
+
+        int colonIndex = rawId.indexOf(':');
+        if (colonIndex >= 0) {
+            if (rawId.indexOf(':', colonIndex + 1) >= 0) {
+                warnOptional(warnings, "Invalid id '" + rawId + "' in " + sourceFile.getPath()
+                        + ": too many ':' characters");
+                return null;
+            }
+            namespace = rawId.substring(0, colonIndex);
+            name = rawId.substring(colonIndex + 1);
+        } else {
+            namespace = defaultNamespace;
+            name = rawId;
+        }
+
+        if (namespace == null || namespace.isEmpty()) {
+            warnOptional(warnings, "Missing namespace for id '" + rawId + "' in " + sourceFile.getPath());
+            return null;
+        }
+        if (name.isEmpty()) {
+            warnOptional(warnings, "Missing name for id '" + rawId + "' in " + sourceFile.getPath());
+            return null;
+        }
+
+        try {
+            Validation.safeName(namespace);
+            Validation.safeName(name);
+        } catch (ValidationException | ProgrammingValidationException ex) {
+            warnOptional(warnings, "Invalid id '" + rawId + "' in " + sourceFile.getPath()
+                    + ": " + ex.getMessage());
             return null;
         }
 
@@ -609,13 +728,13 @@ class YamlBlockReader {
     }
 
     private static ConfigurationSection getChildSection(
-            ConfigurationSection parent, String name, File sourceFile, List<String> errors
+            ConfigurationSection parent, String name, File sourceFile, List<String> errors, List<String> warnings
     ) {
         if (parent == null) return null;
         if (!parent.isSet(name)) return null;
         ConfigurationSection section = parent.getConfigurationSection(name);
         if (section == null) {
-            errors.add("block." + name + " must be a map in " + sourceFile.getPath());
+            warnOptional(warnings, "block." + name + " must be a map in " + sourceFile.getPath());
             return null;
         }
         return section;
@@ -641,15 +760,18 @@ class YamlBlockReader {
     }
 
     private static String parseOptionalString(
-            Object rawValue, String fieldName, File sourceFile, List<String> errors
+            Object rawValue, String fieldName, File sourceFile, List<String> warnings
     ) {
         if (rawValue == null) return null;
         if (!(rawValue instanceof String)) {
-            errors.add("block." + fieldName + " must be a string in " + sourceFile.getPath());
+            warnOptional(warnings, "block." + fieldName + " must be a string in " + sourceFile.getPath());
             return null;
         }
         String trimmed = ((String) rawValue).trim();
-        if (trimmed.isEmpty()) return null;
+        if (trimmed.isEmpty()) {
+            warnOptional(warnings, "block." + fieldName + " must not be empty in " + sourceFile.getPath());
+            return null;
+        }
         return trimmed;
     }
 
@@ -684,8 +806,40 @@ class YamlBlockReader {
         return value;
     }
 
-    private static Double parseDouble(
-            Object rawValue, double min, double max, String fieldName, File sourceFile, List<String> errors
+    private static Integer parseOptionalInteger(
+            Object rawValue, int min, int max, String fieldName, File sourceFile, List<String> warnings
+    ) {
+        if (rawValue == null) return null;
+        Integer value = null;
+        if (rawValue instanceof Number) {
+            double numeric = ((Number) rawValue).doubleValue();
+            if (numeric % 1 != 0) {
+                warnOptional(warnings, "block." + fieldName + " must be an integer in " + sourceFile.getPath());
+                return null;
+            }
+            value = (int) numeric;
+        } else if (rawValue instanceof String) {
+            String trimmed = ((String) rawValue).trim();
+            if (!isInteger(trimmed)) {
+                warnOptional(warnings, "block." + fieldName + " must be an integer in " + sourceFile.getPath());
+                return null;
+            }
+            value = Integer.parseInt(trimmed);
+        } else {
+            warnOptional(warnings, "block." + fieldName + " must be an integer in " + sourceFile.getPath());
+            return null;
+        }
+
+        if (value < min || value > max) {
+            warnOptional(warnings, "block." + fieldName + " must be between " + min + " and " + max
+                    + " in " + sourceFile.getPath());
+            return null;
+        }
+        return value;
+    }
+
+    private static Double parseOptionalDouble(
+            Object rawValue, double min, double max, String fieldName, File sourceFile, List<String> warnings
     ) {
         if (rawValue == null) return null;
         Double value;
@@ -696,27 +850,28 @@ class YamlBlockReader {
             try {
                 value = Double.parseDouble(trimmed);
             } catch (NumberFormatException ex) {
-                errors.add("block." + fieldName + " must be a number in " + sourceFile.getPath());
+                warnOptional(warnings, "block." + fieldName + " must be a number in " + sourceFile.getPath());
                 return null;
             }
         } else {
-            errors.add("block." + fieldName + " must be a number in " + sourceFile.getPath());
+            warnOptional(warnings, "block." + fieldName + " must be a number in " + sourceFile.getPath());
             return null;
         }
 
         if (!Double.isFinite(value)) {
-            errors.add("block." + fieldName + " must be finite in " + sourceFile.getPath());
+            warnOptional(warnings, "block." + fieldName + " must be finite in " + sourceFile.getPath());
             return null;
         }
         if (value < min || value > max) {
-            errors.add("block." + fieldName + " must be between " + min + " and " + max + " in " + sourceFile.getPath());
+            warnOptional(warnings, "block." + fieldName + " must be between " + min + " and " + max
+                    + " in " + sourceFile.getPath());
             return null;
         }
         return value;
     }
 
-    private static Float parseFloat(
-            Object rawValue, float min, float max, String fieldName, File sourceFile, List<String> errors
+    private static Float parseOptionalFloat(
+            Object rawValue, float min, float max, String fieldName, File sourceFile, List<String> warnings
     ) {
         if (rawValue == null) return null;
         Float value;
@@ -727,27 +882,28 @@ class YamlBlockReader {
             try {
                 value = Float.parseFloat(trimmed);
             } catch (NumberFormatException ex) {
-                errors.add("block." + fieldName + " must be a number in " + sourceFile.getPath());
+                warnOptional(warnings, "block." + fieldName + " must be a number in " + sourceFile.getPath());
                 return null;
             }
         } else {
-            errors.add("block." + fieldName + " must be a number in " + sourceFile.getPath());
+            warnOptional(warnings, "block." + fieldName + " must be a number in " + sourceFile.getPath());
             return null;
         }
 
         if (!Float.isFinite(value)) {
-            errors.add("block." + fieldName + " must be finite in " + sourceFile.getPath());
+            warnOptional(warnings, "block." + fieldName + " must be finite in " + sourceFile.getPath());
             return null;
         }
         if (value < min || value > max) {
-            errors.add("block." + fieldName + " must be between " + min + " and " + max + " in " + sourceFile.getPath());
+            warnOptional(warnings, "block." + fieldName + " must be between " + min + " and " + max
+                    + " in " + sourceFile.getPath());
             return null;
         }
         return value;
     }
 
-    private static Boolean parseBoolean(
-            Object rawValue, String fieldName, File sourceFile, List<String> errors
+    private static Boolean parseOptionalBoolean(
+            Object rawValue, String fieldName, File sourceFile, List<String> warnings
     ) {
         if (rawValue == null) return null;
         if (rawValue instanceof Boolean) return (Boolean) rawValue;
@@ -756,7 +912,7 @@ class YamlBlockReader {
             if (trimmed.equals("true")) return true;
             if (trimmed.equals("false")) return false;
         }
-        errors.add("block." + fieldName + " must be true or false in " + sourceFile.getPath());
+        warnOptional(warnings, "block." + fieldName + " must be true or false in " + sourceFile.getPath());
         return null;
     }
 
@@ -782,6 +938,33 @@ class YamlBlockReader {
             return material;
         } catch (IllegalArgumentException ex) {
             errors.add("Unknown block." + fieldName + " '" + rawValue + "' in " + sourceFile.getPath());
+            return null;
+        }
+    }
+
+    private static VMaterial parseOptionalVMaterial(
+            Object rawValue, String fieldName, File sourceFile, List<String> warnings
+    ) {
+        if (rawValue == null) return null;
+        if (!(rawValue instanceof String)) {
+            warnOptional(warnings, "block." + fieldName + " must be a string in " + sourceFile.getPath());
+            return null;
+        }
+        String normalized = normalizeEnumKey((String) rawValue);
+        if (normalized == null) {
+            warnOptional(warnings, "Invalid block." + fieldName + " in " + sourceFile.getPath());
+            return null;
+        }
+        try {
+            VMaterial material = VMaterial.valueOf(normalized);
+            if (mcVersion < material.firstVersion || mcVersion > material.lastVersion) {
+                warnOptional(warnings, "block." + fieldName + " is not available in MC "
+                        + MCVersions.createString(mcVersion) + " (" + sourceFile.getPath() + ")");
+                return null;
+            }
+            return material;
+        } catch (IllegalArgumentException ex) {
+            warnOptional(warnings, "Unknown block." + fieldName + " '" + rawValue + "' in " + sourceFile.getPath());
             return null;
         }
     }
@@ -812,48 +995,80 @@ class YamlBlockReader {
         }
     }
 
-    private static VSoundType parseSoundType(
-            Object rawValue, String fieldName, File sourceFile, List<String> errors
+    private static VBiome parseOptionalVBiome(
+            Object rawValue, String fieldName, File sourceFile, List<String> warnings
     ) {
+        if (rawValue == null) return null;
         if (!(rawValue instanceof String)) {
-            errors.add("block." + fieldName + " must be a string in " + sourceFile.getPath());
+            warnOptional(warnings, "block." + fieldName + " must be a string in " + sourceFile.getPath());
             return null;
         }
         String normalized = normalizeEnumKey((String) rawValue);
         if (normalized == null) {
-            errors.add("Invalid block." + fieldName + " in " + sourceFile.getPath());
+            warnOptional(warnings, "Invalid block." + fieldName + " in " + sourceFile.getPath());
+            return null;
+        }
+        try {
+            VBiome biome = VBiome.valueOf(normalized);
+            if (mcVersion < biome.firstVersion || mcVersion > biome.lastVersion) {
+                warnOptional(warnings, "block." + fieldName + " is not available in MC "
+                        + MCVersions.createString(mcVersion) + " (" + sourceFile.getPath() + ")");
+                return null;
+            }
+            return biome;
+        } catch (IllegalArgumentException ex) {
+            warnOptional(warnings, "Unknown block." + fieldName + " '" + rawValue + "' in " + sourceFile.getPath());
+            return null;
+        }
+    }
+
+    private static VSoundType parseSoundTypeOptional(
+            Object rawValue, String fieldName, File sourceFile, List<String> warnings
+    ) {
+        if (!(rawValue instanceof String)) {
+            warnOptional(warnings, "block." + fieldName + " must be a string in " + sourceFile.getPath());
+            return null;
+        }
+        String normalized = normalizeEnumKey((String) rawValue);
+        if (normalized == null) {
+            warnOptional(warnings, "Invalid block." + fieldName + " in " + sourceFile.getPath());
             return null;
         }
         try {
             VSoundType sound = VSoundType.valueOf(normalized);
             if (mcVersion < sound.firstVersion || mcVersion > sound.lastVersion) {
-                errors.add("block." + fieldName + " is not available in MC "
+                warnOptional(warnings, "block." + fieldName + " is not available in MC "
                         + MCVersions.createString(mcVersion) + " (" + sourceFile.getPath() + ")");
                 return null;
             }
             return sound;
         } catch (IllegalArgumentException ex) {
-            errors.add("Unknown block." + fieldName + " '" + rawValue + "' in " + sourceFile.getPath());
+            warnOptional(warnings, "Unknown block." + fieldName + " '" + rawValue + "' in " + sourceFile.getPath());
             return null;
         }
     }
 
     private static SilkTouchRequirement parseSilkTouch(
-            Object rawValue, File sourceFile, List<String> errors
+            Object rawValue, File sourceFile, List<String> warnings
     ) {
         if (rawValue == null) return SilkTouchRequirement.OPTIONAL;
         if (!(rawValue instanceof String)) {
-            errors.add("block.drops.silk_touch must be a string in " + sourceFile.getPath());
-            return null;
+            warnOptional(warnings, "block.drops.silk_touch must be a string in " + sourceFile.getPath());
+            return SilkTouchRequirement.OPTIONAL;
         }
         String normalized = ((String) rawValue).trim().toUpperCase(Locale.ROOT);
         if (normalized.isEmpty()) return SilkTouchRequirement.OPTIONAL;
         try {
             return SilkTouchRequirement.valueOf(normalized);
         } catch (IllegalArgumentException ex) {
-            errors.add("Unknown block.drops.silk_touch '" + rawValue + "' in " + sourceFile.getPath());
-            return null;
+            warnOptional(warnings, "Unknown block.drops.silk_touch '" + rawValue + "' in " + sourceFile.getPath());
+            return SilkTouchRequirement.OPTIONAL;
         }
+    }
+
+    private static void warnOptional(List<String> warnings, String message) {
+        if (warnings == null) return;
+        warnings.add("WARNING - " + message + ". (This field will be ignored.)");
     }
 
     private static boolean isInteger(String value) {
