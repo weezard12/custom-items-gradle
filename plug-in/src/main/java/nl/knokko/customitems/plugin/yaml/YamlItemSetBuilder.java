@@ -133,14 +133,14 @@ public class YamlItemSetBuilder {
             itemSet.items.add(item);
         }
 
+        Map<String, KciBlock> createdBlocks = new HashMap<>();
         for (YamlBlockDefinition blockDefinition : blocks) {
             KciBlock block = new KciBlock(true);
             block.setName(blockDefinition.internalName);
             block.setModel(createBlockModel(blockDefinition, itemSet));
-            applyBlockMiningSpeed(blockDefinition, block, itemSet);
             applyBlockSounds(blockDefinition, block);
-            applyBlockDrops(blockDefinition, block, itemSet);
             itemSet.blocks.add(block);
+            createdBlocks.put(blockDefinition.internalName, block);
         }
 
         for (YamlItemDefinition itemDefinition : blockItems) {
@@ -151,6 +151,19 @@ public class YamlItemSetBuilder {
             applyEnchantments(itemDefinition, item);
             applyAttributes(itemDefinition, item);
             itemSet.items.add(item);
+        }
+
+        // Drops/mining speed can reference block items, so apply them after all items are registered.
+        for (YamlBlockDefinition blockDefinition : blocks) {
+            KciBlock block = createdBlocks.get(blockDefinition.internalName);
+            if (block == null) {
+                throw new ValidationException("Unknown block '" + blockDefinition.internalName
+                        + "' (" + blockDefinition.sourceFile.getPath() + ")");
+            }
+            KciBlock updated = block.copy(true);
+            applyBlockMiningSpeed(blockDefinition, updated, itemSet);
+            applyBlockDrops(blockDefinition, updated, itemSet);
+            itemSet.blocks.change(itemSet.blocks.getReference(block.getInternalID()), updated);
         }
 
         applyRecipes(recipes, itemSet);
