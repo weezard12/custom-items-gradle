@@ -1004,6 +1004,12 @@ public class YamlItemSetBuilder {
         }
         File textureFile = resolveTextureFile(blockDefinition.packDirectory, rawValue);
         if ((textureFile == null || !textureFile.isFile()) && useIdFallback) {
+            File internalNameFile = resolveTextureFile(blockDefinition.packDirectory, blockDefinition.internalName);
+            if (internalNameFile != null && internalNameFile.isFile()) {
+                textureFile = internalNameFile;
+            }
+        }
+        if ((textureFile == null || !textureFile.isFile()) && useIdFallback) {
             File globalTexture = resolveGlobalBlockTextureFile(blockDefinition.packDirectory, rawValue);
             if (globalTexture != null && globalTexture.isFile()) {
                 textureFile = globalTexture;
