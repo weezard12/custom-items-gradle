@@ -113,7 +113,12 @@ public class CustomItemsApi {
     }
 
     public static void placeBlock(Block destination, String customBlockName) {
-        Optional<KciBlock> customBlock = CustomItemsPlugin.getInstance().getSet().get().blocks.get(customBlockName);
+        ItemSet itemSet = CustomItemsPlugin.getInstance().getSet().get();
+        Optional<KciBlock> customBlock = itemSet.blocks.get(customBlockName);
+        if (!customBlock.isPresent() && customBlockName != null && customBlockName.indexOf(':') >= 0) {
+            String internalName = customBlockName.replace(':', '_');
+            customBlock = itemSet.blocks.get(internalName);
+        }
         if (customBlock.isPresent()) {
             MushroomBlockHelper.place(destination, customBlock.get());
         } else {
