@@ -101,7 +101,7 @@ public class CustomItemsApi {
         return itemIds;
     }
 
-    public static Collection<String> getAllBlockNames() {
+    public static Collection<String> getAllBlockIds() {
         ItemSet itemSet = CustomItemsPlugin.getInstance().getSet().get();
 
         Collection<String> blockNames = new ArrayList<>(itemSet.blocks.size());
