@@ -79,7 +79,7 @@ class YamlBlockReader {
         int errorCountBefore = errors.size();
 
         ConfigurationSection requiresSection = getChildSection(blockSection, "requires", file, errors, warnings);
-        if (!matchesRequires(requiresSection, file, errors)) {
+        if (!matchesRequires(requiresSection, file, warnings)) {
             return null;
         }
 
@@ -127,45 +127,65 @@ class YamlBlockReader {
         if (type == YamlBlockModelType.SIDED) {
             ConfigurationSection texturesSection = getChildSection(modelSection, "textures", sourceFile, errors, warnings);
             if (texturesSection == null) {
-                errors.add("block.model.textures is required for type sided in " + sourceFile.getPath());
-                return null;
+                if (!modelSection.isSet("textures")) {
+                    warnOptional(warnings, "block.model.textures is required for type sided in " + sourceFile.getPath());
+                }
+                return new YamlBlockModelDefinition(YamlBlockModelType.SIMPLE, null, null, null);
             }
             Map<String, String> textures = new HashMap<>();
             String[] directions = { "north", "east", "south", "west", "up", "down" };
             for (String direction : directions) {
                 String value = parseOptionalString(texturesSection.get(direction), "model.textures." + direction, sourceFile, warnings);
                 if (value == null) {
-                    errors.add("block.model.textures." + direction + " is required in " + sourceFile.getPath());
-                    return null;
+                    if (!texturesSection.isSet(direction)) {
+                        warnOptional(warnings, "block.model.textures." + direction + " is required for type sided in "
+                                + sourceFile.getPath());
+                    }
+                    return new YamlBlockModelDefinition(YamlBlockModelType.SIMPLE, null, null, null);
                 }
                 textures.put(direction, value);
             }
             return new YamlBlockModelDefinition(type, null, textures, null);
         }
 
+        boolean hasJson = modelSection.isSet("json");
+        boolean hasModel = modelSection.isSet("model");
         String modelPath = parseOptionalString(modelSection.get("json"), "model.json", sourceFile, warnings);
         if (modelPath == null) {
             modelPath = parseOptionalString(modelSection.get("model"), "model.model", sourceFile, warnings);
         }
         if (modelPath == null) {
-            errors.add("block.model.json is required for type custom in " + sourceFile.getPath());
-            return null;
+            if (!hasJson && !hasModel) {
+                warnOptional(warnings, "block.model.json is required for type custom in " + sourceFile.getPath());
+            }
+            return new YamlBlockModelDefinition(YamlBlockModelType.SIMPLE, null, null, null);
         }
-        String editorTexture = parseRequiredString(modelSection.get("editor_texture"), "model.editor_texture", sourceFile, errors);
+        String editorTexture = parseOptionalString(
+                modelSection.get("editor_texture"), "model.editor_texture", sourceFile, warnings
+        );
+        if (editorTexture == null) {
+            if (!modelSection.isSet("editor_texture")) {
+                warnOptional(warnings, "block.model.editor_texture is required for type custom in " + sourceFile.getPath());
+            }
+            return new YamlBlockModelDefinition(YamlBlockModelType.SIMPLE, null, null, null);
+        }
         ConfigurationSection texturesSection = getChildSection(modelSection, "textures", sourceFile, errors, warnings);
         if (texturesSection == null) {
-            errors.add("block.model.textures is required for type custom in " + sourceFile.getPath());
-            return null;
+            if (!modelSection.isSet("textures")) {
+                warnOptional(warnings, "block.model.textures is required for type custom in " + sourceFile.getPath());
+            }
+            return new YamlBlockModelDefinition(YamlBlockModelType.SIMPLE, null, null, null);
         }
 
         Map<String, String> texturePaths = new HashMap<>();
         for (String key : texturesSection.getKeys(false)) {
-            String value = parseRequiredString(texturesSection.get(key), "model.textures." + key, sourceFile, errors);
-            if (value == null) return null;
+            String value = parseOptionalString(texturesSection.get(key), "model.textures." + key, sourceFile, warnings);
+            if (value == null) {
+                return new YamlBlockModelDefinition(YamlBlockModelType.SIMPLE, null, null, null);
+            }
             texturePaths.put(key, value);
         }
 
-        if (modelPath == null || editorTexture == null) return null;
         YamlBlockCustomModelDefinition customModel = new YamlBlockCustomModelDefinition(modelPath, editorTexture, texturePaths);
         return new YamlBlockModelDefinition(type, null, null, customModel);
     }
@@ -668,11 +688,11 @@ class YamlBlockReader {
     }
 
     private static boolean matchesRequires(
-            ConfigurationSection requiresSection, File sourceFile, List<String> errors
+            ConfigurationSection requiresSection, File sourceFile, List<String> warnings
     ) {
         if (requiresSection == null) return true;
-        String raw = requiresSection.getString("mc");
-        if (raw == null || raw.trim().isEmpty()) return true;
+        String raw = parseOptionalString(requiresSection.get("mc"), "requires.mc", sourceFile, warnings);
+        if (raw == null) return true;
         String trimmed = raw.trim();
 
         String operator = "==";
@@ -685,7 +705,7 @@ class YamlBlockReader {
             versionPart = trimmed.substring(1);
         }
 
-        Integer version = parseMcVersion(versionPart.trim(), sourceFile, errors);
+        Integer version = parseMcVersion(versionPart.trim(), sourceFile, warnings);
         if (version == null) return true;
 
         switch (operator) {
@@ -701,14 +721,14 @@ class YamlBlockReader {
             case "==":
                 return mcVersion == version;
             default:
-                errors.add("Invalid requires.mc operator in " + sourceFile.getPath());
+                warnOptional(warnings, "Invalid requires.mc operator in " + sourceFile.getPath());
                 return true;
         }
     }
 
-    private static Integer parseMcVersion(String raw, File sourceFile, List<String> errors) {
+    private static Integer parseMcVersion(String raw, File sourceFile, List<String> warnings) {
         if (raw == null || raw.isEmpty()) {
-            errors.add("requires.mc is empty in " + sourceFile.getPath());
+            warnOptional(warnings, "requires.mc is empty in " + sourceFile.getPath());
             return null;
         }
         String trimmed = raw.trim();
@@ -716,12 +736,12 @@ class YamlBlockReader {
         int dotIndex = trimmed.indexOf('.');
         if (dotIndex >= 0) trimmed = trimmed.substring(0, dotIndex);
         if (!isInteger(trimmed)) {
-            errors.add("Invalid requires.mc '" + raw + "' in " + sourceFile.getPath());
+            warnOptional(warnings, "Invalid requires.mc '" + raw + "' in " + sourceFile.getPath());
             return null;
         }
         int version = Integer.parseInt(trimmed);
         if (version < MCVersions.FIRST_VERSION || version > MCVersions.LAST_VERSION) {
-            errors.add("Unsupported requires.mc '" + raw + "' in " + sourceFile.getPath());
+            warnOptional(warnings, "Unsupported requires.mc '" + raw + "' in " + sourceFile.getPath());
             return null;
         }
         return version;

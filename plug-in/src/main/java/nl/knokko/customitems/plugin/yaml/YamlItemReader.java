@@ -57,12 +57,17 @@ class YamlItemReader {
 
                     int errorCountBefore = errors.size();
 
-                    ConfigurationSection toolSection = getChildSection(itemSection, "tool", file, errors);
-                    ConfigurationSection armorSection = getChildSection(itemSection, "armor", file, errors);
-                    ConfigurationSection foodSection = getChildSection(itemSection, "food", file, errors);
+                    ConfigurationSection toolSection = getChildSection(itemSection, "tool", file, warnings);
+                    ConfigurationSection armorSection = getChildSection(itemSection, "armor", file, warnings);
+                    ConfigurationSection foodSection = getChildSection(itemSection, "food", file, warnings);
                     Object rawBlock = itemSection.get("block");
                     if (rawBlock == null) rawBlock = itemSection.get("block_id");
                     String blockId = parseOptionalString(rawBlock, "block", file, warnings);
+                    ParsedId parsedBlockId = null;
+                    if (blockId != null) {
+                        parsedBlockId = parseOptionalId(blockId, pack.namespace, file, warnings, "block");
+                        if (parsedBlockId == null) blockId = null;
+                    }
 
                     YamlItemType type = parseItemType(itemSection.get("type"), file, warnings);
                     if (type == null) {
@@ -83,12 +88,12 @@ class YamlItemReader {
 
                     if (type == null) return;
 
-                    validateTypeSections(type, toolSection, armorSection, foodSection, blockId != null, file, errors);
-                    validateMaterialForType(type, material, file, errors, warnings);
+                    validateTypeSections(type, toolSection, armorSection, foodSection, blockId != null, file, warnings);
+                    material = validateMaterialForType(type, material, file, warnings);
                     if ((type == YamlItemType.TOOL || type == YamlItemType.ARMOR) && stackSize != null) {
-                        errors.add("item.stack_size is not supported for type " + type.name().toLowerCase(Locale.ROOT)
-                                + " in " + file.getPath());
-                        return;
+                        warnOptional(warnings, "item.stack_size is not supported for type "
+                                + type.name().toLowerCase(Locale.ROOT) + " in " + file.getPath());
+                        stackSize = null;
                     }
 
                     YamlToolDefinition toolDefinition = null;
@@ -106,9 +111,7 @@ class YamlItemReader {
 
                     String blockInternalName = null;
                     if (type == YamlItemType.BLOCK) {
-                        String targetId = blockId != null ? blockId : rawId.trim();
-                        ParsedId parsedBlock = parseId(targetId, pack.namespace, file, errors);
-                        if (parsedBlock == null) return;
+                        ParsedId parsedBlock = parsedBlockId != null ? parsedBlockId : parsedId;
                         blockInternalName = parsedBlock.internalName;
                     }
 
@@ -183,6 +186,50 @@ class YamlItemReader {
         return new ParsedId(fullId, internalName, name);
     }
 
+    private static ParsedId parseOptionalId(
+            String rawId, String defaultNamespace, File sourceFile, List<String> warnings, String fieldName
+    ) {
+        if (rawId == null || rawId.trim().isEmpty()) return null;
+        String namespace;
+        String name;
+
+        int colonIndex = rawId.indexOf(':');
+        if (colonIndex >= 0) {
+            if (rawId.indexOf(':', colonIndex + 1) >= 0) {
+                warnOptional(warnings, "Invalid item." + fieldName + " '" + rawId + "' in " + sourceFile.getPath()
+                        + ": too many ':' characters");
+                return null;
+            }
+            namespace = rawId.substring(0, colonIndex);
+            name = rawId.substring(colonIndex + 1);
+        } else {
+            namespace = defaultNamespace;
+            name = rawId;
+        }
+
+        if (namespace == null || namespace.isEmpty()) {
+            warnOptional(warnings, "Missing namespace for item." + fieldName + " '" + rawId + "' in " + sourceFile.getPath());
+            return null;
+        }
+        if (name.isEmpty()) {
+            warnOptional(warnings, "Missing name for item." + fieldName + " '" + rawId + "' in " + sourceFile.getPath());
+            return null;
+        }
+
+        try {
+            Validation.safeName(namespace);
+            Validation.safeName(name);
+        } catch (ValidationException | ProgrammingValidationException ex) {
+            warnOptional(warnings, "Invalid item." + fieldName + " '" + rawId + "' in " + sourceFile.getPath()
+                    + ": " + ex.getMessage());
+            return null;
+        }
+
+        String fullId = namespace + ":" + name;
+        String internalName = namespace + "_" + name;
+        return new ParsedId(fullId, internalName, name);
+    }
+
     private static class ParsedId {
 
         final String fullId;
@@ -197,13 +244,13 @@ class YamlItemReader {
     }
 
     private static ConfigurationSection getChildSection(
-            ConfigurationSection parent, String name, File sourceFile, List<String> errors
+            ConfigurationSection parent, String name, File sourceFile, List<String> warnings
     ) {
         if (parent == null) return null;
         if (!parent.isSet(name)) return null;
         ConfigurationSection section = parent.getConfigurationSection(name);
         if (section == null) {
-            errors.add("item." + name + " must be a map in " + sourceFile.getPath());
+            warnOptional(warnings, "item." + name + " must be a map in " + sourceFile.getPath());
             return null;
         }
         return section;
@@ -284,61 +331,63 @@ class YamlItemReader {
             ConfigurationSection foodSection,
             boolean hasBlockReference,
             File sourceFile,
-            List<String> errors
+            List<String> warnings
     ) {
         if (type != YamlItemType.TOOL && toolSection != null) {
-            errors.add("item.tool is only allowed for type tool in " + sourceFile.getPath());
+            warnOptional(warnings, "item.tool is only allowed for type tool in " + sourceFile.getPath());
         }
         if (type != YamlItemType.ARMOR && armorSection != null) {
-            errors.add("item.armor is only allowed for type armor in " + sourceFile.getPath());
+            warnOptional(warnings, "item.armor is only allowed for type armor in " + sourceFile.getPath());
         }
         if (type != YamlItemType.FOOD && foodSection != null) {
-            errors.add("item.food is only allowed for type food in " + sourceFile.getPath());
+            warnOptional(warnings, "item.food is only allowed for type food in " + sourceFile.getPath());
         }
         if (type != YamlItemType.BLOCK && hasBlockReference) {
-            errors.add("item.block is only allowed for type block in " + sourceFile.getPath());
+            warnOptional(warnings, "item.block is only allowed for type block in " + sourceFile.getPath());
         }
     }
 
-    private static void validateMaterialForType(
+    private static YamlMaterialDefinition validateMaterialForType(
             YamlItemType type,
             YamlMaterialDefinition material,
             File sourceFile,
-            List<String> errors,
             List<String> warnings
     ) {
-        if (material == null) return;
+        if (material == null) return null;
 
         if (type == YamlItemType.BLOCK) {
-            warnings.add("WARNING - item.material is not supported for type block in "
-                    + sourceFile.getPath() + ". (This field will be ignored.)");
-            return;
+            warnOptional(warnings, "item.material is not supported for type block in " + sourceFile.getPath());
+            return null;
         }
 
-        if (type == YamlItemType.SIMPLE) return;
+        if (type == YamlItemType.SIMPLE) return material;
 
         if (type == YamlItemType.FOOD) {
-            if (material.otherMaterial != null) return;
+            if (material.otherMaterial != null) return material;
             if (!material.itemType.canServe(Category.FOOD)) {
-                errors.add("item.material must be food-compatible for type food in " + sourceFile.getPath());
+                warnOptional(warnings, "item.material must be food-compatible for type food in " + sourceFile.getPath());
+                return null;
             }
-            return;
+            return material;
         }
 
         if (material.otherMaterial != null) {
             if (type == YamlItemType.TOOL && material.otherMaterial == VMaterial.MACE) {
-                return;
+                return material;
             }
-            errors.add("item.material must be a custom item type for type " + type.name().toLowerCase(Locale.ROOT)
-                    + " in " + sourceFile.getPath());
-            return;
+            warnOptional(warnings, "item.material must be a custom item type for type "
+                    + type.name().toLowerCase(Locale.ROOT) + " in " + sourceFile.getPath());
+            return null;
         }
 
         if (type == YamlItemType.TOOL && !isToolItemType(material.itemType)) {
-            errors.add("item.material must be a tool material for type tool in " + sourceFile.getPath());
+            warnOptional(warnings, "item.material must be a tool material for type tool in " + sourceFile.getPath());
+            return null;
         } else if (type == YamlItemType.ARMOR && !isArmorItemType(material.itemType)) {
-            errors.add("item.material must be an armor material for type armor in " + sourceFile.getPath());
+            warnOptional(warnings, "item.material must be an armor material for type armor in " + sourceFile.getPath());
+            return null;
         }
+        return material;
     }
 
     private static boolean isToolItemType(KciItemType itemType) {
