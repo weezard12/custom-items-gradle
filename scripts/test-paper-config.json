@@ -1,0 +1,16 @@
+{
+  "projectRoot": "",
+  "versionsFile": "scripts/paper-versions.json",
+  "serversRoot": "G:\\Code\\Minecraft\\Custom_Items_Testing\\ServersRoot",
+  "gradleExecutable": "",
+  "onlyVersions": "",
+  "skipBuild": false,
+  "skipServerSetup": false,
+  "skipDownload": false,
+  "forceDownload": false,
+  "skipCopy": false,
+  "xms": "1G",
+  "xmx": "1G",
+  "bootWaitSeconds": 25,
+  "shutdownWaitSeconds": 10
+}
