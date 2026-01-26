@@ -31,7 +31,7 @@ first and then `scripts/install-spigot.ps1`. See
 - MC 1.17: use Java 16: `java -jar BuildTools.jar --rev 1.17.1`
 - MC 1.18: use Java 17: `java -jar BuildTools.jar --rev 1.18.2`
 - MC 1.19.x (1.19 through 1.19.4): use Java 17: `java -jar BuildTools.jar --rev 1.19.4`
-- MC 1.20: use Java 21: `java -jar BuildTools.jar --rev 1.20.6`
+- MC 1.20.x (1.20 through 1.20.6): use Java 21: `java -jar BuildTools.jar --rev 1.20.6`
 - MC 1.21.x (1.21 through 1.21.11): use Java 21: `java -jar BuildTools.jar --rev 1.21.11`
 
 These steps will add some dependencies to the mavenLocal

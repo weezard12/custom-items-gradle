@@ -132,7 +132,15 @@ public class ResourcepackGenerator {
         } else if (minor == 19) {
             return 13;
         } else if (minor == 20) {
-            return 32;
+            if (MCVersions.isAtLeast(mcVersion, 1, 20, 5)) {
+                return 32;
+            } else if (MCVersions.isAtLeast(mcVersion, 1, 20, 4)) {
+                return 22;
+            } else if (MCVersions.isAtLeast(mcVersion, 1, 20, 2)) {
+                return 18;
+            } else {
+                return 15;
+            }
         } else if (minor == 21) {
             return MCVersions.isAtLeast(mcVersion, 1, 21, 10) ? 55 : 34;
         } else {
