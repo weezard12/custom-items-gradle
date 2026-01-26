@@ -20,9 +20,19 @@ if (onlyVersions) {
             '1.18.2': 'kci-nms18',
             '1.19.4': 'kci-nms19',
             '1.20.6': 'kci-nms20',
-            '1.21.1': 'kci-nms21r1',
+            '1.21.11': 'kci-nms21',
             '1.21.10': 'kci-nms21',
-            '1.21.11': 'kci-nms21'
+            '1.21.9': 'kci-nms21',
+            '1.21.8': 'kci-nms21',
+            '1.21.7': 'kci-nms21',
+            '1.21.6': 'kci-nms21',
+            '1.21.5': 'kci-nms21',
+            '1.21.4': 'kci-nms21',
+            '1.21.3': 'kci-nms21',
+            '1.21.2': 'kci-nms21',
+            '1.21.1': 'kci-nms21r1',
+            '1.21.0': 'kci-nms21r1',
+            '1.21': 'kci-nms21r1'
     ]
     def moduleRequirements = [
             'kci-nms13': ['kci-nms13plus'],
