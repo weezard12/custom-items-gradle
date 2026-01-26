@@ -737,8 +737,8 @@ try {
         throw "Failed to parse versions file: $($_.Exception.Message)"
     }
 
-    $versionEntries = $versionsData.versions.PSObject.Properties
-    $versionEntries = $versionEntries | Where-Object { $_.Name -notmatch '(?i)-pre' }
+$versionEntries = $versionsData.versions.PSObject.Properties
+$versionEntries = $versionEntries | Where-Object { $_.Name -notmatch '(?i)-(pre|rc)' }
 
     if (-not [string]::IsNullOrWhiteSpace($OnlyVersions)) {
         $requested = $OnlyVersions.Split(',') | ForEach-Object { $_.Trim() } | Where-Object { $_ }
