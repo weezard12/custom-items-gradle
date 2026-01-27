@@ -924,8 +924,8 @@ $versionEntries = $versionEntries | Where-Object { $_.Name -notmatch '(?i)-(pre|
         }
     }
 
-    $okCount = ($results | Where-Object { $_.Status -eq "OK" }).Count
-    $errorCount = ($results | Where-Object { $_.Status -ne "OK" }).Count
+    $okCount = @($results | Where-Object { $_.Status -eq "OK" }).Count
+    $errorCount = @($results | Where-Object { $_.Status -ne "OK" }).Count
 
     Write-Log "==============================================="
     Write-Log "Summary: $okCount OK, $errorCount ERROR"
