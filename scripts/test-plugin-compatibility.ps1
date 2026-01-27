@@ -281,7 +281,15 @@ cd /d "$WorkDir"
             $process.WaitForExit()
         }
 
-        $exitCode = $process.ExitCode
+        # Safely get exit code (might fail if process was killed)
+        $exitCode = -1
+        try {
+            $exitCode = $process.ExitCode
+        } catch {
+            Write-Log "Could not retrieve exit code (process was killed): $($_.Exception.Message)" "DEBUG"
+            $exitCode = -1
+        }
+
         Write-Log "Process exited with code: $exitCode" "DEBUG"
 
         # Wait for file writes
@@ -315,11 +323,18 @@ cd /d "$WorkDir"
 
         Write-Log "Captured $($stdoutLines.Count) stdout lines, $($stderrLines.Count) stderr lines" "DEBUG"
 
-        return [pscustomobject]@{
-            ExitCode = $exitCode
-            Stdout   = $stdoutLines
-            Stderr   = $stderrLines
+        # Ensure we have proper arrays (not null)
+        if ($null -eq $stdoutLines) { $stdoutLines = @() }
+        if ($null -eq $stderrLines) { $stderrLines = @() }
+        if ($null -eq $exitCode) { $exitCode = -1 }
+
+        $result = [pscustomobject]@{
+            ExitCode = [int]$exitCode
+            Stdout   = [array]$stdoutLines
+            Stderr   = [array]$stderrLines
         }
+
+        return $result
 
     } catch {
         Write-Log "Critical error during server test: $($_.Exception.Message)" "ERROR"
@@ -342,11 +357,13 @@ cd /d "$WorkDir"
             }
         } catch { }
 
-        return [pscustomobject]@{
-            ExitCode = -1
-            Stdout   = @()
-            Stderr   = @()
+        $result = [pscustomobject]@{
+            ExitCode = [int]-1
+            Stdout   = [array]@()
+            Stderr   = [array]@()
         }
+
+        return $result
     } finally {
         if ($process) {
             try {
@@ -607,11 +624,20 @@ try {
                 throw "Server test returned null result"
             }
 
+            # Verify the result object has the expected properties
+            if (-not ($runResult.PSObject.Properties.Name -contains 'ExitCode')) {
+                Write-Log "WARNING: Result object missing ExitCode property. Object type: $($runResult.GetType().FullName)" "ERROR"
+                Write-Log "Available properties: $($runResult.PSObject.Properties.Name -join ', ')" "ERROR"
+                throw "Server test returned invalid result object (missing ExitCode property)"
+            }
+
             Write-Log "Server stopped. Exit code: $($runResult.ExitCode)"
 
             # Analyze the output
             Write-Log "Analyzing output..."
-            $analysis = Test-PluginErrors -StdoutLines $runResult.Stdout -StderrLines $runResult.Stderr
+            $stdoutArray = if ($runResult.Stdout) { $runResult.Stdout } else { @() }
+            $stderrArray = if ($runResult.Stderr) { $runResult.Stderr } else { @() }
+            $analysis = Test-PluginErrors -StdoutLines $stdoutArray -StderrLines $stderrArray
 
             Write-Log "Plugin loaded: $($analysis.PluginLoaded)"
             Write-Log "Plugin enabled: $($analysis.PluginEnabled)"
