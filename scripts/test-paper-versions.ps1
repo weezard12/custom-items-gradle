@@ -525,16 +525,21 @@ function Ensure-ServerInitialized {
         Write-Log "Starting initial server run (generate files): $ServerDir"
         $firstRun = Invoke-ServerRun -JavaExe $JavaExe -JarPath $JarPath -WorkDir $ServerDir -Xms $Xms -Xmx $Xmx -BootWaitSeconds $BootWaitSeconds -ShutdownWaitSeconds $ShutdownWaitSeconds
 
-        if ($firstRun.ExitCode -eq -1) {
-            $tail = ($firstRun.Stderr + $firstRun.Stdout) | Select-Object -Last 20
+        if ($null -eq $firstRun -or $firstRun.ExitCode -eq -1) {
+            $allLines = @()
+            if ($null -ne $firstRun) {
+                $allLines += @($firstRun.Stderr)
+                $allLines += @($firstRun.Stdout)
+            }
+            $tail = $allLines | Select-Object -Last 20
             throw "First run failed with critical error. Last 20 lines: $($tail -join ' | ')"
         }
 
         Write-Log "First run completed. Exit code: $($firstRun.ExitCode)" "DEBUG"
 
         # Log last few lines for debugging
-        $lastStdout = $firstRun.Stdout | Select-Object -Last 5
-        $lastStderr = $firstRun.Stderr | Select-Object -Last 5
+        $lastStdout = @($firstRun.Stdout | Select-Object -Last 5)
+        $lastStderr = @($firstRun.Stderr | Select-Object -Last 5)
         if ($lastStdout.Count -gt 0) {
             Write-Log "Last stdout lines: $($lastStdout -join ' | ')" "DEBUG"
         }
@@ -547,10 +552,17 @@ function Ensure-ServerInitialized {
         Write-Log "Starting second server run (post-EULA): $ServerDir"
         $secondRun = Invoke-ServerRun -JavaExe $JavaExe -JarPath $JarPath -WorkDir $ServerDir -Xms $Xms -Xmx $Xmx -BootWaitSeconds $BootWaitSeconds -ShutdownWaitSeconds $ShutdownWaitSeconds
 
+        if ($null -eq $secondRun) {
+            throw "Second server run returned null"
+        }
+
         Write-Log "Second run completed. Exit code: $($secondRun.ExitCode)" "DEBUG"
 
         if ($secondRun.ExitCode -ne 0) {
-            $tail = ($secondRun.Stderr + $secondRun.Stdout) | Select-Object -Last 20
+            $allLines = @()
+            $allLines += @($secondRun.Stderr)
+            $allLines += @($secondRun.Stdout)
+            $tail = $allLines | Select-Object -Last 20
             throw "Server run exit code $($secondRun.ExitCode). Last 20 lines: $($tail -join ' | ')"
         }
 
