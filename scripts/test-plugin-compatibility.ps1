@@ -99,6 +99,19 @@ function Get-BaseVersion {
     return $Version.Split('-')[0]
 }
 
+function Get-VersionSortKey {
+    param([string]$VersionName)
+    try {
+        $base = Get-BaseVersion $VersionName
+        if ([string]::IsNullOrWhiteSpace($base)) {
+            return [version]"0.0"
+        }
+        return [version]$base
+    } catch {
+        return [version]"0.0"
+    }
+}
+
 function Get-JdkMajorForVersion {
     param([string]$Version)
     try {
@@ -381,6 +394,7 @@ function Test-PluginErrors {
 
     $errors = New-Object 'System.Collections.Generic.List[string]'
     $warnings = New-Object 'System.Collections.Generic.List[string]'
+    $consoleErrors = New-Object 'System.Collections.Generic.List[string]'
     $pluginLoaded = $false
     $pluginEnabled = $false
 
@@ -409,6 +423,12 @@ function Test-PluginErrors {
         '\[ERROR\]'
     )
 
+    # Console error patterns (server thread/ERROR or /SEVERE)
+    $consoleErrorPatterns = @(
+        '\[[^\]]+/(ERROR|SEVERE)\]',
+        '\[(ERROR|SEVERE)\]'
+    )
+
     # Plugin success patterns
     $loadedPatterns = @(
         'Loading .* v\d',
@@ -427,9 +447,11 @@ function Test-PluginErrors {
             continue
         }
 
+        $trimmed = $line.Trim()
+
         # Check for plugin loaded
         foreach ($pattern in $loadedPatterns) {
-            if ($line -match $pattern) {
+            if ($trimmed -match $pattern) {
                 $pluginLoaded = $true
                 break
             }
@@ -437,23 +459,33 @@ function Test-PluginErrors {
 
         # Check for plugin enabled
         foreach ($pattern in $enabledPatterns) {
-            if ($line -match $pattern) {
+            if ($trimmed -match $pattern) {
                 $pluginEnabled = $true
+                break
+            }
+        }
+
+        # Capture console error lines
+        foreach ($pattern in $consoleErrorPatterns) {
+            if ($trimmed -match $pattern) {
+                if (-not $consoleErrors.Contains($trimmed)) {
+                    $consoleErrors.Add($trimmed)
+                }
                 break
             }
         }
 
         # Check for errors
         foreach ($pattern in $errorPatterns) {
-            if ($line -match $pattern) {
-                $errors.Add($line.Trim())
+            if ($trimmed -match $pattern) {
+                $errors.Add($trimmed)
                 break
             }
         }
 
         # Check for warnings
-        if ($line -match '\[WARN\]' -or $line -match '\[WARNING\]') {
-            $warnings.Add($line.Trim())
+        if ($trimmed -match '\[WARN\]' -or $trimmed -match '\[WARNING\]') {
+            $warnings.Add($trimmed)
         }
     }
 
@@ -462,6 +494,7 @@ function Test-PluginErrors {
         PluginEnabled = $pluginEnabled
         Errors        = $errors
         Warnings      = $warnings
+        ConsoleErrors = $consoleErrors
         TotalLines    = $allLines.Count
     }
 }
@@ -547,7 +580,10 @@ try {
     Write-Log "==============================================="
 
     # Find all server directories
-    $serverDirs = Get-ChildItem -Path $serversRoot -Directory | Sort-Object Name
+    $serverDirs = Get-ChildItem -Path $serversRoot -Directory |
+        Sort-Object `
+            @{ Expression = { Get-VersionSortKey $_.Name }; Descending = $true }, `
+            @{ Expression = { $_.Name }; Descending = $true }
 
     if (-not [string]::IsNullOrWhiteSpace($OnlyVersions)) {
         $requested = $OnlyVersions.Split(',') | ForEach-Object { $_.Trim() } | Where-Object { $_ }
@@ -641,21 +677,46 @@ try {
 
             Write-Log "Plugin loaded: $($analysis.PluginLoaded)"
             Write-Log "Plugin enabled: $($analysis.PluginEnabled)"
-            Write-Log "Errors found: $($analysis.Errors.Count)"
+            $errorsArray = if ($analysis.Errors) { @($analysis.Errors) } else { @() }
+            $consoleErrors = if ($analysis.ConsoleErrors) { @($analysis.ConsoleErrors) } else { @() }
+
+            if ($consoleErrors.Count -gt 0) {
+                Write-Log "Server console errors:" "ERROR"
+                foreach ($consoleError in $consoleErrors) {
+                    Write-Log "  $consoleError" "ERROR"
+                }
+            }
+
+            $allErrors = New-Object 'System.Collections.Generic.List[string]'
+            foreach ($err in $errorsArray) {
+                if (-not $allErrors.Contains($err)) {
+                    $allErrors.Add($err)
+                }
+            }
+            foreach ($err in $consoleErrors) {
+                if (-not $allErrors.Contains($err)) {
+                    $allErrors.Add($err)
+                }
+            }
+
+            Write-Log "Errors found: $($allErrors.Count) (console errors: $($consoleErrors.Count))"
             Write-Log "Warnings found: $($analysis.Warnings.Count)"
 
             # Determine status
-            if ($analysis.Errors.Count -gt 0) {
+            if ($allErrors.Count -gt 0) {
                 $status = "FAIL"
-                $details.Add("Errors: $($analysis.Errors.Count)")
+                $details.Add("Errors: $($allErrors.Count)")
 
-                # Log first 5 errors
-                $errorCount = [Math]::Min(5, $analysis.Errors.Count)
-                for ($i = 0; $i -lt $errorCount; $i++) {
-                    Write-Log "  ERROR: $($analysis.Errors[$i])" "ERROR"
-                }
-                if ($analysis.Errors.Count -gt 5) {
-                    Write-Log "  ... and $($analysis.Errors.Count - 5) more errors" "ERROR"
+                $nonConsoleErrors = $errorsArray | Where-Object { -not ($consoleErrors -contains $_) }
+                if ($nonConsoleErrors.Count -gt 0) {
+                    # Log first 5 non-console error lines (stack traces, etc.)
+                    $errorCount = [Math]::Min(5, $nonConsoleErrors.Count)
+                    for ($i = 0; $i -lt $errorCount; $i++) {
+                        Write-Log "  ERROR: $($nonConsoleErrors[$i])" "ERROR"
+                    }
+                    if ($nonConsoleErrors.Count -gt 5) {
+                        Write-Log "  ... and $($nonConsoleErrors.Count - 5) more errors" "ERROR"
+                    }
                 }
             } elseif (-not $analysis.PluginLoaded) {
                 $status = "FAIL"
