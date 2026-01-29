@@ -27,7 +27,7 @@ first and then `scripts/install-spigot.ps1`. See
 - MC 1.13: use Java 8: `java -jar BuildTools.jar --rev 1.13.2 --compile CRAFTBUKKIT`
 - MC 1.14: use Java 8: `java -jar BuildTools.jar --rev 1.14.4 --compile CRAFTBUKKIT`
 - MC 1.15: use Java 8: `java -jar BuildTools.jar --rev 1.15.2`
-- MC 1.16: use Java 8: `java -jar BuildTools.jar --rev 1.16.5`
+- MC 1.16.x (1.16 through 1.16.5): use Java 8: `java -jar BuildTools.jar --rev 1.16.5`
 - MC 1.17: use Java 16: `java -jar BuildTools.jar --rev 1.17.1`
 - MC 1.18: use Java 17: `java -jar BuildTools.jar --rev 1.18.2`
 - MC 1.19.x (1.19 through 1.19.4): use Java 17: `java -jar BuildTools.jar --rev 1.19.4`

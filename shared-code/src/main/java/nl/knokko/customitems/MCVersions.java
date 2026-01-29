@@ -16,6 +16,10 @@ public class MCVersions {
 	public static final int VERSION1_15_0 = version(1, 15, 0);
 	public static final int VERSION1_15_2 = version(1, 15, 2);
 	public static final int VERSION1_16_0 = version(1, 16, 0);
+	public static final int VERSION1_16_1 = version(1, 16, 1);
+	public static final int VERSION1_16_2 = version(1, 16, 2);
+	public static final int VERSION1_16_3 = version(1, 16, 3);
+	public static final int VERSION1_16_4 = version(1, 16, 4);
 	public static final int VERSION1_16_5 = version(1, 16, 5);
 	public static final int VERSION1_17_0 = version(1, 17, 0);
 	public static final int VERSION1_17_1 = version(1, 17, 1);
