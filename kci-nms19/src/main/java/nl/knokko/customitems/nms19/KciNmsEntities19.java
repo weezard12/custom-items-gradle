@@ -1,6 +1,6 @@
 package nl.knokko.customitems.nms19;
 
-import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.WorldServer;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.damagesource.DamageSources;
 import net.minecraft.world.entity.projectile.EntityTippedArrow;
@@ -28,7 +28,7 @@ class KciNmsEntities19 extends KciNmsEntities16Plus {
         Object shooterHandle = getHandle(responsibleShooter);
         Object targetHandle = getHandle(toDamage);
 
-        EntityTippedArrow fakeArrow = new EntityTippedArrow((ServerLevel) worldHandle,
+        EntityTippedArrow fakeArrow = new EntityTippedArrow((WorldServer) worldHandle,
                 projectilePositionX, projectileMotionY, projectileMotionZ);
         setOwner(fakeArrow, shooterHandle);
         fakeArrow.projectileSource = responsibleShooter;
@@ -95,7 +95,7 @@ class KciNmsEntities19 extends KciNmsEntities16Plus {
 
     private static Method findDamageMethod() {
         Method method = findDamageMethodIn(net.minecraft.world.entity.Entity.class);
-        if (method == null) method = findDamageMethodIn(net.minecraft.world.entity.LivingEntity.class);
+        if (method == null) method = findDamageMethodIn(net.minecraft.world.entity.EntityLiving.class);
         if (method == null) {
             throw new IllegalStateException("Can't find damage method for 1.19.x");
         }
@@ -217,7 +217,7 @@ class KciNmsEntities19 extends KciNmsEntities16Plus {
     }
 
     private static Method findSetOwnerMethod() {
-        Class<?> livingClass = net.minecraft.world.entity.LivingEntity.class;
+        Class<?> livingClass = net.minecraft.world.entity.EntityLiving.class;
         String[] candidateNames = { "b", "setOwner", "setShooter", "a" };
         for (String candidateName : candidateNames) {
             try {

@@ -74,6 +74,7 @@ project(':plug-in') {
         if (hasProject(':kci-nms17')) runtimeOnly project(':kci-nms17')
         if (hasProject(':kci-nms18plus')) runtimeOnly project(':kci-nms18plus')
         if (hasProject(':kci-nms18')) runtimeOnly project(':kci-nms18')
+        if (hasProject(':kci-nms19')) runtimeOnly project(':kci-nms19')
         if (hasProject(':kci-nms20')) runtimeOnly project(':kci-nms20')
         if (hasProject(':kci-nms21plus')) runtimeOnly project(':kci-nms21plus')
         if (hasProject(':kci-nms21')) runtimeOnly project(':kci-nms21')
@@ -319,11 +320,11 @@ if (hasProject(':kci-nms19')) {
 if (hasProject(':kci-nms20')) {
     project(':kci-nms20') {
         java {
-            sourceCompatibility = JavaVersion.VERSION_21
-            targetCompatibility = JavaVersion.VERSION_21
+            sourceCompatibility = JavaVersion.VERSION_17
+            targetCompatibility = JavaVersion.VERSION_17
         }
         tasks.withType(JavaCompile).configureEach {
-            options.release.set(21)
+            options.release.set(17)
         }
         dependencies {
             compileOnly project(':kci-nms')
@@ -331,7 +332,7 @@ if (hasProject(':kci-nms20')) {
             compileOnly project(':kci-nms16plus')
             compileOnly project(':kci-nms18plus')
             compileOnly 'org.spigotmc:spigot:1.20.6-R0.1-SNAPSHOT'
-            compileOnly 'io.papermc.paper:paper-api:1.20.6-R0.1-SNAPSHOT'
+            compileOnly 'net.kyori:adventure-api:4.17.0'
             implementation 'com.github.knokko:DataComponentAPI:b8f529f78e86b357b5d24ccad95408c9772ef4aa'
         }
     }

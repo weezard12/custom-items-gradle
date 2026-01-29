@@ -8,7 +8,7 @@
   "skipServerSetup": true,
   "skipDownload": true,
   "forceDownload": false,
-  "skipCopy": true,
+  "skipCopy": false,
   "xms": "1G",
   "xmx": "1G",
   "bootWaitSeconds": 25,
