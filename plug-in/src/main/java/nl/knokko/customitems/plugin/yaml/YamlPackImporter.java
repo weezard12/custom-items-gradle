@@ -134,7 +134,7 @@ public class YamlPackImporter {
             PackInfo info = entry.getValue();
             if (!info.hasYamlDefinition) {
                 log.accept(ChatColor.DARK_GRAY + "Skipping pack '" + entry.getKey() + "' from " + plugin.getName()
-                        + ": no item/block/recipe YAML definitions detected.");
+                        + ": no item/block/recipe/projectile YAML definitions detected.");
                 continue;
             }
 
@@ -345,7 +345,9 @@ public class YamlPackImporter {
                 trimmed = trimmed.substring(1).trim();
             }
             if (trimmed.equals("---")) continue;
-            return trimmed.startsWith("item:") || trimmed.startsWith("block:") || trimmed.startsWith("recipe:");
+            return trimmed.startsWith("item:") || trimmed.startsWith("block:") || trimmed.startsWith("recipe:")
+                    || trimmed.startsWith("projectile:") || trimmed.startsWith("projectile_cover:")
+                    || trimmed.startsWith("projectile-cover:");
         }
         return false;
     }

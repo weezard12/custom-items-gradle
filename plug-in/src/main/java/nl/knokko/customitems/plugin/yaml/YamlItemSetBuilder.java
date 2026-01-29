@@ -27,10 +27,28 @@ import nl.knokko.customitems.item.KciSimpleItem;
 import nl.knokko.customitems.item.KciTool;
 import nl.knokko.customitems.item.ToolDurabilityLoss;
 import nl.knokko.customitems.item.model.ModernCustomItemModel;
+import nl.knokko.customitems.effect.KciPotionEffect;
 import nl.knokko.customitems.itemset.ItemSet;
 import nl.knokko.customitems.itemset.TextureReference;
 import nl.knokko.customitems.itemset.UpgradeReference;
 import nl.knokko.customitems.item.enchantment.LeveledEnchantment;
+import nl.knokko.customitems.projectile.KciProjectile;
+import nl.knokko.customitems.projectile.cover.CustomProjectileCover;
+import nl.knokko.customitems.projectile.cover.ProjectileCover;
+import nl.knokko.customitems.projectile.cover.SphereProjectileCover;
+import nl.knokko.customitems.projectile.effect.PEColoredRedstone;
+import nl.knokko.customitems.projectile.effect.PECreateExplosion;
+import nl.knokko.customitems.projectile.effect.PEExecuteCommand;
+import nl.knokko.customitems.projectile.effect.PEPlaySound;
+import nl.knokko.customitems.projectile.effect.PEPotionAura;
+import nl.knokko.customitems.projectile.effect.PEPushOrPull;
+import nl.knokko.customitems.projectile.effect.PERandomAcceleration;
+import nl.knokko.customitems.projectile.effect.PEShowFireworks;
+import nl.knokko.customitems.projectile.effect.PESimpleParticle;
+import nl.knokko.customitems.projectile.effect.PEStraightAcceleration;
+import nl.knokko.customitems.projectile.effect.PESubProjectiles;
+import nl.knokko.customitems.projectile.effect.ProjectileEffect;
+import nl.knokko.customitems.projectile.effect.ProjectileEffects;
 import nl.knokko.customitems.recipe.KciCraftingRecipe;
 import nl.knokko.customitems.recipe.KciShapedRecipe;
 import nl.knokko.customitems.recipe.KciShapelessRecipe;
@@ -85,18 +103,28 @@ public class YamlItemSetBuilder {
 
     static ItemSet build(Collection<YamlItemDefinition> items)
             throws ValidationException, ProgrammingValidationException {
-        return build(items, Collections.emptyList(), Collections.emptyList());
+        return build(items, Collections.emptyList(), Collections.emptyList(), Collections.emptyList(), Collections.emptyList());
     }
 
     static ItemSet build(Collection<YamlItemDefinition> items, Collection<YamlBlockDefinition> blocks)
             throws ValidationException, ProgrammingValidationException {
-        return build(items, blocks, Collections.emptyList());
+        return build(items, blocks, Collections.emptyList(), Collections.emptyList(), Collections.emptyList());
     }
 
     static ItemSet build(
             Collection<YamlItemDefinition> items,
             Collection<YamlBlockDefinition> blocks,
             Collection<YamlRecipeDefinition> recipes
+    ) throws ValidationException, ProgrammingValidationException {
+        return build(items, blocks, recipes, Collections.emptyList(), Collections.emptyList());
+    }
+
+    static ItemSet build(
+            Collection<YamlItemDefinition> items,
+            Collection<YamlBlockDefinition> blocks,
+            Collection<YamlRecipeDefinition> recipes,
+            Collection<YamlProjectileCoverDefinition> projectileCovers,
+            Collection<YamlProjectileDefinition> projectiles
     ) throws ValidationException, ProgrammingValidationException {
         ItemSet itemSet = new ItemSet(ItemSet.Side.EDITOR);
 
@@ -110,6 +138,29 @@ public class YamlItemSetBuilder {
         placeholderTexture.setName(PLACEHOLDER_TEXTURE_NAME);
         placeholderTexture.setImage(createPlaceholderImage());
         itemSet.textures.add(placeholderTexture);
+
+        for (YamlProjectileCoverDefinition coverDefinition : projectileCovers) {
+            ProjectileCover cover = createProjectileCover(coverDefinition, itemSet);
+            itemSet.projectileCovers.add(cover);
+        }
+
+        for (YamlProjectileDefinition projectileDefinition : projectiles) {
+            KciProjectile projectile = new KciProjectile(true);
+            projectile.setName(projectileDefinition.internalName);
+            applyProjectileBase(projectileDefinition, projectile, itemSet);
+            itemSet.projectiles.add(projectile);
+        }
+
+        for (YamlProjectileDefinition projectileDefinition : projectiles) {
+            KciProjectile existing = itemSet.projectiles.get(projectileDefinition.internalName).orElse(null);
+            if (existing == null) {
+                throw new ValidationException("Unknown projectile '" + projectileDefinition.internalName
+                        + "' (" + projectileDefinition.sourceFile.getPath() + ")");
+            }
+            KciProjectile updated = existing.copy(true);
+            applyProjectileEffects(projectileDefinition, updated, itemSet);
+            itemSet.projectiles.change(itemSet.projectiles.getReference(existing.getName()), updated);
+        }
 
         List<YamlItemDefinition> blockItems = new ArrayList<>();
         for (YamlItemDefinition itemDefinition : items) {
@@ -595,6 +646,322 @@ public class YamlItemSetBuilder {
         }
 
         block.setDrops(drops);
+    }
+
+    private static ProjectileCover createProjectileCover(
+            YamlProjectileCoverDefinition definition, ItemSet itemSet
+    ) throws ValidationException, ProgrammingValidationException {
+        ProjectileCover cover;
+        if (definition.type == YamlProjectileCoverType.SPHERE) {
+            SphereProjectileCover sphere = new SphereProjectileCover(true);
+            sphere.setName(definition.internalName);
+            if (definition.itemType != null) {
+                sphere.setItemType(definition.itemType);
+            }
+            File textureFile = resolveProjectileCoverTextureFile(definition.packDirectory, definition.texturePath);
+            if (textureFile == null || !textureFile.isFile()) {
+                throw new ValidationException("Missing projectile cover texture " + definition.texturePath
+                        + " (" + definition.sourceFile.getPath() + ")");
+            }
+            BufferedImage image = loadTextureImage(textureFile, "projectile cover texture");
+            TextureReference textureReference = addTexture(itemSet, definition.internalName, image);
+            sphere.setTexture(textureReference);
+            if (definition.slotsPerAxis != null) {
+                sphere.setSlotsPerAxis(definition.slotsPerAxis);
+            }
+            if (definition.scale != null) {
+                sphere.setScale(definition.scale);
+            }
+            cover = sphere;
+        } else {
+            CustomProjectileCover custom = new CustomProjectileCover(true);
+            custom.setName(definition.internalName);
+            if (definition.itemType != null) {
+                custom.setItemType(definition.itemType);
+            }
+            custom.setModel(createCustomProjectileCoverModel(definition, itemSet));
+            cover = custom;
+        }
+
+        if (definition.geyserTexturePath != null) {
+            File geyserFile = resolveProjectileCoverTextureFile(definition.packDirectory, definition.geyserTexturePath);
+            if (geyserFile == null || !geyserFile.isFile()) {
+                throw new ValidationException("Missing projectile cover geyser texture " + definition.geyserTexturePath
+                        + " (" + definition.sourceFile.getPath() + ")");
+            }
+            BufferedImage geyserImage = loadTextureImage(geyserFile, "geyser texture");
+            TextureReference geyserTexture = addTexture(itemSet, definition.internalName + "_geyser", geyserImage);
+            cover.setGeyserTexture(geyserTexture);
+        }
+
+        return cover;
+    }
+
+    private static ModernCustomItemModel createCustomProjectileCoverModel(
+            YamlProjectileCoverDefinition definition, ItemSet itemSet
+    ) throws ValidationException, ProgrammingValidationException {
+        if (definition.modelPath == null || definition.modelTextures == null) {
+            throw new ValidationException("Missing projectile cover model data for " + definition.fullId);
+        }
+
+        File modelFile = resolveModelFile(definition.packDirectory, definition.modelPath);
+        if (modelFile == null || !modelFile.isFile()) {
+            throw new ValidationException("Missing projectile cover model file " + definition.modelPath
+                    + " (" + definition.sourceFile.getPath() + ")");
+        }
+
+        byte[] rawModel;
+        try {
+            rawModel = Files.readAllBytes(modelFile.toPath());
+        } catch (IOException ex) {
+            throw new ValidationException("Failed to read projectile cover model " + modelFile.getPath() + ": " + ex.getMessage());
+        }
+
+        JsonObject modelJson;
+        try {
+            modelJson = (JsonObject) Jsoner.deserialize(new String(rawModel, StandardCharsets.UTF_8));
+        } catch (JsonException ex) {
+            throw new ValidationException("Invalid JSON in model " + modelFile.getPath());
+        }
+
+        if (modelJson == null) {
+            throw new ValidationException("Model " + modelFile.getPath() + " is empty or invalid JSON");
+        }
+
+        Map<String, String> textureMap = modelJson.getMap(ModernCustomItemModel.TEXTURES_KEY);
+        if (textureMap == null) {
+            throw new ValidationException("Model " + modelFile.getPath() + " is missing a textures map");
+        }
+
+        Map<String, IncludedImageBuilder> includedImages = new HashMap<>();
+        Map<String, Integer> usedNames = new HashMap<>();
+        for (Map.Entry<String, String> entry : definition.modelTextures.entrySet()) {
+            String textureKey = entry.getKey();
+            if (!textureMap.containsKey(textureKey)) {
+                throw new ValidationException("Model " + modelFile.getPath() + " has no texture key '" + textureKey + "'");
+            }
+            File textureFile = resolveProjectileCoverTextureFile(definition.packDirectory, entry.getValue());
+            if (textureFile == null || !textureFile.isFile()) {
+                throw new ValidationException("Missing model texture " + entry.getValue()
+                        + " (" + definition.sourceFile.getPath() + ")");
+            }
+
+            String fileKey = textureFile.getPath();
+            IncludedImageBuilder builder = includedImages.get(fileKey);
+            if (builder == null) {
+                BufferedImage image = loadTextureImage(textureFile, "model texture");
+                String safeName = createSafeName(textureFile.getName(), usedNames);
+                builder = new IncludedImageBuilder(safeName, image);
+                includedImages.put(fileKey, builder);
+            }
+            builder.textureReferences.add(textureKey);
+        }
+
+        List<ModernCustomItemModel.IncludedImage> includedImageList = new ArrayList<>(includedImages.size());
+        for (IncludedImageBuilder builder : includedImages.values()) {
+            includedImageList.add(new ModernCustomItemModel.IncludedImage(
+                    builder.textureReferences, builder.name, builder.image
+            ));
+        }
+
+        return new ModernCustomItemModel(rawModel, includedImageList);
+    }
+
+    private static void applyProjectileBase(
+            YamlProjectileDefinition definition, KciProjectile projectile, ItemSet itemSet
+    ) throws ValidationException {
+        if (definition.damage != null) projectile.setDamage(definition.damage);
+        if (definition.minLaunchAngle != null) projectile.setMinLaunchAngle(definition.minLaunchAngle);
+        if (definition.maxLaunchAngle != null) projectile.setMaxLaunchAngle(definition.maxLaunchAngle);
+        if (definition.minLaunchSpeed != null) projectile.setMinLaunchSpeed(definition.minLaunchSpeed);
+        if (definition.maxLaunchSpeed != null) projectile.setMaxLaunchSpeed(definition.maxLaunchSpeed);
+        if (definition.gravity != null) projectile.setGravity(definition.gravity);
+        if (definition.launchKnockback != null) projectile.setLaunchKnockback(definition.launchKnockback);
+        if (definition.impactKnockback != null) projectile.setImpactKnockback(definition.impactKnockback);
+        if (definition.maxLifetime != null) projectile.setMaxLifetime(definition.maxLifetime);
+        if (definition.maxPiercedEntities != null) projectile.setMaxPiercedEntities(definition.maxPiercedEntities);
+        if (definition.applyImpactEffectsAtExpiration != null) {
+            projectile.setApplyImpactEffectsAtExpiration(definition.applyImpactEffectsAtExpiration);
+        }
+        if (definition.applyImpactEffectsAtPierce != null) {
+            projectile.setApplyImpactEffectsAtPierce(definition.applyImpactEffectsAtPierce);
+        }
+
+        if (definition.coverInternalName != null) {
+            if (!itemSet.projectileCovers.get(definition.coverInternalName).isPresent()) {
+                throw new ValidationException("Unknown projectile cover '" + definition.coverInternalName
+                        + "' (" + definition.sourceFile.getPath() + ")");
+            }
+            projectile.setCover(itemSet.projectileCovers.getReference(definition.coverInternalName));
+        }
+    }
+
+    private static void applyProjectileEffects(
+            YamlProjectileDefinition definition, KciProjectile projectile, ItemSet itemSet
+    ) throws ValidationException, ProgrammingValidationException {
+        List<KciPotionEffect> impactPotions = new ArrayList<>();
+        if (definition.impactPotionEffects != null) {
+            for (YamlPotionEffectDefinition potion : definition.impactPotionEffects) {
+                impactPotions.add(KciPotionEffect.createQuick(potion.type, potion.duration, potion.level));
+            }
+        }
+        projectile.setImpactPotionEffects(impactPotions);
+
+        List<ProjectileEffects> flightEffects = new ArrayList<>();
+        if (definition.inFlightEffects != null) {
+            for (YamlProjectileEffectsDefinition effectDefinition : definition.inFlightEffects) {
+                ProjectileEffects effects = createProjectileEffects(effectDefinition, itemSet, definition.sourceFile);
+                if (effects != null) flightEffects.add(effects);
+            }
+        }
+        projectile.setInFlightEffects(flightEffects);
+
+        List<ProjectileEffect> impactEffects = new ArrayList<>();
+        if (definition.impactEffects != null) {
+            for (YamlProjectileEffectDefinition effectDefinition : definition.impactEffects) {
+                ProjectileEffect effect = createProjectileEffect(effectDefinition, itemSet, definition.sourceFile);
+                if (effect != null) impactEffects.add(effect);
+            }
+        }
+        projectile.setImpactEffects(impactEffects);
+    }
+
+    private static ProjectileEffects createProjectileEffects(
+            YamlProjectileEffectsDefinition definition, ItemSet itemSet, File sourceFile
+    ) throws ValidationException, ProgrammingValidationException {
+        if (definition == null || definition.effects == null || definition.effects.isEmpty()) return null;
+        ProjectileEffects effects = new ProjectileEffects(true);
+        if (definition.delay != null) effects.setDelay(definition.delay);
+        if (definition.period != null) effects.setPeriod(definition.period);
+
+        List<ProjectileEffect> childEffects = new ArrayList<>();
+        for (YamlProjectileEffectDefinition effectDefinition : definition.effects) {
+            ProjectileEffect effect = createProjectileEffect(effectDefinition, itemSet, sourceFile);
+            if (effect != null) childEffects.add(effect);
+        }
+        effects.setEffects(childEffects);
+        return effects;
+    }
+
+    private static ProjectileEffect createProjectileEffect(
+            YamlProjectileEffectDefinition definition, ItemSet itemSet, File sourceFile
+    ) throws ValidationException, ProgrammingValidationException {
+        if (definition == null || definition.type == null) return null;
+
+        switch (definition.type) {
+            case EXPLOSION: {
+                PECreateExplosion effect = new PECreateExplosion(true);
+                if (definition.explosionPower != null) effect.setPower(definition.explosionPower);
+                if (definition.explosionDestroyBlocks != null) effect.setDestroyBlocks(definition.explosionDestroyBlocks);
+                if (definition.explosionSetFire != null) effect.setSetFire(definition.explosionSetFire);
+                return effect;
+            }
+            case COLORED_REDSTONE: {
+                PEColoredRedstone effect = new PEColoredRedstone(true);
+                if (definition.redstoneMinRed != null) effect.setMinRed(definition.redstoneMinRed);
+                if (definition.redstoneMinGreen != null) effect.setMinGreen(definition.redstoneMinGreen);
+                if (definition.redstoneMinBlue != null) effect.setMinBlue(definition.redstoneMinBlue);
+                if (definition.redstoneMaxRed != null) effect.setMaxRed(definition.redstoneMaxRed);
+                if (definition.redstoneMaxGreen != null) effect.setMaxGreen(definition.redstoneMaxGreen);
+                if (definition.redstoneMaxBlue != null) effect.setMaxBlue(definition.redstoneMaxBlue);
+                if (definition.redstoneMinRadius != null) effect.setMinRadius(definition.redstoneMinRadius);
+                if (definition.redstoneMaxRadius != null) effect.setMaxRadius(definition.redstoneMaxRadius);
+                if (definition.redstoneAmount != null) effect.setAmount(definition.redstoneAmount);
+                return effect;
+            }
+            case SIMPLE_PARTICLE: {
+                PESimpleParticle effect = new PESimpleParticle(true);
+                if (definition.particle != null) effect.setParticle(definition.particle);
+                if (definition.particleMinRadius != null) effect.setMinRadius(definition.particleMinRadius);
+                if (definition.particleMaxRadius != null) effect.setMaxRadius(definition.particleMaxRadius);
+                if (definition.particleAmount != null) effect.setAmount(definition.particleAmount);
+                return effect;
+            }
+            case STRAIGHT_ACCELERATION: {
+                PEStraightAcceleration effect = new PEStraightAcceleration(true);
+                if (definition.accelerationMin != null) effect.setMinAcceleration(definition.accelerationMin);
+                if (definition.accelerationMax != null) effect.setMaxAcceleration(definition.accelerationMax);
+                return effect;
+            }
+            case RANDOM_ACCELERATION: {
+                PERandomAcceleration effect = new PERandomAcceleration(true);
+                if (definition.accelerationMin != null) effect.setMinAcceleration(definition.accelerationMin);
+                if (definition.accelerationMax != null) effect.setMaxAcceleration(definition.accelerationMax);
+                return effect;
+            }
+            case SUB_PROJECTILES: {
+                if (definition.subProjectileInternalName == null) {
+                    throw new ValidationException("Missing sub projectile in " + sourceFile.getPath());
+                }
+                if (!itemSet.projectiles.get(definition.subProjectileInternalName).isPresent()) {
+                    throw new ValidationException("Unknown sub projectile '" + definition.subProjectileInternalName
+                            + "' in " + sourceFile.getPath());
+                }
+                PESubProjectiles effect = new PESubProjectiles(true);
+                effect.setChild(itemSet.projectiles.getReference(definition.subProjectileInternalName));
+                if (definition.subUseParentLifetime != null) effect.setUseParentLifetime(definition.subUseParentLifetime);
+                if (definition.subMinAmount != null) effect.setMinAmount(definition.subMinAmount);
+                if (definition.subMaxAmount != null) effect.setMaxAmount(definition.subMaxAmount);
+                if (definition.subAngleToParent != null) effect.setAngleToParent(definition.subAngleToParent);
+                return effect;
+            }
+            case COMMAND: {
+                if (definition.command == null) {
+                    throw new ValidationException("Missing projectile command in " + sourceFile.getPath());
+                }
+                PEExecuteCommand effect = new PEExecuteCommand(true);
+                effect.setCommand(definition.command);
+                if (definition.commandExecutor != null) effect.setExecutor(definition.commandExecutor);
+                return effect;
+            }
+            case PUSH_PULL: {
+                PEPushOrPull effect = new PEPushOrPull(true);
+                if (definition.pushStrength != null) effect.setStrength(definition.pushStrength);
+                if (definition.pushRadius != null) effect.setRadius(definition.pushRadius);
+                return effect;
+            }
+            case PLAY_SOUND: {
+                if (definition.sound == null) {
+                    throw new ValidationException("Missing projectile sound in " + sourceFile.getPath());
+                }
+                PEPlaySound effect = new PEPlaySound(true);
+                effect.setSound(createSound(definition.sound));
+                return effect;
+            }
+            case FIREWORKS: {
+                PEShowFireworks effect = new PEShowFireworks(true);
+                if (definition.fireworkEffects == null || definition.fireworkEffects.isEmpty()) {
+                    throw new ValidationException("Missing firework effects in " + sourceFile.getPath());
+                }
+                List<PEShowFireworks.EffectValues> effects = new ArrayList<>();
+                for (YamlFireworkEffectDefinition firework : definition.fireworkEffects) {
+                    PEShowFireworks.EffectValues values = new PEShowFireworks.EffectValues(true);
+                    values.setFlicker(firework.flicker);
+                    values.setTrail(firework.trail);
+                    values.setType(firework.type);
+                    values.setColors(firework.colors);
+                    values.setFadeColors(firework.fadeColors);
+                    effects.add(values);
+                }
+                effect.setEffects(effects);
+                return effect;
+            }
+            case POTION_AURA: {
+                PEPotionAura effect = new PEPotionAura(true);
+                if (definition.potionAuraRadius != null) effect.setRadius(definition.potionAuraRadius);
+                if (definition.potionAuraEffects == null || definition.potionAuraEffects.isEmpty()) {
+                    throw new ValidationException("Missing potion aura effects in " + sourceFile.getPath());
+                }
+                List<KciPotionEffect> auraEffects = new ArrayList<>();
+                for (YamlPotionEffectDefinition potion : definition.potionAuraEffects) {
+                    auraEffects.add(KciPotionEffect.createQuick(potion.type, potion.duration, potion.level));
+                }
+                effect.setEffects(auraEffects);
+                return effect;
+            }
+            default:
+                return null;
+        }
     }
 
     private static CustomItemResult createCustomItemResult(
@@ -1084,6 +1451,34 @@ public class YamlItemSetBuilder {
         if (localFile.isFile()) return localFile;
 
         File globalAssetsDir = resolveGlobalAssetsDirectory(packDirectory, "block");
+        if (globalAssetsDir != null) {
+            File globalFile = new File(globalAssetsDir, name + ".png");
+            if (globalFile.isFile()) return globalFile;
+        }
+
+        return localFile;
+    }
+
+    private static File resolveProjectileCoverTextureFile(File packDirectory, String rawValue) {
+        if (rawValue == null) return null;
+        String trimmed = rawValue.trim();
+        if (trimmed.isEmpty()) return null;
+        boolean isPath = trimmed.contains("/") || trimmed.contains("\\")
+                || trimmed.toLowerCase(Locale.ROOT).endsWith(".png");
+        if (isPath) {
+            File file = new File(trimmed);
+            if (!file.isAbsolute()) {
+                file = new File(packDirectory, trimmed);
+            }
+            return file;
+        }
+        int colonIndex = trimmed.indexOf(':');
+        String name = colonIndex >= 0 ? trimmed.substring(colonIndex + 1) : trimmed;
+        File assetsDir = new File(packDirectory, "assets/projectile");
+        File localFile = new File(assetsDir, name + ".png");
+        if (localFile.isFile()) return localFile;
+
+        File globalAssetsDir = resolveGlobalAssetsDirectory(packDirectory, "projectile");
         if (globalAssetsDir != null) {
             File globalFile = new File(globalAssetsDir, name + ".png");
             if (globalFile.isFile()) return globalFile;

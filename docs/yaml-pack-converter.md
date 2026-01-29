@@ -10,8 +10,9 @@ supported.
 - On startup and on `/kci reload`, the plugin scans `plugins/CustomItems/*`.
 - Before scanning, it imports embedded packs from other plugins (see below).
 - Each subfolder is treated as a pack.
-- Any `.yml` or `.yaml` file with a top-level `item:`, `block:`, or `recipe:` section is parsed.
-- You can define multiple items/blocks in a single file by separating documents with `---`.
+- Any `.yml` or `.yaml` file with a top-level `item:`, `block:`, `recipe:`, `projectile:`,
+  `projectile_cover:`, or `projectile-cover:` section is parsed.
+- You can define multiple entries in a single file by separating documents with `---`.
 - The plugin builds an ItemSet, generates `plugins/CustomItems/resource-pack.zip`, and writes
   `plugins/CustomItems/items.cis.txt`.
 - If any YAML errors are found, conversion is skipped and the existing
@@ -30,7 +31,7 @@ namespace: "my"
 
 ## Multiple entries in one file
 
-You can place multiple `item:`, `block:`, and/or `recipe:` documents in one YAML file by
+You can place multiple `item:`, `block:`, `recipe:`, `projectile:`, and/or `projectile_cover:` documents in one YAML file by
 separating them with a line that contains only `---`.
 
 ```yml
@@ -40,6 +41,12 @@ item:
 ---
 block:
   id: "my:steel_block"
+---
+projectile_cover:
+  id: "my:arcane_cover"
+---
+projectile:
+  id: "my:arcane_bolt"
 ```
 
 ## Embedded packs from other plugins
@@ -66,7 +73,8 @@ Embedded pack importer:
 ```
 
 Rules:
-- A pack is only imported if it contains at least one `.yml/.yaml` file whose first non-empty line is `item:`, `block:`, or `recipe:`.
+- A pack is only imported if it contains at least one `.yml/.yaml` file whose first non-empty line is
+  `item:`, `block:`, `recipe:`, `projectile:`, `projectile_cover:`, or `projectile-cover:`.
 - Packs are copied to `plugins/CustomItems/<pack>`.
 - If that folder already exists, it is only overwritten when it contains a `.kci-imported.txt`
   marker created by the same plugin. Otherwise it is skipped.
@@ -296,6 +304,176 @@ result:
   keep_old_enchantments: true
 ```
 
+## Supported projectile cover fields (current)
+
+Sphere cover example:
+```yml
+projectile_cover:
+  id: "my:arcane_cover"        # required
+  type: "sphere"               # sphere|custom (optional, defaults to sphere)
+  item_type: "ENDER_PEARL"     # optional (must support projectile covers)
+  texture: "arcane_cover"      # required for sphere
+  slots_per_axis: 10           # optional (1..50)
+  scale: 0.35                  # optional (>0)
+  geyser_texture: "arcane_g"   # optional
+```
+
+Custom cover example:
+```yml
+projectile_cover:
+  id: "my:crystal_cover"     # required
+  type: "custom"
+  item_type: "ENDER_PEARL"   # optional
+  model:
+    json: "models/cover.json"    # required
+    textures:                   # required (keys must exist in model JSON)
+      layer0: "textures/cover.png"
+  geyser_texture: "crystal_g"    # optional
+```
+
+Rules:
+- `id` can be namespaced (`my:arcane_cover`) or use the pack namespace (`arcane_cover`).
+- `projectile_cover.item_type` is optional; if set, it must be a `KciItemType` that supports projectile covers.
+- `projectile_cover.type` defaults to `sphere` unless a `model` section is present.
+- For sphere covers, `texture` is optional; if omitted it defaults to `<namespace>_<name>` (e.g. `my_arcane_cover.png`).
+- `projectile_cover.model.textures` keys must match the texture keys in the model JSON.
+
+## Supported projectile fields (current)
+
+```yml
+projectile:
+  id: "my:arcane_bolt"                 # required
+  requires:
+    mc: ">=1.16"
+  damage: 6                            # optional
+  gravity: 0.02                        # optional
+  launch_angle: { min: 0, max: 3 }     # optional (or min_launch_angle/max_launch_angle)
+  launch_speed: 1.2                    # optional (or min_launch_speed/max_launch_speed)
+  launch_knockback: 0.0                # optional
+  impact_knockback: 0.4                # optional
+  max_lifetime: 200                    # optional (ticks)
+  max_pierced_entities: 1              # optional
+  apply_impact_effects_at_expiration: true  # optional
+  apply_impact_effects_at_pierce: true      # optional
+  cover: "my:arcane_cover"             # optional (or cover_id)
+  impact_potion_effects:               # optional
+    - "poison:100:2"                   # type:duration[:level]
+    - type: "weakness"
+      duration: 60
+      level: 1
+  in_flight_effects:                   # optional
+    - delay: 0
+      period: 5
+      effects:
+        - type: "simple_particle"
+          particle: "CRIT"
+          amount: 4
+          min_radius: 0.1
+          max_radius: 0.2
+  impact_effects:                      # optional
+    - type: "explosion"
+      power: 1.5
+      destroy_blocks: false
+    - type: "play_sound"
+      sound: "ENTITY_GENERIC_EXPLODE"
+      volume: 1.0
+      pitch: 1.2
+```
+
+Rules:
+- `id` can be namespaced (`my:arcane_bolt`) or use the pack namespace (`arcane_bolt`).
+- `launch_angle` and `launch_speed` accept a number (fixed value) or `{ min, max }`.
+- `custom_damage_source` exists but is currently ignored (warning emitted).
+
+### Projectile effect types
+
+All effects use `type` (or `effect`) and can be used in `impact_effects` or inside `in_flight_effects[*].effects`.
+
+Explosion:
+```yml
+- type: "explosion"
+  power: 2.0              # required
+  destroy_blocks: false
+  set_fire: false
+```
+
+Colored redstone:
+```yml
+- type: "colored_redstone"
+  min_color: "#ff0000"
+  max_color: "#ffff00"
+  min_radius: 0.1
+  max_radius: 0.2
+  amount: 8
+```
+
+Simple particle:
+```yml
+- type: "simple_particle"
+  particle: "FLAME"   # VParticle name
+  min_radius: 0.0
+  max_radius: 0.2
+  amount: 6
+```
+
+Straight/random acceleration:
+```yml
+- type: "straight_acceleration"   # or random_acceleration
+  min: 0.02
+  max: 0.05
+```
+
+Sub projectiles:
+```yml
+- type: "sub_projectiles"
+  child: "my:arcane_bolt"
+  use_parent_lifetime: true
+  min_amount: 1
+  max_amount: 3
+  angle_to_parent: 20
+```
+
+Command:
+```yml
+- type: "command"
+  command: "say hit!"
+  executor: "console"    # console|shooter (optional, default shooter)
+```
+
+Push/pull:
+```yml
+- type: "push_pull"
+  strength: 0.4
+  radius: 3.0
+```
+
+Play sound:
+```yml
+- type: "play_sound"
+  sound: "ENTITY_ARROW_HIT"
+  volume: 1.0
+  pitch: 1.0
+```
+
+Fireworks:
+```yml
+- type: "fireworks"
+  effects:
+    - type: "BALL"
+      flicker: true
+      trail: true
+      colors: ["#ff0000", "#00ff00"]
+      fade_colors: ["#0000ff"]
+```
+
+Potion aura:
+```yml
+- type: "potion_aura"
+  radius: 3.0
+  effects:
+    - "slowness:60:1"
+```
+
 ## Textures (runtime resource pack)
 
 If a texture file exists, the plugin automatically maps it to the item or block id and includes it in the
@@ -304,9 +482,11 @@ generated resource pack.
 Texture paths:
 - Items: `plugins/CustomItems/<pack>/assets/item/<id>.png`
 - Blocks: `plugins/CustomItems/<pack>/assets/block/<id>.png`
+- Projectile covers: `plugins/CustomItems/<pack>/assets/projectile/<id>.png`
 - Block items use the linked block texture (item textures are ignored).
 - Items also fall back to `plugins/CustomItems/assets/item/<id>.png` if the pack texture is missing.
 - Block textures referenced by name also fall back to `plugins/CustomItems/assets/block/<id>.png`.
+- Projectile cover textures referenced by name also fall back to `plugins/CustomItems/assets/projectile/<id>.png`.
 - For namespaced ids, `<id>` is the part after the colon (e.g. `my:steel_sword` -> `steel_sword.png`).
 - You can also use the internal name `<namespace>_<name>.png` (e.g. `my_ruby_axe.png`).
 - `model.texture` and `model.textures.*` can also point to explicit png paths relative to the pack folder.

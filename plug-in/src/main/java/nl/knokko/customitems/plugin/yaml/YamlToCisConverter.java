@@ -30,6 +30,8 @@ public class YamlToCisConverter {
         List<YamlItemDefinition> items = new ArrayList<>();
         List<YamlBlockDefinition> blocks = new ArrayList<>();
         List<YamlRecipeDefinition> recipes = new ArrayList<>();
+        List<YamlProjectileCoverDefinition> projectileCovers = new ArrayList<>();
+        List<YamlProjectileDefinition> projectiles = new ArrayList<>();
 
         File[] packDirs = dataFolder.listFiles(File::isDirectory);
         if (packDirs == null) return false;
@@ -41,11 +43,16 @@ public class YamlToCisConverter {
             List<YamlItemDefinition> packItems = YamlItemReader.readItems(pack, errors, warnings);
             List<YamlBlockDefinition> packBlocks = YamlBlockReader.readBlocks(pack, errors, warnings);
             List<YamlRecipeDefinition> packRecipes = YamlRecipeReader.readRecipes(pack, errors, warnings);
-            if (!packItems.isEmpty() || !packBlocks.isEmpty() || !packRecipes.isEmpty()) {
+            List<YamlProjectileCoverDefinition> packCovers = YamlProjectileCoverReader.readProjectileCovers(pack, errors, warnings);
+            List<YamlProjectileDefinition> packProjectiles = YamlProjectileReader.readProjectiles(pack, errors, warnings);
+            if (!packItems.isEmpty() || !packBlocks.isEmpty() || !packRecipes.isEmpty()
+                    || !packCovers.isEmpty() || !packProjectiles.isEmpty()) {
                 packCount++;
                 items.addAll(packItems);
                 blocks.addAll(packBlocks);
                 recipes.addAll(packRecipes);
+                projectileCovers.addAll(packCovers);
+                projectiles.addAll(packProjectiles);
             }
         }
 
@@ -59,7 +66,8 @@ public class YamlToCisConverter {
             return false;
         }
 
-        if (items.isEmpty() && blocks.isEmpty() && recipes.isEmpty()) return false;
+        if (items.isEmpty() && blocks.isEmpty() && recipes.isEmpty()
+                && projectileCovers.isEmpty() && projectiles.isEmpty()) return false;
 
         Map<String, File> internalNameSources = new HashMap<>();
         for (YamlItemDefinition item : items) {
@@ -85,6 +93,22 @@ public class YamlToCisConverter {
                         + existing.getPath() + " and " + recipe.sourceFile.getPath());
             }
         }
+        Map<String, File> coverNameSources = new HashMap<>();
+        for (YamlProjectileCoverDefinition cover : projectileCovers) {
+            File existing = coverNameSources.putIfAbsent(cover.internalName, cover.sourceFile);
+            if (existing != null) {
+                errors.add("Duplicate projectile cover id for internal name '" + cover.internalName + "' in "
+                        + existing.getPath() + " and " + cover.sourceFile.getPath());
+            }
+        }
+        Map<String, File> projectileNameSources = new HashMap<>();
+        for (YamlProjectileDefinition projectile : projectiles) {
+            File existing = projectileNameSources.putIfAbsent(projectile.internalName, projectile.sourceFile);
+            if (existing != null) {
+                errors.add("Duplicate projectile id for internal name '" + projectile.internalName + "' in "
+                        + existing.getPath() + " and " + projectile.sourceFile.getPath());
+            }
+        }
 
         if (!errors.isEmpty()) {
             logErrors(errors, log);
@@ -95,9 +119,11 @@ public class YamlToCisConverter {
         Collections.sort(items, Comparator.comparing(item -> item.internalName));
         Collections.sort(blocks, Comparator.comparing(block -> block.internalName));
         Collections.sort(recipes, Comparator.comparing(recipe -> recipe.internalName));
+        Collections.sort(projectileCovers, Comparator.comparing(cover -> cover.internalName));
+        Collections.sort(projectiles, Comparator.comparing(projectile -> projectile.internalName));
         ItemSet itemSet;
         try {
-            itemSet = YamlItemSetBuilder.build(items, blocks, recipes);
+            itemSet = YamlItemSetBuilder.build(items, blocks, recipes, projectileCovers, projectiles);
         } catch (ValidationException | ProgrammingValidationException ex) {
             log.accept(ChatColor.RED + "YAML conversion failed: " + ex.getMessage());
             return false;
@@ -118,8 +144,9 @@ public class YamlToCisConverter {
             ByteArrayBitOutput output = YamlItemSetBuilder.buildBinary(itemSet);
             writeTextyFile(dataFolder, output);
             log.accept(ChatColor.GREEN + "Converted " + items.size() + " item(s), " + blocks.size()
-                    + " block(s), and " + recipes.size() + " recipe(s) from " + packCount
-                    + " pack(s) and generated resource-pack.zip.");
+                    + " block(s), " + recipes.size() + " recipe(s), " + projectileCovers.size()
+                    + " projectile cover(s), and " + projectiles.size() + " projectile(s) from "
+                    + packCount + " pack(s) and generated resource-pack.zip.");
             return true;
         } catch (IOException ex) {
             log.accept(ChatColor.RED + "Failed to write items.cis.txt: " + ex.getMessage());
