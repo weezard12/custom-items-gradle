@@ -137,13 +137,36 @@ public class CustomItemsApi {
     }
 
     public static boolean hasProjectile(String projectileName) {
-        return CustomItemsPlugin.getInstance().getSet().get().projectiles.get(projectileName).isPresent();
+        return getProjectileByNameOrId(projectileName).isPresent();
     }
 
     public static void launchProjectile(LivingEntity shooter, String projectileName) {
         CustomItemsPlugin plugin = CustomItemsPlugin.getInstance();
-        Optional<KciProjectile> maybeProjectile = plugin.getSet().get().projectiles.get(projectileName);
+        Optional<KciProjectile> maybeProjectile = getProjectileByNameOrId(projectileName);
         maybeProjectile.ifPresent(projectile -> plugin.getProjectileManager().fireProjectile(shooter, projectile));
+    }
+
+    /**
+     * Returns all internal names of custom projectiles.
+     */
+    public static Collection<String> getAllProjectileNames() {
+        ItemSet itemSet = CustomItemsPlugin.getInstance().getSet().get();
+
+        Collection<String> projectileNames = new ArrayList<>(itemSet.projectiles.size());
+        for (KciProjectile projectile : itemSet.projectiles) {
+            projectileNames.add(projectile.getName());
+        }
+        return projectileNames;
+    }
+
+    private static Optional<KciProjectile> getProjectileByNameOrId(String projectileName) {
+        if (projectileName == null) return Optional.empty();
+        ItemSet itemSet = CustomItemsPlugin.getInstance().getSet().get();
+        Optional<KciProjectile> maybeProjectile = itemSet.projectiles.get(projectileName);
+        if (!maybeProjectile.isPresent() && projectileName.indexOf(':') >= 0) {
+            maybeProjectile = itemSet.projectiles.get(projectileName.replace(':', '_'));
+        }
+        return maybeProjectile;
     }
 
     /**

@@ -34,3 +34,20 @@ ItemStack stack = CustomItemsApi.createItemStackById("my:steel_sword", 1);
 - `createItemStackById(String, int)` creates by id or internal name.
 - `hasItemId(String)` checks whether an item exists.
 - `getAllItemIds()` returns all ids (alias when present).
+
+## Custom projectiles
+
+Custom projectiles are identified by internal name. For YAML packs, the internal name is
+`<namespace>_<name>` (e.g. `my:arcane_bolt` -> `my_arcane_bolt`). The API methods accept either
+the internal name or a namespaced id (they will convert `namespace:name` to `namespace_name`).
+
+```java
+if (CustomItemsApi.hasProjectile("my:arcane_bolt")) {
+    CustomItemsApi.launchProjectile(player, "my:arcane_bolt");
+}
+```
+
+Helper methods:
+- `hasProjectile(String)` accepts internal names or namespaced ids.
+- `launchProjectile(LivingEntity, String)` fires a custom projectile by name or id.
+- `getAllProjectileNames()` returns all internal projectile names.
