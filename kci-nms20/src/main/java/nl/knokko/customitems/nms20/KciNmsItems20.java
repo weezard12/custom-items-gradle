@@ -49,7 +49,7 @@ public class KciNmsItems20 extends KciNmsItems18Plus {
             } else {
                 Bukkit.getLogger().warning(
                         "DataComponents are only available in Minecraft 1.20.5+, so translations are disabled on " +
-                                Bukkit.getMinecraftVersion()
+                                getMinecraftVersionString()
                 );
             }
         }
@@ -149,7 +149,7 @@ public class KciNmsItems20 extends KciNmsItems18Plus {
     }
 
     private static boolean isMinecraftVersionAtLeast(int major, int minor, int patch) {
-        String version = Bukkit.getMinecraftVersion();
+        String version = getMinecraftVersionString();
         int[] parsed = parseVersion(version);
         if (parsed == null) {
             return true;
@@ -175,5 +175,28 @@ public class KciNmsItems20 extends KciNmsItems18Plus {
         int minor = Integer.parseInt(matcher.group(2));
         int patch = matcher.group(3) == null ? 0 : Integer.parseInt(matcher.group(3));
         return new int[] { major, minor, patch };
+    }
+
+    private static String getMinecraftVersionString() {
+        try {
+            Method method = Bukkit.class.getMethod("getMinecraftVersion");
+            Object result = method.invoke(null);
+            if (result instanceof String) {
+                return (String) result;
+            }
+        } catch (ReflectiveOperationException ignored) {
+        }
+
+        String bukkitVersion = Bukkit.getBukkitVersion();
+        if (bukkitVersion != null) {
+            int dashIndex = bukkitVersion.indexOf('-');
+            if (dashIndex > 0) {
+                return bukkitVersion.substring(0, dashIndex);
+            }
+            return bukkitVersion;
+        }
+
+        String serverVersion = Bukkit.getVersion();
+        return serverVersion != null ? serverVersion : "unknown";
     }
 }
