@@ -55,6 +55,22 @@ public class CustomItemsApi {
         else return null;
     }
 
+    /**
+     * Gives a custom item by id (alias) or internal name. Items that don't fit in the inventory will
+     * be dropped at the player's location.
+     */
+    public static void giveItem(Player player, String itemId, int amount) {
+        if (player == null || amount <= 0) return;
+
+        ItemStack stack = createItemStackById(itemId, amount);
+        if (stack == null) return;
+
+        Location dropLocation = player.getLocation();
+        for (ItemStack didNotFit : player.getInventory().addItem(stack).values()) {
+            player.getWorld().dropItem(dropLocation, didNotFit);
+        }
+    }
+
     public static String getItemName(ItemStack itemStack) {
         KciItem item = CustomItemsPlugin.getInstance().getSet().getItem(itemStack);
 
@@ -168,6 +184,7 @@ public class CustomItemsApi {
         }
         return maybeProjectile;
     }
+
 
     /**
      * @param player The player that should open the container
