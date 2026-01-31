@@ -14,12 +14,15 @@ import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Level;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class KciNmsItems20 extends KciNmsItems18Plus {
 
     private static final boolean HAS_PAPER;
     private static final boolean DATA_COMPONENTS_API_SUPPORTS_VERSION;
     private static final Method GET_NAME_METHOD = findGetNameMethod();
+    private static final Pattern VERSION_PATTERN = Pattern.compile("(\\d+)\\.(\\d+)(?:\\.(\\d+))?");
 
     static {
         boolean foundPaper;
@@ -33,13 +36,20 @@ public class KciNmsItems20 extends KciNmsItems18Plus {
 
         boolean dataComponentApiSupportsVersion = false;
         if (HAS_PAPER) {
-            try {
-                DataComponentAPIBukkit.load();
-                dataComponentApiSupportsVersion = true;
-            } catch (UnsupportedOperationException versionNotSupported) {
-                Bukkit.getLogger().log(
-                        Level.WARNING, "It looks like the DataComponentsAPI version bundled with CustomItems " +
-                                "doesn't support this minecraft version", versionNotSupported
+            if (isMinecraftVersionAtLeast(1, 20, 5)) {
+                try {
+                    DataComponentAPIBukkit.load();
+                    dataComponentApiSupportsVersion = true;
+                } catch (Throwable versionNotSupported) {
+                    Bukkit.getLogger().log(
+                            Level.WARNING, "It looks like the DataComponentsAPI version bundled with CustomItems " +
+                                    "doesn't support this minecraft version", versionNotSupported
+                    );
+                }
+            } else {
+                Bukkit.getLogger().warning(
+                        "DataComponents are only available in Minecraft 1.20.5+, so translations are disabled on " +
+                                Bukkit.getMinecraftVersion()
                 );
             }
         }
@@ -136,5 +146,34 @@ public class KciNmsItems20 extends KciNmsItems18Plus {
             dataComponents.set(NMS.nms().lore(), new ItemLore(loreComponents, loreComponents));
         }
         return dataComponents.build();
+    }
+
+    private static boolean isMinecraftVersionAtLeast(int major, int minor, int patch) {
+        String version = Bukkit.getMinecraftVersion();
+        int[] parsed = parseVersion(version);
+        if (parsed == null) {
+            return true;
+        }
+        if (parsed[0] != major) {
+            return parsed[0] > major;
+        }
+        if (parsed[1] != minor) {
+            return parsed[1] > minor;
+        }
+        return parsed[2] >= patch;
+    }
+
+    private static int[] parseVersion(String version) {
+        if (version == null) {
+            return null;
+        }
+        Matcher matcher = VERSION_PATTERN.matcher(version);
+        if (!matcher.find()) {
+            return null;
+        }
+        int major = Integer.parseInt(matcher.group(1));
+        int minor = Integer.parseInt(matcher.group(2));
+        int patch = matcher.group(3) == null ? 0 : Integer.parseInt(matcher.group(3));
+        return new int[] { major, minor, patch };
     }
 }

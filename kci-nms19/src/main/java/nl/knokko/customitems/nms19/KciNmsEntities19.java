@@ -14,7 +14,7 @@ import java.lang.reflect.Method;
 
 class KciNmsEntities19 extends KciNmsEntities16Plus {
 
-    private static final Method DAMAGE_SOURCES_METHOD = findDamageSourcesMethod();
+    private static final DamageSourcesAccessor DAMAGE_SOURCES_ACCESSOR = findDamageSourcesAccessor();
     private static final Method DAMAGE_METHOD = findDamageMethod();
     private static volatile Method PROJECTILE_DAMAGE_METHOD;
     private static final Method SET_OWNER_METHOD = findSetOwnerMethod();
@@ -37,7 +37,7 @@ class KciNmsEntities19 extends KciNmsEntities16Plus {
         setOwner(fakeArrow, shooterHandle);
         fakeArrow.projectileSource = responsibleShooter;
 
-        DamageSource damageSource = createProjectileDamageSource(targetHandle, fakeArrow, shooterHandle);
+        DamageSource damageSource = createProjectileDamageSource(worldHandle, targetHandle, fakeArrow, shooterHandle);
         applyDamage(targetHandle, damageSource, damage);
     }
 
@@ -63,9 +63,12 @@ class KciNmsEntities19 extends KciNmsEntities16Plus {
         }
     }
 
-    private static DamageSource createProjectileDamageSource(Object targetHandle, Object projectileHandle, Object ownerHandle) {
+    private static DamageSource createProjectileDamageSource(
+            Object worldHandle, Object targetHandle, Object projectileHandle, Object ownerHandle
+    ) {
         try {
-            Object sources = DAMAGE_SOURCES_METHOD.invoke(targetHandle);
+            Object sourceOwner = DAMAGE_SOURCES_ACCESSOR.useEntity ? targetHandle : worldHandle;
+            Object sources = DAMAGE_SOURCES_ACCESSOR.method.invoke(sourceOwner);
             Method method = PROJECTILE_DAMAGE_METHOD;
             if (method == null) {
                 method = findProjectileDamageMethod(
@@ -91,20 +94,59 @@ class KciNmsEntities19 extends KciNmsEntities16Plus {
         }
     }
 
-    private static Method findDamageSourcesMethod() {
+    private static DamageSourcesAccessor findDamageSourcesAccessor() {
         Class<?> entityClass = net.minecraft.world.entity.Entity.class;
         Class<?> damageSourcesClass = loadNmsClass("net.minecraft.world.damagesource.DamageSources");
         Method method = null;
         if (damageSourcesClass != null) {
             method = findZeroArgMethodReturning(entityClass, damageSourcesClass);
+            if (method != null) {
+                return new DamageSourcesAccessor(method, true);
+            }
+            Method levelMethod = findDamageSourcesInLevel(damageSourcesClass);
+            if (levelMethod != null) {
+                return new DamageSourcesAccessor(levelMethod, false);
+            }
         }
-        if (method != null) return method;
 
         method = findZeroArgMethodReturning(entityClass, "net.minecraft.world.damagesource.");
-        if (method == null) {
-            throw new IllegalStateException("Can't find DamageSources accessor for 1.19.x");
+        if (method != null) {
+            return new DamageSourcesAccessor(method, true);
         }
-        return method;
+        Method levelMethod = findDamageSourcesInLevelPrefix();
+        if (levelMethod != null) {
+            return new DamageSourcesAccessor(levelMethod, false);
+        }
+
+        throw new IllegalStateException("Can't find DamageSources accessor for 1.19.x");
+    }
+
+    private static Method findDamageSourcesInLevel(Class<?> damageSourcesClass) {
+        Class<?> levelClass = loadNmsClass("net.minecraft.world.level.Level");
+        if (levelClass == null) {
+            levelClass = loadNmsClass("net.minecraft.world.level.World");
+        }
+        if (levelClass == null) {
+            levelClass = loadNmsClass("net.minecraft.server.level.ServerLevel");
+        }
+        if (levelClass == null) {
+            return null;
+        }
+        return findZeroArgMethodReturning(levelClass, damageSourcesClass);
+    }
+
+    private static Method findDamageSourcesInLevelPrefix() {
+        Class<?> levelClass = loadNmsClass("net.minecraft.world.level.Level");
+        if (levelClass == null) {
+            levelClass = loadNmsClass("net.minecraft.world.level.World");
+        }
+        if (levelClass == null) {
+            levelClass = loadNmsClass("net.minecraft.server.level.ServerLevel");
+        }
+        if (levelClass == null) {
+            return null;
+        }
+        return findZeroArgMethodReturning(levelClass, "net.minecraft.world.damagesource.");
     }
 
     private static Method findDamageMethod() {
@@ -409,6 +451,16 @@ class KciNmsEntities19 extends KciNmsEntities16Plus {
             return Class.forName(name);
         } catch (ClassNotFoundException ignored) {
             return null;
+        }
+    }
+
+    private static final class DamageSourcesAccessor {
+        private final Method method;
+        private final boolean useEntity;
+
+        private DamageSourcesAccessor(Method method, boolean useEntity) {
+            this.method = method;
+            this.useEntity = useEntity;
         }
     }
 }

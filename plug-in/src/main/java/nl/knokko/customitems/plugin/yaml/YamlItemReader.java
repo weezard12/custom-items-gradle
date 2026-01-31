@@ -59,6 +59,7 @@ class YamlItemReader {
 
                     ConfigurationSection toolSection = getChildSection(itemSection, "tool", file, warnings);
                     ConfigurationSection armorSection = getChildSection(itemSection, "armor", file, warnings);
+                    ConfigurationSection wandSection = getChildSection(itemSection, "wand", file, warnings);
                     ConfigurationSection foodSection = getChildSection(itemSection, "food", file, warnings);
                     Object rawBlock = itemSection.get("block");
                     if (rawBlock == null) rawBlock = itemSection.get("block_id");
@@ -71,7 +72,7 @@ class YamlItemReader {
 
                     YamlItemType type = parseItemType(itemSection.get("type"), file, warnings);
                     if (type == null) {
-                        type = inferItemType(toolSection, armorSection, foodSection, blockId != null, file, errors);
+                        type = inferItemType(toolSection, armorSection, wandSection, foodSection, blockId != null, file, errors);
                     }
 
                     String displayName = translateColors(name, "name", file, errors);
@@ -88,9 +89,10 @@ class YamlItemReader {
 
                     if (type == null) return;
 
-                    validateTypeSections(type, toolSection, armorSection, foodSection, blockId != null, file, warnings);
+                    validateTypeSections(type, toolSection, armorSection, wandSection, foodSection, blockId != null, file, warnings);
                     material = validateMaterialForType(type, material, file, warnings);
-                    if ((type == YamlItemType.TOOL || type == YamlItemType.ARMOR) && stackSize != null) {
+                    if ((type == YamlItemType.TOOL || type == YamlItemType.ARMOR || type == YamlItemType.WAND)
+                            && stackSize != null) {
                         warnOptional(warnings, "item.stack_size is not supported for type "
                                 + type.name().toLowerCase(Locale.ROOT) + " in " + file.getPath());
                         stackSize = null;
@@ -98,11 +100,14 @@ class YamlItemReader {
 
                     YamlToolDefinition toolDefinition = null;
                     YamlArmorDefinition armorDefinition = null;
+                    YamlWandDefinition wandDefinition = null;
                     YamlFoodDefinition foodDefinition = null;
                     if (type == YamlItemType.TOOL) {
                         toolDefinition = parseToolDefinition(toolSection, file, warnings);
                     } else if (type == YamlItemType.ARMOR) {
                         armorDefinition = parseArmorDefinition(armorSection, file, warnings);
+                    } else if (type == YamlItemType.WAND) {
+                        wandDefinition = parseWandDefinition(wandSection, pack, parsedId.fullId, file, errors, warnings);
                     } else if (type == YamlItemType.FOOD) {
                         foodDefinition = parseFoodDefinition(foodSection, file, warnings);
                     }
@@ -126,6 +131,7 @@ class YamlItemReader {
                             type,
                             toolDefinition,
                             armorDefinition,
+                            wandDefinition,
                             foodDefinition,
                             blockInternalName,
                             material,
@@ -278,6 +284,8 @@ class YamlItemReader {
             case "armor":
             case "armour":
                 return YamlItemType.ARMOR;
+            case "wand":
+                return YamlItemType.WAND;
             case "food":
                 return YamlItemType.FOOD;
             case "block":
@@ -292,6 +300,7 @@ class YamlItemReader {
     private static YamlItemType inferItemType(
             ConfigurationSection toolSection,
             ConfigurationSection armorSection,
+            ConfigurationSection wandSection,
             ConfigurationSection foodSection,
             boolean hasBlockReference,
             File sourceFile,
@@ -306,6 +315,10 @@ class YamlItemReader {
         if (armorSection != null) {
             count++;
             inferred = YamlItemType.ARMOR;
+        }
+        if (wandSection != null) {
+            count++;
+            inferred = YamlItemType.WAND;
         }
         if (foodSection != null) {
             count++;
@@ -328,6 +341,7 @@ class YamlItemReader {
             YamlItemType type,
             ConfigurationSection toolSection,
             ConfigurationSection armorSection,
+            ConfigurationSection wandSection,
             ConfigurationSection foodSection,
             boolean hasBlockReference,
             File sourceFile,
@@ -338,6 +352,9 @@ class YamlItemReader {
         }
         if (type != YamlItemType.ARMOR && armorSection != null) {
             warnOptional(warnings, "item.armor is only allowed for type armor in " + sourceFile.getPath());
+        }
+        if (type != YamlItemType.WAND && wandSection != null) {
+            warnOptional(warnings, "item.wand is only allowed for type wand in " + sourceFile.getPath());
         }
         if (type != YamlItemType.FOOD && foodSection != null) {
             warnOptional(warnings, "item.food is only allowed for type food in " + sourceFile.getPath());
@@ -366,6 +383,20 @@ class YamlItemReader {
             if (material.otherMaterial != null) return material;
             if (!material.itemType.canServe(Category.FOOD)) {
                 warnOptional(warnings, "item.material must be food-compatible for type food in " + sourceFile.getPath());
+                return null;
+            }
+            return material;
+        }
+
+        if (type == YamlItemType.WAND) {
+            if (material.otherMaterial != null) {
+                warnOptional(warnings, "item.material must be a custom item type for type wand in "
+                        + sourceFile.getPath());
+                return null;
+            }
+            if (!material.itemType.canServe(Category.WAND)) {
+                warnOptional(warnings, "item.material must be wand-compatible for type wand in "
+                        + sourceFile.getPath());
                 return null;
             }
             return material;
@@ -448,6 +479,112 @@ class YamlItemReader {
         Integer eatTime = parseInteger(foodSection.get("eat_time"), 1, Integer.MAX_VALUE,
                 "food.eat_time", sourceFile, warnings);
         return new YamlFoodDefinition(foodValue, eatTime);
+    }
+
+    private static YamlWandDefinition parseWandDefinition(
+            ConfigurationSection wandSection,
+            YamlPackDefinition pack,
+            String itemId,
+            File sourceFile,
+            List<String> errors,
+            List<String> warnings
+    ) {
+        if (wandSection == null) {
+            errors.add("Missing item.wand for wand item " + itemId + " in " + sourceFile.getPath());
+            return null;
+        }
+
+        Object rawProjectile = wandSection.get("projectile");
+        if (rawProjectile == null) rawProjectile = wandSection.get("projectile_id");
+        String projectileId = parseOptionalString(rawProjectile, "wand.projectile", sourceFile, warnings);
+        String projectileInternalName = null;
+        if (projectileId != null) {
+            ParsedId parsedProjectile = parseOptionalId(
+                    projectileId, pack.namespace, sourceFile, warnings, "wand.projectile"
+            );
+            if (parsedProjectile != null) {
+                projectileInternalName = parsedProjectile.internalName;
+            }
+        }
+
+        Integer cooldown = parseInteger(wandSection.get("cooldown"), 1, Integer.MAX_VALUE,
+                "wand.cooldown", sourceFile, warnings);
+        Integer amountPerShot = parseInteger(wandSection.get("amount_per_shot"), 1, Integer.MAX_VALUE,
+                "wand.amount_per_shot", sourceFile, warnings);
+        Double manaCostValue = parseDouble(wandSection.get("mana_cost"), "wand.mana_cost", sourceFile, warnings);
+        Float manaCost = null;
+        if (manaCostValue != null) {
+            if (manaCostValue < 0.0) {
+                warnOptional(warnings, "item.wand.mana_cost must be non-negative in " + sourceFile.getPath());
+            } else {
+                manaCost = manaCostValue.floatValue();
+            }
+        }
+        Boolean requiresPermission = parseBoolean(
+                wandSection.get("requires_permission"), "wand.requires_permission", sourceFile, warnings
+        );
+
+        Object rawSpells = wandSection.get("magic_spells");
+        if (rawSpells == null) rawSpells = wandSection.get("spells");
+        List<String> magicSpells = parseStringList(rawSpells, "wand.magic_spells", sourceFile, warnings);
+
+        YamlWandChargesDefinition charges = parseWandCharges(wandSection.get("charges"), sourceFile, warnings);
+
+        if (projectileInternalName == null && magicSpells.isEmpty()) {
+            errors.add("Wand item " + itemId + " must define wand.projectile or wand.magic_spells in "
+                    + sourceFile.getPath());
+            return null;
+        }
+
+        return new YamlWandDefinition(
+                projectileInternalName,
+                cooldown,
+                amountPerShot,
+                charges,
+                manaCost,
+                requiresPermission,
+                magicSpells
+        );
+    }
+
+    private static YamlWandChargesDefinition parseWandCharges(
+            Object rawCharges, File sourceFile, List<String> warnings
+    ) {
+        if (rawCharges == null) return null;
+        if (!(rawCharges instanceof ConfigurationSection)) {
+            warnOptional(warnings, "item.wand.charges must be a map in " + sourceFile.getPath());
+            return null;
+        }
+        ConfigurationSection chargesSection = (ConfigurationSection) rawCharges;
+
+        Integer maxCharges = parseInteger(
+                chargesSection.get("max_charges"), 2, Integer.MAX_VALUE,
+                "wand.charges.max_charges", sourceFile, warnings
+        );
+        if (maxCharges == null && chargesSection.isSet("max")) {
+            maxCharges = parseInteger(
+                    chargesSection.get("max"), 2, Integer.MAX_VALUE,
+                    "wand.charges.max", sourceFile, warnings
+            );
+        }
+
+        Integer rechargeTime = parseInteger(
+                chargesSection.get("recharge_time"), 1, Integer.MAX_VALUE,
+                "wand.charges.recharge_time", sourceFile, warnings
+        );
+        if (rechargeTime == null && chargesSection.isSet("recharge")) {
+            rechargeTime = parseInteger(
+                    chargesSection.get("recharge"), 1, Integer.MAX_VALUE,
+                    "wand.charges.recharge", sourceFile, warnings
+            );
+        }
+
+        if (maxCharges == null || rechargeTime == null) {
+            warnOptional(warnings, "item.wand.charges requires max_charges and recharge_time in " + sourceFile.getPath());
+            return null;
+        }
+
+        return new YamlWandChargesDefinition(maxCharges, rechargeTime);
     }
 
     private static YamlMaterialDefinition parseMaterial(Object rawMaterial, File sourceFile, List<String> warnings) {
@@ -764,6 +901,36 @@ class YamlItemReader {
             if (translated != null) {
                 result.add(translated);
             }
+            index++;
+        }
+
+        return result;
+    }
+
+    private static List<String> parseStringList(Object rawList, String fieldName, File sourceFile, List<String> warnings) {
+        if (rawList == null) return Collections.emptyList();
+        if (!(rawList instanceof List<?>)) {
+            warnOptional(warnings, "item." + fieldName + " must be a list in " + sourceFile.getPath());
+            return Collections.emptyList();
+        }
+
+        List<String> result = new ArrayList<>();
+        int index = 0;
+        for (Object entry : (List<?>) rawList) {
+            if (!(entry instanceof String)) {
+                warnOptional(warnings, "item." + fieldName + " entry " + index + " must be a string in "
+                        + sourceFile.getPath());
+                index++;
+                continue;
+            }
+            String trimmed = ((String) entry).trim();
+            if (trimmed.isEmpty()) {
+                warnOptional(warnings, "item." + fieldName + " entry " + index + " must not be empty in "
+                        + sourceFile.getPath());
+                index++;
+                continue;
+            }
+            result.add(trimmed);
             index++;
         }
 

@@ -87,7 +87,7 @@ Rules:
 item:
   id: "my:steel_sword"    # required
   name: "Steel Sword"     # required
-  type: "tool"            # simple|tool|armor|food|block (optional)
+  type: "tool"            # simple|tool|armor|wand|food|block (optional)
   lore:                   # optional
     - "&7A blazing sword that protects its wielder from flames."
     - "&#FF5500Grants &6Fire Resistance &7while held"
@@ -114,6 +114,16 @@ item:
   food:                   # optional (type: food)
     food_value: 6
     eat_time: 32
+  wand:                   # optional (type: wand)
+    projectile: "my:arcane_bolt"
+    amount_per_shot: 1
+    cooldown: 40
+    mana_cost: 0
+    requires_permission: false
+    magic_spells: ["fireball"]
+    charges:
+      max_charges: 5
+      recharge_time: 60
   block: "my:steel_block" # optional (type: block; defaults to same id)
 ```
 
@@ -130,6 +140,7 @@ Field notes:
 - If `material` is not a supported `KciItemType`, it uses `OTHER` and requires MC 1.14+.
 - `type: tool` requires a tool material (`*_SWORD`, `*_AXE`, `*_PICKAXE`, `*_SHOVEL`, `*_HOE`, `SHEARS`, `FISHING_ROD`, `FLINT_AND_STEEL`, `CARROT_STICK`, `MACE`).
 - `type: armor` requires an armor material (`*_HELMET`, `*_CHESTPLATE`, `*_LEGGINGS`, `*_BOOTS`).
+- `type: wand` requires a wand-compatible item type (hoes or shears).
 - `type: food` allows any food-compatible item type or a `VMaterial` (MC 1.14+).
 - `type: block` creates a placeable block item. Use `item.block` to reference the custom block id.
 - `stack_size` is supported for `simple`, `food`, and `block` items only.
@@ -137,9 +148,16 @@ Field notes:
 - `enchantments` supports list entries as strings (`"sharpness:3"`) or maps (`id` + optional `level`).
 - `attack_damage` and `attack_speed` are added as attribute modifiers for the main hand.
 - `type` controls which item class is used. If `type` is omitted, it defaults to `simple` unless a single
-  type block (`tool`, `armor`, `food`, or `block`) is present.
+  type block (`tool`, `armor`, `wand`, `food`, or `block`) is present.
 - `tool` and `armor` blocks control durability defaults. If omitted, vanilla defaults are used based on `material`.
 - `food` block controls custom food value and eat time.
+- `wand` block controls projectile, cooldown/amount per shot, charges, mana cost, permissions, and Magic spells.
+- Wand items must define `wand.projectile` or `wand.magic_spells`.
+- `wand.projectile_id` is an alias for `wand.projectile`.
+- `wand.magic_spells` can also be written as `wand.spells`.
+- `wand.charges` requires `max_charges` (>1) and `recharge_time` (>0). Omit it to disable charges.
+- `wand.cooldown` is in ticks; `wand.amount_per_shot` is the number of projectiles per use.
+- `wand.projectile` must reference a custom projectile id defined in the pack.
 - `block` creates a placeable block item linked to a custom block. The item model automatically references
   the block model, and the item texture uses the block texture. If `block` is omitted, it defaults to the item id.
 - `armor.armor_value` and `armor.armor_toughness` are applied as armor attribute modifiers on the slot implied

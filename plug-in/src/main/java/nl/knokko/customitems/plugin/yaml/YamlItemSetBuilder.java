@@ -25,7 +25,9 @@ import nl.knokko.customitems.item.KciItem;
 import nl.knokko.customitems.item.KciItemType;
 import nl.knokko.customitems.item.KciSimpleItem;
 import nl.knokko.customitems.item.KciTool;
+import nl.knokko.customitems.item.KciWand;
 import nl.knokko.customitems.item.ToolDurabilityLoss;
+import nl.knokko.customitems.item.WandCharges;
 import nl.knokko.customitems.item.model.ModernCustomItemModel;
 import nl.knokko.customitems.effect.KciPotionEffect;
 import nl.knokko.customitems.itemset.ItemSet;
@@ -178,6 +180,9 @@ public class YamlItemSetBuilder {
             if (item instanceof KciTool) {
                 applyToolDefinition(itemDefinition, (KciTool) item);
             }
+            if (item instanceof KciWand) {
+                applyWandDefinition(itemDefinition, (KciWand) item, itemSet);
+            }
             if (item instanceof KciFood) {
                 applyFoodDefinition(itemDefinition, (KciFood) item);
             }
@@ -235,6 +240,9 @@ public class YamlItemSetBuilder {
         }
         if (itemDefinition.type == YamlItemType.BLOCK) {
             return new KciBlockItem(true);
+        }
+        if (itemDefinition.type == YamlItemType.WAND) {
+            return new KciWand(true);
         }
         return new KciSimpleItem(true);
     }
@@ -497,6 +505,44 @@ public class YamlItemSetBuilder {
         }
         if (itemDefinition.foodDefinition.eatTime != null) {
             food.setEatTime(itemDefinition.foodDefinition.eatTime);
+        }
+    }
+
+    private static void applyWandDefinition(
+            YamlItemDefinition itemDefinition, KciWand wand, ItemSet itemSet
+    ) throws ValidationException {
+        if (itemDefinition.wandDefinition == null) return;
+
+        YamlWandDefinition definition = itemDefinition.wandDefinition;
+        if (definition.projectileInternalName != null) {
+            KciProjectile projectile = itemSet.projectiles.get(definition.projectileInternalName).orElse(null);
+            if (projectile == null) {
+                throw new ValidationException("Unknown projectile '" + definition.projectileInternalName
+                        + "' for item " + itemDefinition.fullId + " (" + itemDefinition.sourceFile.getPath() + ")");
+            }
+            wand.setProjectile(itemSet.projectiles.getReference(projectile.getName()));
+        }
+
+        if (definition.charges != null) {
+            WandCharges charges = WandCharges.createQuick(
+                    definition.charges.maxCharges, definition.charges.rechargeTime
+            );
+            wand.setCharges(charges);
+        }
+        if (definition.cooldown != null) {
+            wand.setCooldown(definition.cooldown);
+        }
+        if (definition.amountPerShot != null) {
+            wand.setAmountPerShot(definition.amountPerShot);
+        }
+        if (definition.requiresPermission != null) {
+            wand.setRequiresPermission(definition.requiresPermission);
+        }
+        if (definition.manaCost != null) {
+            wand.setManaCost(definition.manaCost);
+        }
+        if (!definition.magicSpells.isEmpty()) {
+            wand.setMagicSpells(definition.magicSpells);
         }
     }
 

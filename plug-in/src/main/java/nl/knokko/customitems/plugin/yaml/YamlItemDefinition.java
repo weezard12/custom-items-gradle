@@ -15,6 +15,7 @@ class YamlItemDefinition {
     final YamlItemType type;
     final YamlToolDefinition toolDefinition;
     final YamlArmorDefinition armorDefinition;
+    final YamlWandDefinition wandDefinition;
     final YamlFoodDefinition foodDefinition;
     final String blockInternalName;
     final YamlMaterialDefinition material;
@@ -36,6 +37,7 @@ class YamlItemDefinition {
             YamlItemType type,
             YamlToolDefinition toolDefinition,
             YamlArmorDefinition armorDefinition,
+            YamlWandDefinition wandDefinition,
             YamlFoodDefinition foodDefinition,
             String blockInternalName,
             YamlMaterialDefinition material,
@@ -56,6 +58,7 @@ class YamlItemDefinition {
         this.type = type;
         this.toolDefinition = toolDefinition;
         this.armorDefinition = armorDefinition;
+        this.wandDefinition = wandDefinition;
         this.foodDefinition = foodDefinition;
         this.blockInternalName = blockInternalName;
         this.material = material;
