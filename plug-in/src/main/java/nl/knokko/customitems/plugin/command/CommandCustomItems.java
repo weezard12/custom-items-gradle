@@ -117,6 +117,12 @@ public class CommandCustomItems implements CommandExecutor {
 					).handle(args, sender, enableOutput);
 					break;
 				}
+				case "download": {
+					new CommandCustomItemsDownload(
+							CustomItemsPlugin.getInstance().getItemSetLoader()
+					).handle(args, sender, enableOutput);
+					break;
+				}
 				case "magic": {
 					if (enableOutput) new CommandCustomItemsMagic().handle(sender);
 					break;

@@ -274,6 +274,19 @@ public class ItemSetLoader implements Listener {
         return lastLoadError;
     }
 
+    public String getResourcePackDownloadUrl() {
+        ResourcePackHashes hashes = this.currentHashes;
+        if (hashes == null) return null;
+
+        ExportSettings settings = itemSet.get().getExportSettings();
+        if (settings.shouldSkipResourcepack()) return null;
+
+        String hostAddress = settings.getHostAddress();
+        if (hostAddress == null || hostAddress.isEmpty()) return null;
+
+        return getResourcePackPrefix(hostAddress) + hashes.getSha256Hex();
+    }
+
     public void reload(Consumer<String> sendMessage, String newHostAddress, String newSha256Hex) {
         if (busy.tryAcquire()) {
             lastLoadError = null;
