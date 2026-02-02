@@ -6,26 +6,20 @@ import nl.knokko.customitems.effect.VEffectType;
 import nl.knokko.customitems.particle.VParticle;
 import nl.knokko.customitems.projectile.effect.PEExecuteCommand;
 import nl.knokko.customitems.projectile.effect.PEShowFireworks;
-import nl.knokko.customitems.sound.VSoundType;
-import nl.knokko.customitems.util.ProgrammingValidationException;
-import nl.knokko.customitems.util.Validation;
-import nl.knokko.customitems.util.ValidationException;
+import nl.knokko.customitems.plugin.yaml.YamlParseUtils.FloatRange;
+import nl.knokko.customitems.plugin.yaml.YamlParseUtils.ParsedId;
 import org.bukkit.configuration.ConfigurationSection;
-import org.bukkit.configuration.file.YamlConfiguration;
 
 import java.awt.Color;
 import java.io.File;
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.stream.Stream;
 
 import static nl.knokko.customitems.nms.KciNms.mcVersion;
+import static nl.knokko.customitems.plugin.yaml.YamlParseUtils.*;
 
 class YamlProjectileReader {
 
@@ -33,31 +27,19 @@ class YamlProjectileReader {
             YamlPackDefinition pack, List<String> errors, List<String> warnings
     ) {
         List<YamlProjectileDefinition> projectiles = new ArrayList<>();
-        try (Stream<Path> paths = Files.walk(pack.directory.toPath())) {
-            paths.filter(Files::isRegularFile).forEach(path -> {
-                String fileName = path.getFileName().toString().toLowerCase(Locale.ROOT);
-                if (!fileName.endsWith(".yml") && !fileName.endsWith(".yaml")) return;
-                if (fileName.equals("pack.yml")) return;
+        forEachYamlDocument(pack, errors, (file, config) -> {
+            ConfigurationSection projectileSection = config.getConfigurationSection("projectile");
+            if (projectileSection == null) return;
 
-                File file = path.toFile();
-                List<YamlConfiguration> configs = YamlDocumentReader.loadDocuments(file, errors);
-                for (YamlConfiguration config : configs) {
-                    ConfigurationSection projectileSection = config.getConfigurationSection("projectile");
-                    if (projectileSection == null) continue;
-
-                    int errorCountBefore = errors.size();
-                    YamlProjectileDefinition projectile = parseProjectileDefinition(
-                            pack, file, projectileSection, errors, warnings
-                    );
-                    if (errors.size() != errorCountBefore) return;
-                    if (projectile != null) {
-                        projectiles.add(projectile);
-                    }
-                }
-            });
-        } catch (IOException ex) {
-            errors.add("Failed to scan pack folder " + pack.directory.getPath() + ": " + ex.getMessage());
-        }
+            int errorCountBefore = errors.size();
+            YamlProjectileDefinition projectile = parseProjectileDefinition(
+                    pack, file, projectileSection, errors, warnings
+            );
+            if (errors.size() != errorCountBefore) return;
+            if (projectile != null) {
+                projectiles.add(projectile);
+            }
+        });
         return projectiles;
     }
 
@@ -1245,385 +1227,60 @@ class YamlProjectileReader {
     private static YamlSoundDefinition parseSoundEntry(
             Object rawValue, String fieldName, File sourceFile, List<String> warnings
     ) {
-        if (rawValue == null) {
-            warnOptional(warnings, "projectile." + fieldName + " is required in " + sourceFile.getPath());
-            return null;
-        }
-        if (rawValue instanceof String) {
-            VSoundType sound = parseSoundTypeOptional(rawValue, fieldName, sourceFile, warnings);
-            return sound == null ? null : new YamlSoundDefinition(sound, 1f, 1f);
-        }
-        ConfigurationSection section = rawValue instanceof ConfigurationSection ? (ConfigurationSection) rawValue : null;
-        Map<?, ?> map = rawValue instanceof Map<?, ?> ? (Map<?, ?>) rawValue : null;
-        if (section == null && map == null) {
-            warnOptional(warnings, "projectile." + fieldName + " must be a string or map in " + sourceFile.getPath());
-            return null;
-        }
-
-        Object rawSound = section != null ? section.get("sound") : map.get("sound");
-        Object rawVolume = section != null ? section.get("volume") : map.get("volume");
-        Object rawPitch = section != null ? section.get("pitch") : map.get("pitch");
-        VSoundType sound = parseSoundTypeOptional(rawSound, fieldName + ".sound", sourceFile, warnings);
-        Float volume = parseOptionalFloat(rawVolume, 0.001f, Float.MAX_VALUE, fieldName + ".volume", sourceFile, warnings);
-        Float pitch = parseOptionalFloat(rawPitch, 0.001f, Float.MAX_VALUE, fieldName + ".pitch", sourceFile, warnings);
-        if (sound == null) return null;
-        return new YamlSoundDefinition(sound, volume == null ? 1f : volume, pitch == null ? 1f : pitch);
-    }
-
-    private static VSoundType parseSoundTypeOptional(
-            Object rawValue, String fieldName, File sourceFile, List<String> warnings
-    ) {
-        if (!(rawValue instanceof String)) {
-            warnOptional(warnings, "projectile." + fieldName + " must be a string in " + sourceFile.getPath());
-            return null;
-        }
-        String normalized = normalizeEnumKey((String) rawValue);
-        if (normalized == null) {
-            warnOptional(warnings, "Invalid projectile." + fieldName + " in " + sourceFile.getPath());
-            return null;
-        }
-        try {
-            VSoundType sound = VSoundType.valueOf(normalized);
-            if (mcVersion < sound.firstVersion || mcVersion > sound.lastVersion) {
-                warnOptional(warnings, "projectile." + fieldName + " is not available in MC "
-                        + MCVersions.createString(mcVersion) + " (" + sourceFile.getPath() + ")");
-                return null;
-            }
-            return sound;
-        } catch (IllegalArgumentException ex) {
-            warnOptional(warnings, "Unknown projectile." + fieldName + " '" + rawValue + "' in " + sourceFile.getPath());
-            return null;
-        }
+        return YamlParseUtils.parseSoundDefinition(rawValue, "projectile." + fieldName, sourceFile, warnings, true);
     }
 
     private static ParsedId parseId(
             String rawId, String defaultNamespace, File sourceFile, List<String> errors
     ) {
-        String namespace;
-        String name;
-
-        int colonIndex = rawId.indexOf(':');
-        if (colonIndex >= 0) {
-            if (rawId.indexOf(':', colonIndex + 1) >= 0) {
-                errors.add("Invalid projectile.id '" + rawId + "' in " + sourceFile.getPath() + ": too many ':' characters");
-                return null;
-            }
-            namespace = rawId.substring(0, colonIndex);
-            name = rawId.substring(colonIndex + 1);
-        } else {
-            namespace = defaultNamespace;
-            name = rawId;
-        }
-
-        if (namespace == null || namespace.isEmpty()) {
-            errors.add("Missing namespace for projectile.id '" + rawId + "' in " + sourceFile.getPath());
-            return null;
-        }
-        if (name.isEmpty()) {
-            errors.add("Missing name for projectile.id '" + rawId + "' in " + sourceFile.getPath());
-            return null;
-        }
-
-        try {
-            Validation.safeName(namespace);
-            Validation.safeName(name);
-        } catch (ValidationException | ProgrammingValidationException ex) {
-            errors.add("Invalid projectile.id '" + rawId + "' in " + sourceFile.getPath() + ": " + ex.getMessage());
-            return null;
-        }
-
-        String fullId = namespace + ":" + name;
-        String internalName = namespace + "_" + name;
-        return new ParsedId(fullId, internalName, name);
+        return YamlParseUtils.parseId(rawId, defaultNamespace, sourceFile, errors, "projectile.id");
     }
 
     private static ParsedId parseOptionalId(
             String rawId, String defaultNamespace, File sourceFile, List<String> warnings
     ) {
-        if (rawId == null || rawId.trim().isEmpty()) return null;
-        String namespace;
-        String name;
-
-        int colonIndex = rawId.indexOf(':');
-        if (colonIndex >= 0) {
-            if (rawId.indexOf(':', colonIndex + 1) >= 0) {
-                warnOptional(warnings, "Invalid id '" + rawId + "' in " + sourceFile.getPath()
-                        + ": too many ':' characters");
-                return null;
-            }
-            namespace = rawId.substring(0, colonIndex);
-            name = rawId.substring(colonIndex + 1);
-        } else {
-            namespace = defaultNamespace;
-            name = rawId;
-        }
-
-        if (namespace == null || namespace.isEmpty()) {
-            warnOptional(warnings, "Missing namespace for id '" + rawId + "' in " + sourceFile.getPath());
-            return null;
-        }
-        if (name.isEmpty()) {
-            warnOptional(warnings, "Missing name for id '" + rawId + "' in " + sourceFile.getPath());
-            return null;
-        }
-
-        try {
-            Validation.safeName(namespace);
-            Validation.safeName(name);
-        } catch (ValidationException | ProgrammingValidationException ex) {
-            warnOptional(warnings, "Invalid id '" + rawId + "' in " + sourceFile.getPath()
-                    + ": " + ex.getMessage());
-            return null;
-        }
-
-        String fullId = namespace + ":" + name;
-        String internalName = namespace + "_" + name;
-        return new ParsedId(fullId, internalName, name);
+        return YamlParseUtils.parseOptionalId(rawId, defaultNamespace, sourceFile, warnings, "id");
     }
 
     private static ConfigurationSection getChildSection(
             ConfigurationSection parent, String name, File sourceFile, List<String> warnings
     ) {
-        if (parent == null) return null;
-        if (!parent.isSet(name)) return null;
-        ConfigurationSection section = parent.getConfigurationSection(name);
-        if (section == null) {
-            warnOptional(warnings, "projectile." + name + " must be a map in " + sourceFile.getPath());
-            return null;
-        }
-        return section;
+        return YamlParseUtils.getChildSection(parent, name, "projectile.", sourceFile, warnings);
     }
 
     private static boolean matchesRequires(
             ConfigurationSection requiresSection, File sourceFile, List<String> warnings
     ) {
-        if (requiresSection == null) return true;
-        String raw = parseOptionalString(requiresSection.get("mc"), "requires.mc", sourceFile, warnings);
-        if (raw == null) return true;
-        String trimmed = raw.trim();
-
-        String operator = "==";
-        String versionPart = trimmed;
-        if (trimmed.startsWith(">=") || trimmed.startsWith("<=")) {
-            operator = trimmed.substring(0, 2);
-            versionPart = trimmed.substring(2);
-        } else if (trimmed.startsWith(">") || trimmed.startsWith("<") || trimmed.startsWith("=")) {
-            operator = trimmed.substring(0, 1);
-            versionPart = trimmed.substring(1);
-        }
-
-        Integer version = parseMcVersion(versionPart.trim(), sourceFile, warnings);
-        if (version == null) return true;
-
-        switch (operator) {
-            case ">=":
-                return mcVersion >= version;
-            case "<=":
-                return mcVersion <= version;
-            case ">":
-                return mcVersion > version;
-            case "<":
-                return mcVersion < version;
-            case "=":
-            case "==":
-                return mcVersion == version;
-            default:
-                warnOptional(warnings, "Invalid requires.mc operator in " + sourceFile.getPath());
-                return true;
-        }
-    }
-
-    private static Integer parseMcVersion(String raw, File sourceFile, List<String> warnings) {
-        if (raw == null || raw.isEmpty()) {
-            warnOptional(warnings, "requires.mc is empty in " + sourceFile.getPath());
-            return null;
-        }
-        String trimmed = raw.trim();
-        if (trimmed.startsWith("1.")) trimmed = trimmed.substring(2);
-        int dotIndex = trimmed.indexOf('.');
-        if (dotIndex >= 0) trimmed = trimmed.substring(0, dotIndex);
-        if (!isInteger(trimmed)) {
-            warnOptional(warnings, "Invalid requires.mc '" + raw + "' in " + sourceFile.getPath());
-            return null;
-        }
-        int version = Integer.parseInt(trimmed);
-        if (version < MCVersions.FIRST_VERSION || version > MCVersions.LAST_VERSION) {
-            warnOptional(warnings, "Unsupported requires.mc '" + raw + "' in " + sourceFile.getPath());
-            return null;
-        }
-        return version;
+        return YamlParseUtils.matchesRequires(requiresSection, "projectile.requires", sourceFile, warnings);
     }
 
     private static Float parseOptionalFloat(
             Object rawValue, float min, float max, String fieldName, File sourceFile, List<String> warnings
     ) {
-        if (rawValue == null) return null;
-        Float value;
-        if (rawValue instanceof Number) {
-            value = ((Number) rawValue).floatValue();
-        } else if (rawValue instanceof String) {
-            String trimmed = ((String) rawValue).trim();
-            try {
-                value = Float.parseFloat(trimmed);
-            } catch (NumberFormatException ex) {
-                warnOptional(warnings, "projectile." + fieldName + " must be a number in " + sourceFile.getPath());
-                return null;
-            }
-        } else {
-            warnOptional(warnings, "projectile." + fieldName + " must be a number in " + sourceFile.getPath());
-            return null;
-        }
-
-        if (!Float.isFinite(value)) {
-            warnOptional(warnings, "projectile." + fieldName + " must be finite in " + sourceFile.getPath());
-            return null;
-        }
-        if (value < min || value > max) {
-            warnOptional(warnings, "projectile." + fieldName + " must be between " + min + " and " + max
-                    + " in " + sourceFile.getPath());
-            return null;
-        }
-        return value;
+        return YamlParseUtils.parseFloatInRange(rawValue, min, max, "projectile." + fieldName, sourceFile, warnings);
     }
 
     private static Integer parseOptionalInteger(
             Object rawValue, int min, int max, String fieldName, File sourceFile, List<String> warnings
     ) {
-        if (rawValue == null) return null;
-        Integer value = null;
-        if (rawValue instanceof Number) {
-            double numeric = ((Number) rawValue).doubleValue();
-            if (numeric % 1 != 0) {
-                warnOptional(warnings, "projectile." + fieldName + " must be an integer in " + sourceFile.getPath());
-                return null;
-            }
-            value = (int) numeric;
-        } else if (rawValue instanceof String) {
-            String trimmed = ((String) rawValue).trim();
-            if (!isInteger(trimmed)) {
-                warnOptional(warnings, "projectile." + fieldName + " must be an integer in " + sourceFile.getPath());
-                return null;
-            }
-            value = Integer.parseInt(trimmed);
-        } else {
-            warnOptional(warnings, "projectile." + fieldName + " must be an integer in " + sourceFile.getPath());
-            return null;
-        }
-
-        if (value < min || value > max) {
-            warnOptional(warnings, "projectile." + fieldName + " must be between " + min + " and " + max
-                    + " in " + sourceFile.getPath());
-            return null;
-        }
-        return value;
+        return YamlParseUtils.parseInteger(rawValue, min, max, "projectile." + fieldName, sourceFile, warnings);
     }
 
     private static Boolean parseOptionalBoolean(
             Object rawValue, String fieldName, File sourceFile, List<String> warnings
     ) {
-        if (rawValue == null) return null;
-        if (rawValue instanceof Boolean) return (Boolean) rawValue;
-        if (rawValue instanceof String) {
-            String trimmed = ((String) rawValue).trim().toLowerCase(Locale.ROOT);
-            if (trimmed.equals("true")) return true;
-            if (trimmed.equals("false")) return false;
-        }
-        warnOptional(warnings, "projectile." + fieldName + " must be true or false in " + sourceFile.getPath());
-        return null;
+        return YamlParseUtils.parseBoolean(rawValue, "projectile." + fieldName, sourceFile, warnings);
     }
 
     private static String parseOptionalString(
             Object rawValue, String fieldName, File sourceFile, List<String> warnings
     ) {
-        if (rawValue == null) return null;
-        if (!(rawValue instanceof String)) {
-            warnOptional(warnings, "projectile." + fieldName + " must be a string in " + sourceFile.getPath());
-            return null;
-        }
-        String trimmed = ((String) rawValue).trim();
-        if (trimmed.isEmpty()) {
-            warnOptional(warnings, "projectile." + fieldName + " must not be empty in " + sourceFile.getPath());
-            return null;
-        }
-        return trimmed;
+        return YamlParseUtils.parseOptionalString(rawValue, "projectile." + fieldName, sourceFile, warnings);
     }
 
     private static FloatRange parseOptionalRange(
             Object rawValue, String fieldName, File sourceFile, List<String> warnings
     ) {
-        if (rawValue == null) return null;
-        if (rawValue instanceof Number || rawValue instanceof String) {
-            Float value = parseOptionalFloat(rawValue, -Float.MAX_VALUE, Float.MAX_VALUE, fieldName, sourceFile, warnings);
-            if (value == null) return null;
-            return new FloatRange(value, value);
-        }
-        ConfigurationSection section = rawValue instanceof ConfigurationSection ? (ConfigurationSection) rawValue : null;
-        Map<?, ?> map = rawValue instanceof Map<?, ?> ? (Map<?, ?>) rawValue : null;
-        if (section == null && map == null) {
-            warnOptional(warnings, "projectile." + fieldName + " must be a number or map in " + sourceFile.getPath());
-            return null;
-        }
-        Object rawMin = section != null ? section.get("min") : map.get("min");
-        Object rawMax = section != null ? section.get("max") : map.get("max");
-        Float min = parseOptionalFloat(rawMin, -Float.MAX_VALUE, Float.MAX_VALUE, fieldName + ".min", sourceFile, warnings);
-        Float max = parseOptionalFloat(rawMax, -Float.MAX_VALUE, Float.MAX_VALUE, fieldName + ".max", sourceFile, warnings);
-        if (min == null || max == null) {
-            warnOptional(warnings, "projectile." + fieldName + " requires min and max in " + sourceFile.getPath());
-            return null;
-        }
-        return new FloatRange(min, max);
-    }
-
-    private static void warnOptional(List<String> warnings, String message) {
-        if (warnings == null) return;
-        warnings.add("WARNING - " + message + ". (This field will be ignored.)");
-    }
-
-    private static boolean isInteger(String value) {
-        if (value == null || value.isEmpty()) return false;
-        int start = value.charAt(0) == '-' ? 1 : 0;
-        if (start == value.length()) return false;
-        for (int i = start; i < value.length(); i++) {
-            char c = value.charAt(i);
-            if (c < '0' || c > '9') return false;
-        }
-        return true;
-    }
-
-    private static String normalizeEnumKey(String raw) {
-        if (raw == null) return null;
-        String trimmed = raw.trim();
-        if (trimmed.isEmpty()) return null;
-        int colonIndex = trimmed.indexOf(':');
-        if (colonIndex >= 0 && trimmed.indexOf(':', colonIndex + 1) >= 0) return null;
-        String core = colonIndex >= 0 ? trimmed.substring(colonIndex + 1) : trimmed;
-        if (core.isEmpty()) return null;
-        String normalized = core.toUpperCase(Locale.ROOT);
-        normalized = normalized.replace('-', '_').replace(' ', '_').replace('.', '_').replace('/', '_');
-        return normalized;
-    }
-
-    private static class ParsedId {
-
-        final String fullId;
-        final String internalName;
-        final String name;
-
-        ParsedId(String fullId, String internalName, String name) {
-            this.fullId = fullId;
-            this.internalName = internalName;
-            this.name = name;
-        }
-    }
-
-    private static class FloatRange {
-
-        final Float min;
-        final Float max;
-
-        FloatRange(Float min, Float max) {
-            this.min = min;
-            this.max = max;
-        }
+        return YamlParseUtils.parseOptionalRange(rawValue, "projectile." + fieldName, sourceFile, warnings);
     }
 }

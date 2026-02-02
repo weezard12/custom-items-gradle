@@ -1,19 +1,12 @@
 package nl.knokko.customitems.plugin.yaml;
 
-import nl.knokko.customitems.MCVersions;
 import nl.knokko.customitems.item.VMaterial;
 import nl.knokko.customitems.item.enchantment.VEnchantmentType;
 import nl.knokko.customitems.recipe.ingredient.constraint.ConstraintOperator;
-import nl.knokko.customitems.util.ProgrammingValidationException;
-import nl.knokko.customitems.util.Validation;
-import nl.knokko.customitems.util.ValidationException;
+import nl.knokko.customitems.plugin.yaml.YamlParseUtils.ParsedId;
 import org.bukkit.configuration.ConfigurationSection;
-import org.bukkit.configuration.file.YamlConfiguration;
 
 import java.io.File;
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -23,9 +16,8 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Stream;
 
-import static nl.knokko.customitems.nms.KciNms.mcVersion;
+import static nl.knokko.customitems.plugin.yaml.YamlParseUtils.*;
 
 class YamlRecipeReader {
 
@@ -33,27 +25,15 @@ class YamlRecipeReader {
             YamlPackDefinition pack, List<String> errors, List<String> warnings
     ) {
         List<YamlRecipeDefinition> recipes = new ArrayList<>();
-        try (Stream<Path> paths = Files.walk(pack.directory.toPath())) {
-            paths.filter(Files::isRegularFile).forEach(path -> {
-                String fileName = path.getFileName().toString().toLowerCase(Locale.ROOT);
-                if (!fileName.endsWith(".yml") && !fileName.endsWith(".yaml")) return;
-                if (fileName.equals("pack.yml")) return;
+        forEachYamlDocument(pack, errors, (file, config) -> {
+            ConfigurationSection recipeSection = config.getConfigurationSection("recipe");
+            if (recipeSection == null) return;
 
-                File file = path.toFile();
-                List<YamlConfiguration> configs = YamlDocumentReader.loadDocuments(file, errors);
-                for (YamlConfiguration config : configs) {
-                    ConfigurationSection recipeSection = config.getConfigurationSection("recipe");
-                    if (recipeSection == null) continue;
-
-                    int errorCountBefore = errors.size();
-                    YamlRecipeDefinition definition = parseRecipeDefinition(pack, file, recipeSection, errors, warnings);
-                    if (errors.size() != errorCountBefore) return;
-                    if (definition != null) recipes.add(definition);
-                }
-            });
-        } catch (IOException ex) {
-            errors.add("Failed to scan pack folder " + pack.directory.getPath() + ": " + ex.getMessage());
-        }
+            int errorCountBefore = errors.size();
+            YamlRecipeDefinition definition = parseRecipeDefinition(pack, file, recipeSection, errors, warnings);
+            if (errors.size() != errorCountBefore) return;
+            if (definition != null) recipes.add(definition);
+        });
         return recipes;
     }
 
@@ -1078,171 +1058,37 @@ class YamlRecipeReader {
             List<String> errors,
             String context
     ) {
-        String namespace;
-        String name;
-
-        int colonIndex = rawId.indexOf(':');
-        if (colonIndex >= 0) {
-            if (rawId.indexOf(':', colonIndex + 1) >= 0) {
-                errors.add("Invalid " + context + " '" + rawId + "' in " + sourceFile.getPath()
-                        + ": too many ':' characters");
-                return null;
-            }
-            namespace = rawId.substring(0, colonIndex);
-            name = rawId.substring(colonIndex + 1);
-        } else {
-            namespace = defaultNamespace;
-            name = rawId;
-        }
-
-        if (namespace == null || namespace.isEmpty()) {
-            errors.add("Missing namespace for " + context + " '" + rawId + "' in " + sourceFile.getPath());
-            return null;
-        }
-        if (name.isEmpty()) {
-            errors.add("Missing name for " + context + " '" + rawId + "' in " + sourceFile.getPath());
-            return null;
-        }
-
-        try {
-            Validation.safeName(namespace);
-            Validation.safeName(name);
-        } catch (ValidationException | ProgrammingValidationException ex) {
-            errors.add("Invalid " + context + " '" + rawId + "' in " + sourceFile.getPath() + ": " + ex.getMessage());
-            return null;
-        }
-
-        String fullId = namespace + ":" + name;
-        String internalName = namespace + "_" + name;
-        return new ParsedId(fullId, internalName, name);
-    }
-
-    private static class ParsedId {
-        final String fullId;
-        final String internalName;
-        final String name;
-
-        ParsedId(String fullId, String internalName, String name) {
-            this.fullId = fullId;
-            this.internalName = internalName;
-            this.name = name;
-        }
+        return YamlParseUtils.parseId(rawId, defaultNamespace, sourceFile, errors, context);
     }
 
     private static VMaterial parseVMaterial(
             Object rawValue, String fieldName, File file, List<String> errors
     ) {
-        if (!(rawValue instanceof String)) {
-            errors.add(fieldName + " must be a string in " + file.getPath());
-            return null;
-        }
-        String normalized = normalizeEnumKey((String) rawValue);
-        if (normalized == null) {
-            errors.add("Invalid " + fieldName + " in " + file.getPath());
-            return null;
-        }
-        try {
-            VMaterial material = VMaterial.valueOf(normalized);
-            if (mcVersion < material.firstVersion || mcVersion > material.lastVersion) {
-                errors.add(fieldName + " is not available in MC "
-                        + MCVersions.createString(mcVersion) + " (" + file.getPath() + ")");
-                return null;
-            }
-            return material;
-        } catch (IllegalArgumentException ex) {
-            errors.add("Unknown " + fieldName + " '" + rawValue + "' in " + file.getPath());
-            return null;
-        }
+        return YamlParseUtils.parseVMaterial(rawValue, fieldName, file, errors);
     }
 
     private static Integer parseInteger(
             Object rawValue, int min, int max, String fieldName, File file, List<String> errors
     ) {
-        if (rawValue == null) return null;
-        Integer value;
-        if (rawValue instanceof Number) {
-            double numeric = ((Number) rawValue).doubleValue();
-            if (numeric % 1 != 0) {
-                errors.add(fieldName + " must be an integer in " + file.getPath());
-                return null;
-            }
-            value = (int) numeric;
-        } else if (rawValue instanceof String) {
-            String trimmed = ((String) rawValue).trim();
-            if (!isInteger(trimmed)) {
-                errors.add(fieldName + " must be an integer in " + file.getPath());
-                return null;
-            }
-            value = Integer.parseInt(trimmed);
-        } else {
-            errors.add(fieldName + " must be an integer in " + file.getPath());
-            return null;
-        }
-
-        if (value < min || value > max) {
-            errors.add(fieldName + " must be between " + min + " and " + max + " in " + file.getPath());
-            return null;
-        }
-
-        return value;
+        return YamlParseUtils.parseOptionalInteger(rawValue, min, max, fieldName, file, errors);
     }
 
     private static Float parseFloat(
             Object rawValue, String fieldName, File file, List<String> errors
     ) {
-        if (rawValue == null) return null;
-        Float value;
-        if (rawValue instanceof Number) {
-            value = ((Number) rawValue).floatValue();
-        } else if (rawValue instanceof String) {
-            String trimmed = ((String) rawValue).trim();
-            try {
-                value = Float.parseFloat(trimmed);
-            } catch (NumberFormatException ex) {
-                errors.add(fieldName + " must be a number in " + file.getPath());
-                return null;
-            }
-        } else {
-            errors.add(fieldName + " must be a number in " + file.getPath());
-            return null;
-        }
-
-        if (!Float.isFinite(value)) {
-            errors.add(fieldName + " must be finite in " + file.getPath());
-            return null;
-        }
-
-        return value;
+        return YamlParseUtils.parseOptionalFloat(rawValue, fieldName, file, errors);
     }
 
     private static Boolean parseBoolean(
             Object rawValue, boolean defaultValue, String fieldName, File file, List<String> warnings
     ) {
-        if (rawValue == null) return defaultValue;
-        if (rawValue instanceof Boolean) return (Boolean) rawValue;
-        if (rawValue instanceof String) {
-            String trimmed = ((String) rawValue).trim().toLowerCase(Locale.ROOT);
-            if (trimmed.equals("true")) return true;
-            if (trimmed.equals("false")) return false;
-        }
-        warnOptional(warnings, fieldName + " must be true or false in " + file.getPath());
-        return defaultValue;
+        return YamlParseUtils.parseBoolean(rawValue, defaultValue, fieldName, file, warnings);
     }
 
     private static String parseOptionalString(
             Object rawValue, String fieldName, File file, List<String> warnings
     ) {
-        if (rawValue == null) return null;
-        if (!(rawValue instanceof String)) {
-            warnOptional(warnings, fieldName + " must be a string in " + file.getPath());
-            return null;
-        }
-        String trimmed = ((String) rawValue).trim();
-        if (trimmed.isEmpty()) {
-            warnOptional(warnings, fieldName + " must not be empty in " + file.getPath());
-            return null;
-        }
-        return trimmed;
+        return YamlParseUtils.parseOptionalString(rawValue, fieldName, file, warnings);
     }
 
     private static VEnchantmentType parseEnchantmentType(String rawId) {
@@ -1258,55 +1104,6 @@ class YamlRecipeReader {
         for (VEnchantmentType type : VEnchantmentType.values()) {
             if (type.getKey().equalsIgnoreCase(lowered)) return type;
         }
-        return null;
-    }
-
-    private static void warnOptional(List<String> warnings, String message) {
-        if (warnings == null) return;
-        warnings.add("WARNING - " + message + ". (This field will be ignored.)");
-    }
-
-    private static boolean isInteger(String value) {
-        if (value == null || value.isEmpty()) return false;
-        int start = value.charAt(0) == '-' ? 1 : 0;
-        if (start == value.length()) return false;
-        for (int i = start; i < value.length(); i++) {
-            char c = value.charAt(i);
-            if (c < '0' || c > '9') return false;
-        }
-        return true;
-    }
-
-    private static String normalizeEnumKey(String raw) {
-        if (raw == null) return null;
-        String trimmed = raw.trim();
-        if (trimmed.isEmpty()) return null;
-        int firstColon = trimmed.indexOf(':');
-        if (firstColon >= 0 && trimmed.indexOf(':', firstColon + 1) >= 0) return null;
-        String core = firstColon >= 0 ? trimmed.substring(firstColon + 1) : trimmed;
-        if (core.isEmpty()) return null;
-        String normalized = core.trim().toUpperCase(Locale.ROOT);
-        normalized = normalized.replace('-', '_').replace(' ', '_');
-        return normalized;
-    }
-
-    private static boolean isProbablyVanillaMaterial(String raw) {
-        int colonIndex = raw.indexOf(':');
-        if (colonIndex >= 0) {
-            String namespace = raw.substring(0, colonIndex).trim();
-            return namespace.equalsIgnoreCase("minecraft");
-        }
-        for (int i = 0; i < raw.length(); i++) {
-            if (Character.isUpperCase(raw.charAt(i))) return true;
-        }
-        return false;
-    }
-
-    private static Map<?, ?> toMap(Object rawValue) {
-        if (rawValue instanceof ConfigurationSection) {
-            return ((ConfigurationSection) rawValue).getValues(false);
-        }
-        if (rawValue instanceof Map<?, ?>) return (Map<?, ?>) rawValue;
         return null;
     }
 }
