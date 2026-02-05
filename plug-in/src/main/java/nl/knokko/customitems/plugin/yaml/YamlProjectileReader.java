@@ -18,7 +18,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
-import static nl.knokko.customitems.nms.KciNms.mcVersion;
+import static nl.knokko.customitems.plugin.yaml.YamlVersionContext.mcVersion;
 import static nl.knokko.customitems.plugin.yaml.YamlParseUtils.*;
 
 class YamlProjectileReader {

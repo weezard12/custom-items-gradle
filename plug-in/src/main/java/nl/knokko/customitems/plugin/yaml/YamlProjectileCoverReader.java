@@ -14,7 +14,7 @@ import java.util.Map;
 
 import static nl.knokko.customitems.plugin.yaml.YamlParseUtils.*;
 
-import static nl.knokko.customitems.nms.KciNms.mcVersion;
+import static nl.knokko.customitems.plugin.yaml.YamlVersionContext.mcVersion;
 
 class YamlProjectileCoverReader {
 

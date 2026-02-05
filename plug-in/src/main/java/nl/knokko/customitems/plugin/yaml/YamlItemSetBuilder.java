@@ -82,6 +82,7 @@ import nl.knokko.customitems.texture.KciTexture;
 import nl.knokko.customitems.util.Chance;
 import nl.knokko.customitems.util.ProgrammingValidationException;
 import nl.knokko.customitems.util.ValidationException;
+import nl.knokko.customitems.nms.KciNms;
 
 import java.awt.image.BufferedImage;
 import java.io.File;
@@ -97,20 +98,18 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
-import static nl.knokko.customitems.nms.KciNms.mcVersion;
-
 public class YamlItemSetBuilder {
 
     public static final String PLACEHOLDER_TEXTURE_NAME = "yaml_placeholder";
 
     static ItemSet build(Collection<YamlItemDefinition> items)
             throws ValidationException, ProgrammingValidationException {
-        return build(items, Collections.emptyList(), Collections.emptyList(), Collections.emptyList(), Collections.emptyList());
+        return build(items, Collections.emptyList(), Collections.emptyList(), Collections.emptyList(), Collections.emptyList(), KciNms.mcVersion);
     }
 
     static ItemSet build(Collection<YamlItemDefinition> items, Collection<YamlBlockDefinition> blocks)
             throws ValidationException, ProgrammingValidationException {
-        return build(items, blocks, Collections.emptyList(), Collections.emptyList(), Collections.emptyList());
+        return build(items, blocks, Collections.emptyList(), Collections.emptyList(), Collections.emptyList(), KciNms.mcVersion);
     }
 
     static ItemSet build(
@@ -118,7 +117,7 @@ public class YamlItemSetBuilder {
             Collection<YamlBlockDefinition> blocks,
             Collection<YamlRecipeDefinition> recipes
     ) throws ValidationException, ProgrammingValidationException {
-        return build(items, blocks, recipes, Collections.emptyList(), Collections.emptyList());
+        return build(items, blocks, recipes, Collections.emptyList(), Collections.emptyList(), KciNms.mcVersion);
     }
 
     static ItemSet build(
@@ -127,6 +126,39 @@ public class YamlItemSetBuilder {
             Collection<YamlRecipeDefinition> recipes,
             Collection<YamlProjectileCoverDefinition> projectileCovers,
             Collection<YamlProjectileDefinition> projectiles
+    ) throws ValidationException, ProgrammingValidationException {
+        return build(items, blocks, recipes, projectileCovers, projectiles, KciNms.mcVersion);
+    }
+
+    static ItemSet build(Collection<YamlItemDefinition> items, int mcVersion)
+            throws ValidationException, ProgrammingValidationException {
+        return build(items, Collections.emptyList(), Collections.emptyList(), Collections.emptyList(), Collections.emptyList(), mcVersion);
+    }
+
+    static ItemSet build(
+            Collection<YamlItemDefinition> items,
+            Collection<YamlBlockDefinition> blocks,
+            int mcVersion
+    ) throws ValidationException, ProgrammingValidationException {
+        return build(items, blocks, Collections.emptyList(), Collections.emptyList(), Collections.emptyList(), mcVersion);
+    }
+
+    static ItemSet build(
+            Collection<YamlItemDefinition> items,
+            Collection<YamlBlockDefinition> blocks,
+            Collection<YamlRecipeDefinition> recipes,
+            int mcVersion
+    ) throws ValidationException, ProgrammingValidationException {
+        return build(items, blocks, recipes, Collections.emptyList(), Collections.emptyList(), mcVersion);
+    }
+
+    static ItemSet build(
+            Collection<YamlItemDefinition> items,
+            Collection<YamlBlockDefinition> blocks,
+            Collection<YamlRecipeDefinition> recipes,
+            Collection<YamlProjectileCoverDefinition> projectileCovers,
+            Collection<YamlProjectileDefinition> projectiles,
+            int mcVersion
     ) throws ValidationException, ProgrammingValidationException {
         ItemSet itemSet = new ItemSet(ItemSet.Side.EDITOR);
 
@@ -178,7 +210,7 @@ public class YamlItemSetBuilder {
             applyEnchantments(itemDefinition, item);
             applyAttributes(itemDefinition, item);
             if (item instanceof KciTool) {
-                applyToolDefinition(itemDefinition, (KciTool) item);
+                applyToolDefinition(itemDefinition, (KciTool) item, mcVersion);
             }
             if (item instanceof KciWand) {
                 applyWandDefinition(itemDefinition, (KciWand) item, itemSet);
@@ -462,7 +494,7 @@ public class YamlItemSetBuilder {
         }
         return 0.0;
     }
-    private static void applyToolDefinition(YamlItemDefinition itemDefinition, KciTool tool) {
+    private static void applyToolDefinition(YamlItemDefinition itemDefinition, KciTool tool, int mcVersion) {
         Integer maxDurability = null;
         Integer entityHitLoss = null;
         Integer blockBreakLoss = null;

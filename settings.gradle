@@ -5,7 +5,7 @@ def allModules = [
         'kci-nms12', 'kci-nms13plus', 'kci-nms13', 'kci-nms14', 'kci-nms15', 'kci-nms16plus', 'kci-nms16',
         'kci-nms17', 'kci-nms18plus', 'kci-nms18', 'kci-nms19', 'kci-nms20', 'kci-nms21plus', 'kci-nms21',
         'kci-nms21r1',
-        'ce-event-handler', 'test-custom-recipes'
+        'ce-event-handler', 'test-custom-recipes', 'yaml-resourcepack-cli', 'yaml-resourcepack-source-cli'
 ]
 
 def onlyVersions = (gradle.startParameter.projectProperties['onlyVersions'] ?: '').trim()
@@ -78,7 +78,7 @@ if (onlyVersions) {
     }
 
     def includeModules = new LinkedHashSet()
-    includeModules.addAll(['bit-helper', 'gui', 'shared-code', 'plug-in', 'editor', 'kci-nms', 'custom-recipes'])
+    includeModules.addAll(['bit-helper', 'gui', 'shared-code', 'plug-in', 'editor', 'kci-nms', 'custom-recipes', 'yaml-resourcepack-cli', 'yaml-resourcepack-source-cli'])
     includeModules.addAll(selectedNms)
     selectedNms.each { moduleName ->
         def required = moduleRequirements[moduleName]

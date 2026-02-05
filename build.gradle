@@ -154,6 +154,47 @@ project(':editor') {
     }
 }
 
+project(':yaml-resourcepack-cli') {
+    apply plugin: 'io.github.goooler.shadow'
+    dependencies {
+        implementation project(':plug-in')
+        implementation 'org.bukkit:bukkit:1.12.2-R0.1-SNAPSHOT'
+    }
+    java {
+        sourceCompatibility = JavaVersion.VERSION_21
+        targetCompatibility = JavaVersion.VERSION_21
+    }
+    tasks.withType(JavaCompile).configureEach {
+        options.release.set(21)
+    }
+    shadowJar {
+        manifest {
+            attributes('Main-Class': 'nl.knokko.customitems.plugin.yaml.YamlResourcepackCli')
+        }
+    }
+}
+
+project(':yaml-resourcepack-source-cli') {
+    apply plugin: 'io.github.goooler.shadow'
+    dependencies {
+        implementation project(':plug-in')
+        implementation project(':shared-code')
+        implementation 'org.bukkit:bukkit:1.12.2-R0.1-SNAPSHOT'
+    }
+    java {
+        sourceCompatibility = JavaVersion.VERSION_21
+        targetCompatibility = JavaVersion.VERSION_21
+    }
+    tasks.withType(JavaCompile).configureEach {
+        options.release.set(21)
+    }
+    shadowJar {
+        manifest {
+            attributes('Main-Class': 'nl.knokko.customitems.plugin.yaml.YamlSourceResourcepackCli')
+        }
+    }
+}
+
 if (hasProject(':ce-event-handler')) {
     project(':ce-event-handler') {
         dependencies {
