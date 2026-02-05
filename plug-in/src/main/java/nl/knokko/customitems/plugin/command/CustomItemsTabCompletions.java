@@ -29,7 +29,7 @@ public class CustomItemsTabCompletions implements TabCompleter {
     private List<String> getRootCompletions(CommandSender sender, boolean showDisableOutput) {
         List<String> result = Lists.newArrayList(
                 "give", "take", "list", "debug", "encode", "reload", "repair",
-                "damage", "setblock", "container", "playsound", "tag", "resourcepack", "download"
+                "damage", "setblock", "container", "playsound", "tag", "resourcepack", "download", "urlpack"
         ).stream().filter(
                 element -> element.equals("container") || element.equals("resourcepack") || element.equals("download")
                         || sender.hasPermission("customitems." + element) ||

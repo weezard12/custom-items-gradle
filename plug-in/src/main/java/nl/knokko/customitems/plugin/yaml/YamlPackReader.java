@@ -14,13 +14,25 @@ class YamlPackReader {
         String namespace = packDir.getName();
         File packConfigFile = new File(packDir, "pack.yml");
         if (packConfigFile.isFile()) {
-            YamlConfiguration packConfig = YamlConfiguration.loadConfiguration(packConfigFile);
-            String configuredNamespace = packConfig.getString("namespace");
-            if (configuredNamespace == null || configuredNamespace.trim().isEmpty()) {
-                configuredNamespace = packConfig.getString("pack.namespace");
+            String configuredNamespace = null;
+            List<YamlConfiguration> configs = YamlDocumentReader.loadDocuments(packConfigFile, errors);
+            for (YamlConfiguration config : configs) {
+                if (config == null) continue;
+                String candidate = config.getString("namespace");
+                if (candidate == null || candidate.trim().isEmpty()) {
+                    candidate = config.getString("pack.namespace");
+                }
+                if (candidate == null || candidate.trim().isEmpty()) continue;
+                candidate = candidate.trim();
+                if (configuredNamespace == null) {
+                    configuredNamespace = candidate;
+                } else if (!configuredNamespace.equals(candidate)) {
+                    errors.add("Conflicting pack namespace values in " + packConfigFile.getPath()
+                            + ": '" + configuredNamespace + "' and '" + candidate + "'");
+                }
             }
-            if (configuredNamespace != null && !configuredNamespace.trim().isEmpty()) {
-                namespace = configuredNamespace.trim();
+            if (configuredNamespace != null && !configuredNamespace.isEmpty()) {
+                namespace = configuredNamespace;
             }
         }
 
