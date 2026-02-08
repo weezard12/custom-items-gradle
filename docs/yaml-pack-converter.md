@@ -11,11 +11,13 @@ supported.
 - Before scanning, it imports embedded packs from other plugins (see below).
 - Each subfolder is treated as a pack.
 - Any `.yml` or `.yaml` file with a top-level `item:`, `block:`, `recipe:`, `projectile:`,
-  `projectile_cover:`, or `projectile-cover:` section is parsed.
+  `projectile_cover:`, `projectile-cover:`, `ability:`, `abilities:`, `power:`, or `powers:`
+  section is parsed.
 - You can define multiple entries in a single file by separating documents with `---`.
 - The plugin builds an ItemSet, generates `plugins/CustomItems/resource-pack.zip`, and writes
   `plugins/CustomItems/items.cis.txt`.
-- If any YAML errors are found, conversion is skipped and the existing
+- Packs with YAML errors are skipped, while valid packs are still converted.
+- If no valid packs remain, conversion is skipped and the existing
   `items.cis.txt` (if any) is used.
 
 ## Pack namespace
@@ -31,7 +33,8 @@ namespace: "my"
 
 ## Multiple entries in one file
 
-You can place multiple `item:`, `block:`, `recipe:`, `projectile:`, and/or `projectile_cover:` documents in one YAML file by
+You can place multiple `item:`, `block:`, `recipe:`, `projectile:`, `projectile_cover:`,
+`ability:`, and/or `power:` documents in one YAML file by
 separating them with a line that contains only `---`.
 
 ```yml
@@ -47,6 +50,15 @@ projectile_cover:
 ---
 projectile:
   id: "my:arcane_bolt"
+---
+ability:
+  id: "my:fire_resist"
+  type: "passive_potion_effect"
+  effect: "fire_resistance"
+---
+power:
+  id: "my:flame_guard"
+  abilities: ["my:fire_resist"]
 ```
 
 ## Embedded packs from other plugins
@@ -74,7 +86,8 @@ Embedded pack importer:
 
 Rules:
 - A pack is only imported if it contains at least one `.yml/.yaml` file whose first non-empty line is
-  `item:`, `block:`, `recipe:`, `projectile:`, `projectile_cover:`, or `projectile-cover:`.
+  `item:`, `block:`, `recipe:`, `projectile:`, `projectile_cover:`, `projectile-cover:`,
+  `ability:`, `abilities:`, `power:`, or `powers:`.
 - Packs are copied to `plugins/CustomItems/<pack>`.
 - If that folder already exists, it is only overwritten when it contains a `.kci-imported.txt`
   marker created by the same plugin. Otherwise it is skipped.
@@ -125,6 +138,8 @@ item:
       max_charges: 5
       recharge_time: 60
   block: "my:steel_block" # optional (type: block; defaults to same id)
+  powers: ["my:flame_guard"]      # optional: grant powers while equipped
+  abilities: ["my:fire_resist"]   # optional: auto-wrap abilities into an item-local power
 ```
 
 Rules:
@@ -160,6 +175,10 @@ Field notes:
 - `wand.projectile` must reference a custom projectile id defined in the pack.
 - `block` creates a placeable block item linked to a custom block. The item model automatically references
   the block model, and the item texture uses the block texture. If `block` is omitted, it defaults to the item id.
+- `powers` attaches existing YAML `power` ids to this item. While a player has this custom item in inventory,
+  those powers are granted through the Powers plugin.
+- `abilities` attaches YAML `ability` ids directly to the item. CustomItems auto-generates a synthetic power
+  per item and grants it while the item is in inventory.
 - `armor.armor_value` and `armor.armor_toughness` are applied as armor attribute modifiers on the slot implied
   by `material` (helmet/head, chestplate/chest, leggings/legs, boots/feet).
 - If `armor.armor_value` or `armor.armor_toughness` are omitted, vanilla defaults are applied for the chosen armor.
@@ -491,6 +510,67 @@ Potion aura:
   effects:
     - "slowness:60:1"
 ```
+
+## Supported ability fields (Powers bridge)
+
+```yml
+ability:
+  id: "my:fire_resist"                # required
+  type: "passive_potion_effect"       # optional, defaults to passive_potion_effect
+  name: "Fire Resistance Passive"     # optional
+  effect: "fire_resistance"           # required (alias: potion_effect)
+  amplifier: 0                        # optional (alias: level)
+  duration: 200                       # optional (ticks)
+  tick_interval: 20                   # optional (alias: interval)
+  ambient: false                      # optional
+  particles: true                     # optional
+  icon: true                          # optional
+  conditions:                         # optional
+    - on: "on start hold any hand"
+    - on: "on finish hold any hand"
+  conditions_default_enabled: false   # optional
+```
+
+Rules:
+- `id` can be namespaced (`my:fire_resist`) or use the pack namespace (`fire_resist`).
+- `abilities:` can be used as a list form of multiple ability maps.
+- Ability objects are only used when the Powers plugin is present.
+- Current supported type is `passive_potion_effect`.
+- `conditions` is an ordered list; multiple rules stack.
+- `conditions[*].on`/`trigger` supports:
+  `on right click`, `on shift right click`, `on any right click`,
+  `on left click`, `on shift left click`, `on any left click`,
+  `on start hold hand`, `on start hold off hand`, `on start hold any hand`,
+  `on finish hold hand`, `on finish hold off hand`, `on finish hold any hand`,
+  `on hold inventory`, `on drop`, `on pick up`.
+- `conditions[*].action` supports `enable`, `disable`, `trigger`, `sync`.
+  If omitted, default action depends on trigger:
+  right/left click -> `trigger`, start hold/pick up -> `enable`,
+  finish hold/drop -> `disable`, hold inventory -> `sync`.
+- `conditions[*].item` can reference a custom item id to scope the rule to that item.
+- For abilities assigned with `item.abilities`, `conditions[*].item` is optional.
+  If omitted, item conditions automatically use the item that granted the ability.
+
+## Supported power fields (Powers bridge)
+
+```yml
+power:
+  id: "my:flame_guard"                # required
+  name: "Flame Guard"                 # optional
+  abilities: ["my:fire_resist"]       # required (alias: passive_abilities)
+  rarity: "Rare"                      # optional (must exist in Powers rarity registry)
+  alignment: "LIGHT"                  # optional (NEUTRAL|LIGHT|DARK)
+  icon: "flame_guard"                 # optional (alias: icon_key)
+  description:                        # optional
+    - "Grants constant fire resistance"
+```
+
+Rules:
+- `id` can be namespaced (`my:flame_guard`) or use the pack namespace (`flame_guard`).
+- `powers:` can be used as a list form of multiple power maps.
+- Powers are granted to players from custom items through `item.powers`/`item.abilities` while the item is in
+  inventory, and automatically removed when the player no longer has the item.
+- If the Powers plugin is not installed, these fields are ignored at runtime.
 
 ## Textures (runtime resource pack)
 

@@ -9,6 +9,7 @@ import nl.knokko.customitems.plugin.CustomItemsPlugin;
 import nl.knokko.customitems.plugin.data.PluginData;
 import nl.knokko.customitems.plugin.multisupport.floodgate.FloodgateSupport;
 import nl.knokko.customitems.plugin.multisupport.geyser.GeyserSupport;
+import nl.knokko.customitems.plugin.multisupport.powers.PowersSupport;
 import nl.knokko.customitems.plugin.set.ItemSetWrapper;
 import nl.knokko.customitems.plugin.yaml.YamlPackImporter;
 import nl.knokko.customitems.plugin.yaml.YamlToCisConverter;
@@ -152,6 +153,7 @@ public class ItemSetLoader implements Listener {
                 plugin.isEmbeddedPackImportOverrideExisting()
         );
         YamlToCisConverter.convertIfNeeded(dataFolder, sendMessage);
+        PowersSupport.reloadFromYaml(dataFolder, sendMessage);
         File itemsFile = getItemSetFile();
 
         if (!itemsFile.exists()) {

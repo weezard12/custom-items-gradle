@@ -15,6 +15,7 @@ import nl.knokko.customitems.plugin.tasks.miningspeed.MiningSpeedManager;
 import nl.knokko.customitems.plugin.multisupport.denizen.DenizenSupport;
 import nl.knokko.customitems.plugin.multisupport.itembridge.ItemBridgeSupport;
 import nl.knokko.customitems.plugin.multisupport.mimic.MimicSupport;
+import nl.knokko.customitems.plugin.multisupport.powers.PowersSupport;
 import nl.knokko.customitems.plugin.multisupport.skript.SkriptSupport;
 import nl.knokko.customitems.plugin.set.ItemSetWrapper;
 import nl.knokko.customitems.plugin.set.loading.ItemSetLoader;
@@ -143,6 +144,7 @@ public class CustomItemsPlugin extends JavaPlugin {
 			ItemBridgeSupport.onEnable(this);
 			SkriptSupport.onEnable(this);
 			DenizenSupport.onEnable();
+			PowersSupport.onEnable(this);
 			GeyserSupport.register();
 			FloodgateSupport.register();
 			PluginIndicators.init();
@@ -181,6 +183,7 @@ public class CustomItemsPlugin extends JavaPlugin {
 			if (latePopulator != null) latePopulator.stop();
 			if (recipes != null) recipes.disable();
 			if (projectileManager != null) projectileManager.destroyCustomProjectiles();
+			PowersSupport.onDisable();
 			enabledAreas = null;
 			instance = null;
 		}

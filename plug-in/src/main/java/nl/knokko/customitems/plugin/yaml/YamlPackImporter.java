@@ -13,14 +13,17 @@ import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.function.Consumer;
 import java.util.jar.JarFile;
+import java.util.stream.Collectors;
 
 public class YamlPackImporter {
 
@@ -134,7 +137,7 @@ public class YamlPackImporter {
             PackInfo info = entry.getValue();
             if (!info.hasYamlDefinition) {
                 log.accept(ChatColor.DARK_GRAY + "Skipping pack '" + entry.getKey() + "' from " + plugin.getName()
-                        + ": no item/block/recipe/projectile YAML definitions detected.");
+                        + ": no item/block/recipe/projectile/power YAML definitions detected.");
                 continue;
             }
 
@@ -146,13 +149,22 @@ public class YamlPackImporter {
             }
 
             File targetPackDir = new File(dataFolder, packName);
-            if (targetPackDir.exists() && !overrideExisting) {
-                log.accept(ChatColor.YELLOW + "Skipping embedded pack '" + packName + "' from " + plugin.getName()
-                        + " because " + targetPackDir.getPath() + " already exists.");
-                continue;
-            }
-
-            if (!targetPackDir.exists() && !targetPackDir.mkdirs()) {
+            if (targetPackDir.exists()) {
+                if (!overrideExisting) {
+                    log.accept(ChatColor.YELLOW + "Skipping embedded pack '" + packName + "' from " + plugin.getName()
+                            + " because " + targetPackDir.getPath() + " already exists.");
+                    continue;
+                }
+                if (!shouldOverwrite(targetPackDir, plugin)) {
+                    log.accept(ChatColor.YELLOW + "Skipping embedded pack '" + packName + "' from " + plugin.getName()
+                            + " because " + targetPackDir.getPath()
+                            + " is not owned by this plugin importer.");
+                    continue;
+                }
+                if (!clearDirectoryContents(targetPackDir, log, plugin.getName(), packName)) {
+                    continue;
+                }
+            } else if (!targetPackDir.mkdirs()) {
                 log.accept(ChatColor.RED + "Failed to create pack directory " + targetPackDir.getPath());
                 continue;
             }
@@ -265,6 +277,24 @@ public class YamlPackImporter {
         return copied;
     }
 
+    private static boolean clearDirectoryContents(
+            File targetPackDir, Consumer<String> log, String pluginName, String packName
+    ) {
+        Path rootPath = targetPackDir.toPath();
+        try (java.util.stream.Stream<Path> tree = Files.walk(rootPath)) {
+            List<Path> paths = tree.sorted(Comparator.reverseOrder()).collect(Collectors.toList());
+            for (Path path : paths) {
+                if (path.equals(rootPath)) continue;
+                Files.deleteIfExists(path);
+            }
+            return true;
+        } catch (IOException ex) {
+            log.accept(ChatColor.RED + "Failed to clear existing embedded pack '" + packName + "' from "
+                    + pluginName + ": " + ex.getMessage());
+            return false;
+        }
+    }
+
     private static boolean shouldOverwrite(File targetPackDir, Plugin plugin) {
         File marker = new File(targetPackDir, MARKER_FILE);
         if (!marker.isFile()) return false;
@@ -347,7 +377,9 @@ public class YamlPackImporter {
             if (trimmed.equals("---")) continue;
             return trimmed.startsWith("item:") || trimmed.startsWith("block:") || trimmed.startsWith("recipe:")
                     || trimmed.startsWith("projectile:") || trimmed.startsWith("projectile_cover:")
-                    || trimmed.startsWith("projectile-cover:");
+                    || trimmed.startsWith("projectile-cover:")
+                    || trimmed.startsWith("power:") || trimmed.startsWith("powers:")
+                    || trimmed.startsWith("ability:") || trimmed.startsWith("abilities:");
         }
         return false;
     }
