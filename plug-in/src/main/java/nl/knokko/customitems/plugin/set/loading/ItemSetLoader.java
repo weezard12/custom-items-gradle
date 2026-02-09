@@ -72,6 +72,7 @@ public class ItemSetLoader implements Listener {
     }
 
     public void sendResourcePack(Player player) {
+        if (!plugin.isRuntimeResourcePackSendingEnabled()) return;
         if (busy.tryAcquire()) {
             try {
                 if (currentHashes != null && !itemSet.get().getExportSettings().shouldSkipResourcepack()) {
@@ -95,6 +96,7 @@ public class ItemSetLoader implements Listener {
     public void forceResourcePack(PlayerResourcePackStatusEvent event) {
         // Geyser automatically rejects Java resourcepacks and has its own resourcepack system
         if (GeyserSupport.isBedrock(event.getPlayer()) || FloodgateSupport.isBedrock(event.getPlayer())) return;
+        if (!plugin.isRuntimeResourcePackSendingEnabled()) return;
 
         ExportSettings settings = itemSet.get().getExportSettings();
 
@@ -152,7 +154,9 @@ public class ItemSetLoader implements Listener {
                 plugin.getEmbeddedPackImportRoots(),
                 plugin.isEmbeddedPackImportOverrideExisting()
         );
-        YamlToCisConverter.convertIfNeeded(dataFolder, sendMessage);
+        YamlToCisConverter.convertIfNeeded(
+                dataFolder, sendMessage, plugin.isRuntimeResourcePackGenerationEnabled()
+        );
         PowersSupport.reloadFromYaml(dataFolder, sendMessage);
         File itemsFile = getItemSetFile();
 
@@ -207,7 +211,9 @@ public class ItemSetLoader implements Listener {
         lostResourcePack = false;
         File resourcePackFile = getResourcePackFile();
 
-        if (!resourcePackFile.exists() || itemSet.get().getExportSettings().getMode() == ExportSettings.Mode.MANUAL) {
+        if (!resourcePackFile.exists()
+                || itemSet.get().getExportSettings().getMode() == ExportSettings.Mode.MANUAL
+                || !plugin.isRuntimeResourcePackSendingEnabled()) {
             if (currentHashes != null) {
                 Bukkit.broadcastMessage(itemSet.get().getExportSettings().getReloadMessage());
                 currentHashes = null;
@@ -277,6 +283,7 @@ public class ItemSetLoader implements Listener {
     }
 
     public String getResourcePackDownloadUrl() {
+        if (!plugin.isRuntimeResourcePackSendingEnabled()) return null;
         ResourcePackHashes hashes = this.currentHashes;
         if (hashes == null) return null;
 
@@ -370,6 +377,7 @@ public class ItemSetLoader implements Listener {
     }
 
     private void refreshResourcePack() {
+        if (!plugin.isRuntimeResourcePackSendingEnabled()) return;
         ResourcePackHashes currentHashes = this.currentHashes;
         if (currentHashes != null) {
             ExportSettings exportSettings = itemSet.get().getExportSettings();

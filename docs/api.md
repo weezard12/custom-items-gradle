@@ -35,6 +35,37 @@ ItemStack stack = CustomItemsApi.createItemStackById("my:steel_sword", 1);
 - `hasItemId(String)` checks whether an item exists.
 - `getAllItemIds()` returns all ids (alias when present).
 
+## Custom blocks by id
+
+Custom blocks use namespaced ids in the API (`namespace:block_id`) for YAML-based packs.
+Internally, blocks are still stored as internal names (`namespace_block_id`), but API lookup
+methods accept both forms for backward compatibility.
+
+```java
+@EventHandler(ignoreCancelled = true)
+public void onBreak(BlockBreakEvent event) {
+    if (CustomItemsApi.hasBlock("my:steel_block")) {
+        String id = CustomItemsApi.getBlockId(event.getBlock());
+        if ("my:steel_block".equals(id)) {
+            event.getPlayer().sendMessage(ChatColor.GREEN + "You broke a steel block");
+        }
+    }
+}
+```
+
+```java
+CustomItemsApi.placeBlock(targetBlock, "my:steel_block");
+```
+
+Block helper methods:
+- `hasBlock(String)` accepts namespaced ids and internal names.
+- `hasBlockId(String)` alias for id-based block checks.
+- `placeBlock(Block, String)` accepts namespaced ids and internal names.
+- `getBlockId(Block)` returns namespaced id for YAML blocks, otherwise internal name.
+- `getBlockName(Block)` same behavior as `getBlockId(Block)` (kept for compatibility).
+- `getBlockInternalName(Block)` always returns the internal storage name.
+- `getAllBlockIds()` returns API ids when known, otherwise internal names.
+
 ## Custom projectiles
 
 Custom projectiles are identified by internal name. For YAML packs, the internal name is

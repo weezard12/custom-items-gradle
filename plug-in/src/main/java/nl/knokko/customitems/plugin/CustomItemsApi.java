@@ -7,6 +7,7 @@ import nl.knokko.customitems.plugin.container.ContainerInfo;
 import nl.knokko.customitems.plugin.container.ContainerInstance;
 import nl.knokko.customitems.plugin.set.ItemSetWrapper;
 import nl.knokko.customitems.plugin.set.block.MushroomBlockHelper;
+import nl.knokko.customitems.plugin.yaml.YamlToCisConverter;
 import nl.knokko.customitems.projectile.KciProjectile;
 import nl.knokko.customitems.recipe.KciCraftingRecipe;
 import nl.knokko.customitems.util.ProgrammingValidationException;
@@ -120,21 +121,34 @@ public class CustomItemsApi {
     public static Collection<String> getAllBlockIds() {
         ItemSet itemSet = CustomItemsPlugin.getInstance().getSet().get();
 
-        Collection<String> blockNames = new ArrayList<>(itemSet.blocks.size());
-        for (KciItem item : itemSet.items) {
-            blockNames.add(item.getName());
+        Collection<String> blockIds = new ArrayList<>(itemSet.blocks.size());
+        for (KciBlock block : itemSet.blocks) {
+            blockIds.add(toPublicBlockId(block.getName()));
         }
 
-        return blockNames;
+        return blockIds;
     }
 
-    public static void placeBlock(Block destination, String customBlockName) {
+    private static String normalizeBlockLookupName(String blockIdOrName) {
+        if (blockIdOrName == null) return null;
+        if (blockIdOrName.indexOf(':') >= 0) return blockIdOrName.replace(':', '_');
+        return blockIdOrName;
+    }
+
+    private static String toPublicBlockId(String blockInternalName) {
+        String mappedId = YamlToCisConverter.getYamlBlockId(blockInternalName);
+        return mappedId != null ? mappedId : blockInternalName;
+    }
+
+    private static Optional<KciBlock> getBlockByIdOrInternalName(ItemSet itemSet, String blockIdOrName) {
+        String lookupName = normalizeBlockLookupName(blockIdOrName);
+        if (lookupName == null) return Optional.empty();
+        return itemSet.blocks.get(lookupName);
+    }
+
+    public static void placeBlock(Block destination, String blockIdOrName) {
         ItemSet itemSet = CustomItemsPlugin.getInstance().getSet().get();
-        Optional<KciBlock> customBlock = itemSet.blocks.get(customBlockName);
-        if (!customBlock.isPresent() && customBlockName != null && customBlockName.indexOf(':') >= 0) {
-            String internalName = customBlockName.replace(':', '_');
-            customBlock = itemSet.blocks.get(internalName);
-        }
+        Optional<KciBlock> customBlock = getBlockByIdOrInternalName(itemSet, blockIdOrName);
         if (customBlock.isPresent()) {
             MushroomBlockHelper.place(destination, customBlock.get());
         } else {
@@ -143,13 +157,41 @@ public class CustomItemsApi {
     }
 
     public static String getBlockName(Block block) {
-        KciBlock customBlock = MushroomBlockHelper.getMushroomBlock(block);
-        if (customBlock != null) return customBlock.getName();
-        else return null;
+        return getBlockId(block);
     }
 
-    public static boolean hasBlock(String blockName) {
-        return CustomItemsPlugin.getInstance().getSet().get().blocks.get(blockName).isPresent();
+    /**
+     * Returns the public block id for the given block. For YAML blocks, this is typically namespace:name.
+     * If no YAML id mapping exists, this falls back to the internal block name.
+     */
+    public static String getBlockId(Block block) {
+        KciBlock customBlock = MushroomBlockHelper.getMushroomBlock(block);
+        if (customBlock != null) return toPublicBlockId(customBlock.getName());
+        return null;
+    }
+
+    /**
+     * Returns the internal storage name of the custom block, or null when it is not a custom block.
+     */
+    public static String getBlockInternalName(Block block) {
+        KciBlock customBlock = MushroomBlockHelper.getMushroomBlock(block);
+        if (customBlock != null) return customBlock.getName();
+        return null;
+    }
+
+    /**
+     * Checks whether a custom block exists by namespaced id or internal name.
+     */
+    public static boolean hasBlock(String blockIdOrName) {
+        ItemSet itemSet = CustomItemsPlugin.getInstance().getSet().get();
+        return getBlockByIdOrInternalName(itemSet, blockIdOrName).isPresent();
+    }
+
+    /**
+     * Alias for hasBlock(String), intended for id-focused API usage.
+     */
+    public static boolean hasBlockId(String blockId) {
+        return hasBlock(blockId);
     }
 
     public static boolean hasProjectile(String projectileName) {

@@ -1,5 +1,6 @@
 package nl.knokko.customitems.plugin.command;
 
+import nl.knokko.customitems.plugin.CustomItemsPlugin;
 import nl.knokko.customitems.plugin.set.loading.ItemSetLoader;
 import org.bukkit.ChatColor;
 import org.bukkit.command.CommandSender;
@@ -16,6 +17,11 @@ class CommandCustomItemsResourcePack {
     }
 
     void handle(String[] args, CommandSender sender, boolean enableOutput) {
+        if (!CustomItemsPlugin.getInstance().isRuntimeResourcePackSendingEnabled()) {
+            if (enableOutput) sender.sendMessage(ChatColor.RED + "Runtime resource pack sending is disabled in config.");
+            return;
+        }
+
         if (args.length == 1) {
             if (sender instanceof Player) {
                 loader.sendResourcePack((Player) sender);

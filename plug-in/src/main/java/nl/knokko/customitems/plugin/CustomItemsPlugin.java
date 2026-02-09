@@ -55,10 +55,13 @@ public class CustomItemsPlugin extends JavaPlugin {
 	private int chunkPopulationPeriod;
 	private int chunkPopulationCount;
 	private boolean cancelWhenDamageResistanceIsAtLeast100Percent;
+	private boolean dropGivenItemsWhenInventoryIsFull = true;
 	private boolean embeddedPackImportEnabled = true;
 	private boolean embeddedPackImportRestrictToRoots = false;
 	private java.util.List<String> embeddedPackImportRoots = defaultEmbeddedPackImportRoots();
 	private boolean embeddedPackImportOverrideExisting = true;
+	private boolean runtimeResourcePackGenerationEnabled = true;
+	private boolean runtimeResourcePackSendingEnabled = true;
 
 	/**
 	 * To avoid compatibility issues with other plug-ins, recipes can't be registered the first 5 seconds
@@ -99,10 +102,10 @@ public class CustomItemsPlugin extends JavaPlugin {
 		this.itemSet = new ItemSetWrapper();
 		if (KciNms.instance != null) {
 			instance = this;
-			this.itemSetLoader = new ItemSetLoader(itemSet, getDataFolder(), this);
 			this.enabledAreas = new EnabledAreas();
 			languageFile = new LanguageFile(new File(getDataFolder() + "/lang.yml"));
 			loadConfig();
+			this.itemSetLoader = new ItemSetLoader(itemSet, getDataFolder(), this);
 		} else {
 			Bukkit.getLogger().severe("Knokko's Custom Items won't start because this minecraft version is not supported");
 		}
@@ -203,6 +206,10 @@ public class CustomItemsPlugin extends JavaPlugin {
 		return cancelWhenDamageResistanceIsAtLeast100Percent;
 	}
 
+	public boolean shouldDropGivenItemsWhenInventoryIsFull() {
+		return dropGivenItemsWhenInventoryIsFull;
+	}
+
 	public EnabledAreas getEnabledAreas() {
 		return enabledAreas;
 	}
@@ -216,11 +223,16 @@ public class CustomItemsPlugin extends JavaPlugin {
 	private static final String KEY_CHUNK_POPULATION_COUNT = "Chunks per population period";
 	private static final String KEY_CANCEL_WHEN_DAMAGE_RESISTANCE_IS_AT_LEAST_100_PERCENT
 			= "Cancel attacks when custom armor damage resistance is at least 100 percent";
+	private static final String KEY_DROP_GIVEN_ITEMS_WHEN_INVENTORY_IS_FULL
+			= "Drop given items when inventory is full";
 	private static final String KEY_EMBEDDED_PACK_IMPORT = "Embedded pack importer";
 	private static final String KEY_EMBEDDED_PACK_IMPORT_ENABLED = KEY_EMBEDDED_PACK_IMPORT + ".Enabled";
 	private static final String KEY_EMBEDDED_PACK_IMPORT_RESTRICT = KEY_EMBEDDED_PACK_IMPORT + ".Restrict to pack roots";
 	private static final String KEY_EMBEDDED_PACK_IMPORT_ROOTS = KEY_EMBEDDED_PACK_IMPORT + ".Pack roots";
 	private static final String KEY_EMBEDDED_PACK_IMPORT_OVERRIDE = KEY_EMBEDDED_PACK_IMPORT + ".OverrideExistingPacks";
+	private static final String KEY_RUNTIME_RESOURCE_PACK = "Runtime resource pack";
+	private static final String KEY_RUNTIME_RESOURCE_PACK_GENERATE = KEY_RUNTIME_RESOURCE_PACK + ".Generate";
+	private static final String KEY_RUNTIME_RESOURCE_PACK_SEND_TO_PLAYERS = KEY_RUNTIME_RESOURCE_PACK + ".Send to players";
 
 	private void loadConfig() {
 		reloadConfig();
@@ -256,6 +268,14 @@ public class CustomItemsPlugin extends JavaPlugin {
 		} else {
 			this.cancelWhenDamageResistanceIsAtLeast100Percent = true;
 			config.set(KEY_CANCEL_WHEN_DAMAGE_RESISTANCE_IS_AT_LEAST_100_PERCENT, true);
+			saveConfig = true;
+		}
+
+		if (config.contains(KEY_DROP_GIVEN_ITEMS_WHEN_INVENTORY_IS_FULL)) {
+			this.dropGivenItemsWhenInventoryIsFull = config.getBoolean(KEY_DROP_GIVEN_ITEMS_WHEN_INVENTORY_IS_FULL);
+		} else {
+			this.dropGivenItemsWhenInventoryIsFull = true;
+			config.set(KEY_DROP_GIVEN_ITEMS_WHEN_INVENTORY_IS_FULL, true);
 			saveConfig = true;
 		}
 
@@ -300,6 +320,22 @@ public class CustomItemsPlugin extends JavaPlugin {
 			saveConfig = true;
 		}
 
+		if (config.contains(KEY_RUNTIME_RESOURCE_PACK_GENERATE)) {
+			this.runtimeResourcePackGenerationEnabled = config.getBoolean(KEY_RUNTIME_RESOURCE_PACK_GENERATE);
+		} else {
+			this.runtimeResourcePackGenerationEnabled = true;
+			config.set(KEY_RUNTIME_RESOURCE_PACK_GENERATE, true);
+			saveConfig = true;
+		}
+
+		if (config.contains(KEY_RUNTIME_RESOURCE_PACK_SEND_TO_PLAYERS)) {
+			this.runtimeResourcePackSendingEnabled = config.getBoolean(KEY_RUNTIME_RESOURCE_PACK_SEND_TO_PLAYERS);
+		} else {
+			this.runtimeResourcePackSendingEnabled = true;
+			config.set(KEY_RUNTIME_RESOURCE_PACK_SEND_TO_PLAYERS, true);
+			saveConfig = true;
+		}
+
 		if (this.enabledAreas.update(config)) saveConfig = true;
 
 		if (saveConfig) {
@@ -326,6 +362,14 @@ public class CustomItemsPlugin extends JavaPlugin {
 
 	public boolean isEmbeddedPackImportOverrideExisting() {
 		return embeddedPackImportOverrideExisting;
+	}
+
+	public boolean isRuntimeResourcePackGenerationEnabled() {
+		return runtimeResourcePackGenerationEnabled;
+	}
+
+	public boolean isRuntimeResourcePackSendingEnabled() {
+		return runtimeResourcePackSendingEnabled;
 	}
 
 	public void reloadPluginConfig() {

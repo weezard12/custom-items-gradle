@@ -53,8 +53,9 @@ the following files in plugins/CustomItems:
 set from this file. If not, it shall initialize an empty item set,
 which will cause the plug-in to be mostly idle. Furthermore, the
 plug-in shall **not** save or load the `gamedata.bin` file.
-- `resource-pack.zip`: If this file exists and the export mode is not
-`Manual`, it shall ensure that this
+- `resource-pack.zip`: If this file exists, the export mode is not
+`Manual`, and `Runtime resource pack.Send to players` in `config.yml` is `true`,
+it shall ensure that this
 resource pack is present on my resource pack host server (sending it
 if needed), and ensure that players download it. Furthermore, the
 plug-in shall prevent my resource pack host from deleting it by
@@ -64,7 +65,8 @@ missing, the plug-in simply won't try to host the resource pack.
 ### When a player joins the server
 If the file `plugins/CustomItems/resource-pack.zip` existed
 when the plug-in was reloaded for the last time (or when the
-server started if the plug-in was never reloaded), the plug-in
+server started if the plug-in was never reloaded), and
+`Runtime resource pack.Send to players` in `config.yml` is `true`, the plug-in
 shall use the Bukkit API to prompt all players to download the
 resource pack when they join the server.
 
@@ -93,7 +95,7 @@ new resource pack.
 If this file doesn't exist, continue with an empty item set instead.
 3. Load the current state from `gamedata.bin` if the file exists
 and the new item set is not empty.
-4. If there is a resource pack stored at 
+4. If there is a resource pack stored at
 `plugins/CustomItems/resource-pack.zip`, the plug-in shall
 compute its SHA-256 hash and compare it with the SHA-256 hash
 of the old resource-pack. If they are different (or there is no
@@ -104,3 +106,5 @@ it on my resource pack host server. If there is no new
 resource pack and there used to be a resource pack, the plug-in
 should tell all online players that they can disable the
 outdated resource pack by logging out and joining again.
+This entire step is skipped when `Runtime resource pack.Send to players`
+in `config.yml` is `false`.

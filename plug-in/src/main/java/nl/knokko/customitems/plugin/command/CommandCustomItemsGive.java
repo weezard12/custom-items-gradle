@@ -19,6 +19,12 @@ public class CommandCustomItemsGive {
     final ItemSetWrapper itemSet;
     final LanguageFile lang;
 
+    private enum DeliveryResult {
+        ADDED_TO_INVENTORY,
+        DROPPED_ON_GROUND,
+        FAILED
+    }
+
     CommandCustomItemsGive(ItemSetWrapper itemSet, LanguageFile lang) {
         this.itemSet = itemSet;
         this.lang = lang;
@@ -163,7 +169,8 @@ public class CommandCustomItemsGive {
             return;
         }
 
-        int givenCount = 0;
+        int deliveredCount = 0;
+        int droppedCount = 0;
         boolean inventoryFull = false;
         boolean trimmedAmount = false;
 
@@ -179,19 +186,23 @@ public class CommandCustomItemsGive {
                 trimmedAmount = true;
             }
 
-            boolean wasGiven = giveCustomItemToInventory(itemSet, receiver.getInventory(), item, itemAmount);
-            if (wasGiven) {
-                givenCount++;
-            } else {
+            DeliveryResult deliveryResult = deliverItem(receiver, item, itemAmount);
+            if (deliveryResult == DeliveryResult.FAILED) {
                 inventoryFull = true;
+            } else {
+                deliveredCount++;
+                if (deliveryResult == DeliveryResult.DROPPED_ON_GROUND) droppedCount++;
             }
         }
 
         if (!enableOutput) return;
-        if (givenCount > 0) {
-            sender.sendMessage(ChatColor.GREEN + "Gave " + givenCount + " custom items.");
+        if (deliveredCount > 0) {
+            sender.sendMessage(ChatColor.GREEN + "Gave " + deliveredCount + " custom items.");
         } else {
             sender.sendMessage(ChatColor.RED + "No custom items could be given.");
+        }
+        if (droppedCount > 0) {
+            sender.sendMessage(ChatColor.YELLOW + "Some items were dropped on the ground due to full inventory.");
         }
         if (trimmedAmount) {
             sender.sendMessage(ChatColor.YELLOW + "Some items were given with a lower amount due to stack limits.");
@@ -234,12 +245,27 @@ public class CommandCustomItemsGive {
         }
     }
 
-    private void giveTheItem(CommandSender sender, Player receiver, KciItem item, int amount, boolean enableOutput) {
-        boolean wasGiven = giveCustomItemToInventory(itemSet, receiver.getInventory(), item, amount);
+    private DeliveryResult deliverItem(Player receiver, KciItem item, int amount) {
+        if (giveCustomItemToInventory(itemSet, receiver.getInventory(), item, amount)) {
+            return DeliveryResult.ADDED_TO_INVENTORY;
+        }
+        if (CustomItemsPlugin.getInstance().shouldDropGivenItemsWhenInventoryIsFull()) {
+            receiver.getWorld().dropItem(receiver.getLocation(), wrap(item).create(amount));
+            return DeliveryResult.DROPPED_ON_GROUND;
+        }
+        return DeliveryResult.FAILED;
+    }
 
+    private void giveTheItem(CommandSender sender, Player receiver, KciItem item, int amount, boolean enableOutput) {
+        DeliveryResult deliveryResult = deliverItem(receiver, item, amount);
         if (enableOutput) {
-            if (wasGiven) sender.sendMessage(lang.getCommandItemGiven());
-            else sender.sendMessage(ChatColor.RED + "No available inventory slot was found");
+            if (deliveryResult == DeliveryResult.ADDED_TO_INVENTORY) {
+                sender.sendMessage(lang.getCommandItemGiven());
+            } else if (deliveryResult == DeliveryResult.DROPPED_ON_GROUND) {
+                sender.sendMessage(ChatColor.YELLOW + "Custom item was dropped on the ground because no inventory slot was available.");
+            } else {
+                sender.sendMessage(ChatColor.RED + "No available inventory slot was found");
+            }
         }
     }
 }

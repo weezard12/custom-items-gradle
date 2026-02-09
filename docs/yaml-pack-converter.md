@@ -14,8 +14,10 @@ supported.
   `projectile_cover:`, `projectile-cover:`, `ability:`, `abilities:`, `power:`, or `powers:`
   section is parsed.
 - You can define multiple entries in a single file by separating documents with `---`.
-- The plugin builds an ItemSet, generates `plugins/CustomItems/resource-pack.zip`, and writes
-  `plugins/CustomItems/items.cis.txt`.
+- The plugin builds an ItemSet and writes `plugins/CustomItems/items.cis.txt`.
+- Runtime resource-pack generation can be toggled in `config.yml`.
+  When enabled, the plugin also generates `plugins/CustomItems/resource-pack.zip`.
+  When disabled, existing `plugins/CustomItems/resource-pack.zip` is left unchanged.
 - Packs with YAML errors are skipped, while valid packs are still converted.
 - If no valid packs remain, conversion is skipped and the existing
   `items.cis.txt` (if any) is used.
@@ -82,6 +84,13 @@ Embedded pack importer:
   Pack roots:
     - customitems
     - custom-items
+```
+
+Runtime resource-pack config (in `config.yml`):
+```yml
+Runtime resource pack:
+  Generate: true
+  Send to players: true
 ```
 
 Rules:

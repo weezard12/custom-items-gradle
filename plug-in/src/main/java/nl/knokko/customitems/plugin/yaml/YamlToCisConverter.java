@@ -25,9 +25,40 @@ import java.util.function.Function;
 
 public class YamlToCisConverter {
 
+    private static volatile Map<String, String> yamlBlockIdSnapshot = Collections.emptyMap();
+
     private YamlToCisConverter() {}
 
+    public static Map<String, String> getYamlBlockIdSnapshot() {
+        return yamlBlockIdSnapshot;
+    }
+
+    public static String getYamlBlockId(String blockInternalName) {
+        if (blockInternalName == null) return null;
+        return yamlBlockIdSnapshot.get(blockInternalName);
+    }
+
+    private static void resetYamlBlockIdSnapshot() {
+        yamlBlockIdSnapshot = Collections.emptyMap();
+    }
+
+    private static void updateYamlBlockIdSnapshot(DefinitionCollections collections) {
+        Map<String, String> mapping = new HashMap<>(collections.blocks.size());
+        for (YamlBlockDefinition block : collections.blocks) {
+            mapping.put(block.internalName, block.fullId);
+        }
+        yamlBlockIdSnapshot = Collections.unmodifiableMap(mapping);
+    }
+
     public static boolean convertIfNeeded(File dataFolder, Consumer<String> log) {
+        return convertIfNeeded(dataFolder, log, true);
+    }
+
+    public static boolean convertIfNeeded(
+            File dataFolder, Consumer<String> log, boolean generateRuntimeResourcePack
+    ) {
+        resetYamlBlockIdSnapshot();
+
         File[] packDirs = dataFolder.listFiles(File::isDirectory);
         if (packDirs == null) return false;
         Arrays.sort(packDirs, Comparator.comparing(
@@ -47,26 +78,34 @@ public class YamlToCisConverter {
             return false;
         }
 
-        try {
-            File resourcePackFile = new File(dataFolder, "resource-pack.zip");
-            YamlResourcepackGenerator.write(buildResult.itemSet, resourcePackFile);
-        } catch (ValidationException | ProgrammingValidationException ex) {
-            log.accept(ChatColor.RED + "YAML resource pack generation failed: " + ex.getMessage());
-            return false;
-        } catch (IOException ex) {
-            log.accept(ChatColor.RED + "Failed to write resource-pack.zip: " + ex.getMessage());
-            return false;
+        boolean didGenerateResourcePack = false;
+        if (generateRuntimeResourcePack) {
+            try {
+                File resourcePackFile = new File(dataFolder, "resource-pack.zip");
+                YamlResourcepackGenerator.write(buildResult.itemSet, resourcePackFile);
+                didGenerateResourcePack = true;
+            } catch (ValidationException | ProgrammingValidationException ex) {
+                log.accept(ChatColor.RED + "YAML resource pack generation failed: " + ex.getMessage());
+                return false;
+            } catch (IOException ex) {
+                log.accept(ChatColor.RED + "Failed to write resource-pack.zip: " + ex.getMessage());
+                return false;
+            }
         }
 
         try {
             ByteArrayBitOutput output = YamlItemSetBuilder.buildBinary(buildResult.itemSet);
             writeTextyFile(dataFolder, output);
+            updateYamlBlockIdSnapshot(buildResult.collections);
+            String resourcePackMessage;
+            if (didGenerateResourcePack) resourcePackMessage = " and generated resource-pack.zip.";
+            else resourcePackMessage = " and skipped resource-pack.zip generation because it is disabled in config.";
             log.accept(ChatColor.GREEN + "Converted " + buildResult.collections.items.size() + " item(s), "
                     + buildResult.collections.blocks.size() + " block(s), "
                     + buildResult.collections.recipes.size() + " recipe(s), "
                     + buildResult.collections.projectileCovers.size() + " projectile cover(s), and "
                     + buildResult.collections.projectiles.size() + " projectile(s) from "
-                    + buildResult.packCount + " pack(s) and generated resource-pack.zip.");
+                    + buildResult.packCount + " pack(s)" + resourcePackMessage);
             return true;
         } catch (IOException ex) {
             log.accept(ChatColor.RED + "Failed to write items.cis.txt: " + ex.getMessage());
@@ -130,12 +169,14 @@ public class YamlToCisConverter {
         while (!activePacks.isEmpty()) {
             DefinitionCollections collections = mergeDefinitions(activePacks);
             try {
+                int mcVersion = YamlVersionContext.mcVersion;
                 ItemSet itemSet = YamlItemSetBuilder.build(
                         collections.items,
                         collections.blocks,
                         collections.recipes,
                         collections.projectileCovers,
-                        collections.projectiles
+                        collections.projectiles,
+                        mcVersion
                 );
                 return new BuildResult(itemSet, collections, activePacks.size());
             } catch (ValidationException | ProgrammingValidationException ex) {
