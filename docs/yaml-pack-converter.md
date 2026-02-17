@@ -19,6 +19,8 @@ supported.
   When enabled, the plugin also generates `plugins/CustomItems/resource-pack.zip`.
   When disabled, existing `plugins/CustomItems/resource-pack.zip` is left unchanged.
 - Packs with YAML errors are skipped, while valid packs are still converted.
+- Duplicate internal ids are warnings, not fatal errors: the first declaration is kept and later duplicates are skipped.
+- Packs that fail later conversion/validation are isolated and skipped, so other valid packs still convert.
 - If no valid packs remain, conversion is skipped and the existing
   `items.cis.txt` (if any) is used.
 

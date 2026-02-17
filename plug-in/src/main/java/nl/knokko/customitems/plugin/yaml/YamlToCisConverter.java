@@ -182,6 +182,9 @@ public class YamlToCisConverter {
             } catch (ValidationException | ProgrammingValidationException ex) {
                 PackContent culprit = findCulpritPack(ex.getMessage(), activePacks);
                 if (culprit == null) {
+                    culprit = findCulpritPackByIsolation(activePacks);
+                }
+                if (culprit == null) {
                     log.accept(ChatColor.RED + "YAML conversion failed: " + ex.getMessage());
                     return null;
                 }
@@ -195,6 +198,53 @@ public class YamlToCisConverter {
         return null;
     }
 
+    private static PackContent findCulpritPackByIsolation(List<PackContent> packs) {
+        if (packs.isEmpty()) return null;
+        if (packs.size() == 1) return packs.get(0);
+
+        for (PackContent candidate : packs) {
+            if (canBuildWithoutPack(packs, candidate)) return candidate;
+        }
+
+        for (PackContent candidate : packs) {
+            if (!canBuildSinglePack(candidate)) return candidate;
+        }
+
+        return packs.get(0);
+    }
+
+    private static boolean canBuildWithoutPack(List<PackContent> packs, PackContent excluded) {
+        List<PackContent> reduced = new ArrayList<>(packs.size() - 1);
+        for (PackContent pack : packs) {
+            if (pack != excluded) reduced.add(pack);
+        }
+        return canBuildPacks(reduced);
+    }
+
+    private static boolean canBuildSinglePack(PackContent pack) {
+        List<PackContent> singleton = new ArrayList<>(1);
+        singleton.add(pack);
+        return canBuildPacks(singleton);
+    }
+
+    private static boolean canBuildPacks(List<PackContent> packs) {
+        if (packs.isEmpty()) return true;
+        DefinitionCollections collections = mergeDefinitions(packs);
+        try {
+            YamlItemSetBuilder.build(
+                    collections.items,
+                    collections.blocks,
+                    collections.recipes,
+                    collections.projectileCovers,
+                    collections.projectiles,
+                    YamlVersionContext.mcVersion
+            );
+            return true;
+        } catch (ValidationException | ProgrammingValidationException ignored) {
+            return false;
+        }
+    }
+
     private static List<PackContent> collectNonConflictingPacks(List<PackContent> parsedPacks, Consumer<String> log) {
         List<PackContent> accepted = new ArrayList<>();
 
@@ -205,88 +255,86 @@ public class YamlToCisConverter {
         Map<String, File> projectileNameSources = new HashMap<>();
 
         for (PackContent pack : parsedPacks) {
-            List<String> conflicts = new ArrayList<>();
+            List<String> duplicateWarnings = new ArrayList<>();
 
-            collectInternalNameConflicts(
-                    "item", pack.items, itemNameSources, conflicts,
+            List<YamlItemDefinition> filteredItems = filterDuplicateInternalNames(
+                    "item", pack.items, itemNameSources, duplicateWarnings,
                     item -> item.internalName, item -> item.sourceFile
             );
-            collectInternalNameConflicts(
-                    "block", pack.blocks, blockNameSources, conflicts,
+            List<YamlBlockDefinition> filteredBlocks = filterDuplicateInternalNames(
+                    "block", pack.blocks, blockNameSources, duplicateWarnings,
                     block -> block.internalName, block -> block.sourceFile
             );
-            collectInternalNameConflicts(
-                    "recipe", pack.recipes, recipeNameSources, conflicts,
+            List<YamlRecipeDefinition> filteredRecipes = filterDuplicateInternalNames(
+                    "recipe", pack.recipes, recipeNameSources, duplicateWarnings,
                     recipe -> recipe.internalName, recipe -> recipe.sourceFile
             );
-            collectInternalNameConflicts(
-                    "projectile cover", pack.projectileCovers, coverNameSources, conflicts,
+            List<YamlProjectileCoverDefinition> filteredCovers = filterDuplicateInternalNames(
+                    "projectile cover", pack.projectileCovers, coverNameSources, duplicateWarnings,
                     cover -> cover.internalName, cover -> cover.sourceFile
             );
-            collectInternalNameConflicts(
-                    "projectile", pack.projectiles, projectileNameSources, conflicts,
+            List<YamlProjectileDefinition> filteredProjectiles = filterDuplicateInternalNames(
+                    "projectile", pack.projectiles, projectileNameSources, duplicateWarnings,
                     projectile -> projectile.internalName, projectile -> projectile.sourceFile
             );
 
-            if (!conflicts.isEmpty()) {
-                logPackErrors(pack.directory, conflicts, log);
-                log.accept(ChatColor.RED + "Skipping pack '" + pack.directory.getName() + "' due to ID conflicts.");
+            if (!duplicateWarnings.isEmpty()) {
+                logPackWarnings(pack.directory, duplicateWarnings, log);
+            }
+
+            if (filteredItems.isEmpty() && filteredBlocks.isEmpty() && filteredRecipes.isEmpty()
+                    && filteredCovers.isEmpty() && filteredProjectiles.isEmpty()) {
                 continue;
             }
 
-            registerInternalNames(pack.items, itemNameSources, item -> item.internalName, item -> item.sourceFile);
-            registerInternalNames(pack.blocks, blockNameSources, block -> block.internalName, block -> block.sourceFile);
-            registerInternalNames(pack.recipes, recipeNameSources, recipe -> recipe.internalName, recipe -> recipe.sourceFile);
-            registerInternalNames(
-                    pack.projectileCovers, coverNameSources, cover -> cover.internalName, cover -> cover.sourceFile
-            );
-            registerInternalNames(
-                    pack.projectiles, projectileNameSources, projectile -> projectile.internalName, projectile -> projectile.sourceFile
-            );
-
-            accepted.add(pack);
+            accepted.add(new PackContent(
+                    pack.directory,
+                    filteredItems,
+                    filteredBlocks,
+                    filteredRecipes,
+                    filteredCovers,
+                    filteredProjectiles
+            ));
         }
 
         return accepted;
     }
 
-    private static <T> void collectInternalNameConflicts(
+    private static <T> List<T> filterDuplicateInternalNames(
             String idType,
             List<T> definitions,
             Map<String, File> knownSources,
-            List<String> conflicts,
+            List<String> warnings,
             Function<T, String> nameGetter,
             Function<T, File> sourceGetter
     ) {
         Map<String, File> localSources = new HashMap<>();
+        List<T> filteredDefinitions = new ArrayList<>(definitions.size());
         for (T definition : definitions) {
             String internalName = nameGetter.apply(definition);
             File sourceFile = sourceGetter.apply(definition);
 
-            File localExisting = localSources.putIfAbsent(internalName, sourceFile);
+            File localExisting = localSources.get(internalName);
             if (localExisting != null) {
-                conflicts.add("Duplicate " + idType + " id for internal name '" + internalName + "' in "
-                        + localExisting.getPath() + " and " + sourceFile.getPath());
+                warnings.add("Duplicate " + idType + " id for internal name '" + internalName + "' in "
+                        + localExisting.getPath() + " and " + sourceFile.getPath()
+                        + "; skipping duplicate declaration.");
                 continue;
             }
 
             File existing = knownSources.get(internalName);
             if (existing != null) {
-                conflicts.add("Duplicate " + idType + " id for internal name '" + internalName + "' in "
-                        + existing.getPath() + " and " + sourceFile.getPath());
+                warnings.add("Duplicate " + idType + " id for internal name '" + internalName + "' in "
+                        + existing.getPath() + " and " + sourceFile.getPath()
+                        + "; skipping duplicate declaration.");
+                continue;
             }
-        }
-    }
 
-    private static <T> void registerInternalNames(
-            List<T> definitions,
-            Map<String, File> knownSources,
-            Function<T, String> nameGetter,
-            Function<T, File> sourceGetter
-    ) {
-        for (T definition : definitions) {
-            knownSources.put(nameGetter.apply(definition), sourceGetter.apply(definition));
+            filteredDefinitions.add(definition);
+            localSources.put(internalName, sourceFile);
+            knownSources.put(internalName, sourceFile);
         }
+        return filteredDefinitions;
     }
 
     private static DefinitionCollections mergeDefinitions(List<PackContent> packs) {
