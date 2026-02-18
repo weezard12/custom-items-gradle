@@ -258,22 +258,40 @@ public class PluginData {
 		}
 	}
 
+	public static boolean shouldAllowCustomFoodEat(Player player, ItemStack oldStack, KciFood food) {
+		CustomFoodEatEvent event = new CustomFoodEatEvent(player, oldStack, food, CustomItemsPlugin.getInstance().getSet());
+		Bukkit.getPluginManager().callEvent(event);
+		return !event.isCancelled();
+	}
+
+	private static void applyCustomFoodPotionEffects(Player player, KciFood food) {
+		food.getEatEffects().forEach(eatEffect ->
+				player.addPotionEffect(new PotionEffect(
+						PotionEffectType.getByName(eatEffect.getType().name()),
+						eatEffect.getDuration(),
+						eatEffect.getLevel() - 1
+				))
+		);
+	}
+
+	public static void applyNativeCustomFoodExtras(Player player, KciFood food) {
+		applyCustomFoodPotionEffects(player, food);
+		if (food.getFoodValue() < 0) {
+			Bukkit.getScheduler().runTask(CustomItemsPlugin.getInstance(), () -> {
+				if (player.isOnline()) {
+					player.setFoodLevel(player.getFoodLevel() + food.getFoodValue());
+				}
+			});
+		}
+	}
+
 	public static void consumeCustomFood(
 			Player player, ItemStack oldStack,
 			KciFood food, Consumer<ItemStack> updateStack
 	) {
-		CustomFoodEatEvent event = new CustomFoodEatEvent(player, oldStack, food, CustomItemsPlugin.getInstance().getSet());
-		Bukkit.getPluginManager().callEvent(event);
-
-		if (!event.isCancelled()) {
+		if (shouldAllowCustomFoodEat(player, oldStack, food)) {
 			player.setFoodLevel(player.getFoodLevel() + food.getFoodValue());
-			food.getEatEffects().forEach(eatEffect ->
-					player.addPotionEffect(new PotionEffect(
-							PotionEffectType.getByName(eatEffect.getType().name()),
-							eatEffect.getDuration(),
-							eatEffect.getLevel() - 1
-					))
-			);
+			applyCustomFoodPotionEffects(player, food);
 			oldStack.setAmount(oldStack.getAmount() - 1);
 		}
 		updateStack.accept(oldStack);

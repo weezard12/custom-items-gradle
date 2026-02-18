@@ -1,5 +1,6 @@
 package nl.knokko.customitems.nms;
 
+import nl.knokko.customitems.item.KciFood;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.inventory.EquipmentSlot;
@@ -47,6 +48,14 @@ public interface KciNmsItems {
     void blockSmithingTableUpgrades(Predicate<ItemStack> shouldBeBlocked, Plugin plugin);
 
     void setCustomModelData(ItemMeta meta, int data);
+
+    default boolean applyNativeFoodProperties(ItemMeta meta, KciFood food) {
+        return false;
+    }
+
+    default boolean hasNativeFoodProperties(ItemStack stack) {
+        return false;
+    }
 
     ItemStack translate(ItemStack item, String itemName, boolean translateDisplayName, int loreSize);
 

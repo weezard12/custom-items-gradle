@@ -88,6 +88,9 @@ public abstract class CustomItemWrapper {
         }
 
         if (KciNms.mcVersion >= VERSION1_14) KciNms.instance.items.setCustomModelData(meta, this.item.getItemDamage());
+        if (this.item instanceof KciFood) {
+            KciNms.instance.items.applyNativeFoodProperties(meta, (KciFood) this.item);
+        }
 
         return meta;
     }

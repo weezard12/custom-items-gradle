@@ -368,6 +368,7 @@ if (hasProject(':kci-nms20')) {
             options.release.set(17)
         }
         dependencies {
+            compileOnly project(':shared-code')
             compileOnly project(':kci-nms')
             compileOnly project(':kci-nms13plus')
             compileOnly project(':kci-nms16plus')
@@ -389,6 +390,7 @@ if (hasProject(':kci-nms21plus')) {
             options.release.set(21)
         }
         dependencies {
+            compileOnly project(':shared-code')
             compileOnly project(':kci-nms')
             compileOnly project(':kci-nms13plus')
             compileOnly project(':kci-nms16plus')

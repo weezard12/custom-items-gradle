@@ -19,8 +19,6 @@ import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;
 
-import java.util.Objects;
-
 import static nl.knokko.customitems.plugin.events.ReplacementEventHandler.checkBrokenCondition;
 import static nl.knokko.customitems.plugin.set.item.CustomItemWrapper.wrap;
 import static nl.knokko.customitems.plugin.util.SoundPlayer.playBreakSound;
@@ -168,13 +166,23 @@ public class ItemInteractEventHandler implements Listener {
         ItemStack eatenStack = event.getItem();
         KciItem eatenItem = itemSet.getItem(eatenStack);
         if (eatenItem instanceof KciFood) {
+            KciFood food = (KciFood) eatenItem;
+            if (KciNms.instance.items.hasNativeFoodProperties(eatenStack)) {
+                if (!PluginData.shouldAllowCustomFoodEat(event.getPlayer(), eatenStack, food)) {
+                    event.setCancelled(true);
+                } else {
+                    PluginData.applyNativeCustomFoodExtras(event.getPlayer(), food);
+                }
+                return;
+            }
+
             event.setCancelled(true);
 
             PlayerInventory inv = event.getPlayer().getInventory();
             boolean isMainHand = eatenStack.equals(inv.getItemInMainHand());
             if (isMainHand || eatenStack.equals(inv.getItemInOffHand())) {
                 PluginData.consumeCustomFood(
-                        event.getPlayer(), eatenStack, (KciFood) eatenItem,
+                        event.getPlayer(), eatenStack, food,
                         isMainHand ? inv::setItemInMainHand : inv::setItemInOffHand
                 );
             }
@@ -186,7 +194,8 @@ public class ItemInteractEventHandler implements Listener {
         if (event.getAction() == Action.RIGHT_CLICK_AIR || event.getAction() == Action.RIGHT_CLICK_BLOCK) {
             ItemStack usedStack = event.getItem();
             KciItem usedItem = itemSet.getItem(usedStack);
-            if (usedItem instanceof KciFood && !Objects.requireNonNull(usedStack).getType().isEdible()) {
+            if (usedItem instanceof KciFood && usedStack != null && !usedStack.getType().isEdible()
+                    && !KciNms.instance.items.hasNativeFoodProperties(usedStack)) {
                 CustomItemsPlugin.getInstance().getData().setEating(event.getPlayer());
             }
         }

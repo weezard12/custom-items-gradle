@@ -6,12 +6,17 @@ import kr.toxicity.libraries.datacomponent.api.ItemAdapter;
 import kr.toxicity.libraries.datacomponent.api.NMS;
 import kr.toxicity.libraries.datacomponent.api.wrapper.ItemLore;
 import net.kyori.adventure.text.Component;
+import nl.knokko.customitems.item.KciFood;
 import nl.knokko.customitems.nms18plus.KciNmsItems18Plus;
 import org.bukkit.Bukkit;
+import org.bukkit.Material;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.inventory.meta.components.FoodComponent;
 
 import java.lang.reflect.Method;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.regex.Matcher;
@@ -146,6 +151,38 @@ public class KciNmsItems20 extends KciNmsItems18Plus {
             dataComponents.set(NMS.nms().lore(), new ItemLore(loreComponents, loreComponents));
         }
         return dataComponents.build();
+    }
+
+    @Override
+    public boolean applyNativeFoodProperties(ItemMeta meta, KciFood food) {
+        if (meta == null || food == null) return false;
+        if (!isMinecraftVersionAtLeast(1, 20, 5)) return false;
+
+        try {
+            FoodComponent component = meta.getFood();
+            component.setNutrition(Math.max(0, food.getFoodValue()));
+            component.setSaturation(0f);
+            component.setCanAlwaysEat(!food.getEatEffects().isEmpty() || food.getFoodValue() < 0);
+            component.setEatSeconds(food.getEatTime() / 20f);
+            component.setEffects(Collections.emptyList());
+            meta.setFood(component);
+            return true;
+        } catch (Throwable failed) {
+            return false;
+        }
+    }
+
+    @Override
+    public boolean hasNativeFoodProperties(ItemStack stack) {
+        if (!isMinecraftVersionAtLeast(1, 20, 5)) return false;
+        if (stack == null || stack.getType() == Material.AIR) return false;
+
+        try {
+            ItemMeta meta = stack.getItemMeta();
+            return meta != null && meta.hasFood();
+        } catch (Throwable failed) {
+            return false;
+        }
     }
 
     private static boolean isMinecraftVersionAtLeast(int major, int minor, int patch) {

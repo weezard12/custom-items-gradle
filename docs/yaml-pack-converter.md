@@ -181,6 +181,12 @@ Field notes:
   type block (`tool`, `armor`, `wand`, `food`, or `block`) is present.
 - `tool` and `armor` blocks control durability defaults. If omitted, vanilla defaults are used based on `material`.
 - `food` block controls custom food value and eat time.
+- Runtime behavior for `food` on MC 1.20.5+ uses native item food components.
+- This change is runtime-only: no extra YAML fields are required.
+- Runtime defaults for native food components currently are:
+- `saturation = 0`
+- `canAlwaysEat = true` when `food_value < 0` or when the item has `eatEffects`; otherwise `false`
+- Existing item stacks created before this runtime change may keep legacy eating behavior until they are recreated or upgraded.
 - `wand` block controls projectile, cooldown/amount per shot, charges, mana cost, permissions, and Magic spells.
 - Wand items must define `wand.projectile` or `wand.magic_spells`.
 - `wand.projectile_id` is an alias for `wand.projectile`.

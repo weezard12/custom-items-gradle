@@ -427,6 +427,9 @@ public class ItemUpdater {
 
 		meta.setUnbreakable(KciNms.mcVersion < VERSION1_14 || !wrap(newItem).showDurabilityBar());
 		if (KciNms.mcVersion >= VERSION1_14) KciNms.instance.items.setCustomModelData(meta, newItem.getItemDamage());
+		if (newItem instanceof KciFood) {
+			KciNms.instance.items.applyNativeFoodProperties(meta, (KciFood) newItem);
+		}
 		newStack.setItemMeta(meta);
 		upgradeLore2(newStack, oldItem, newItem);
 
