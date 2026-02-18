@@ -148,6 +148,10 @@ item:
     charges:
       max_charges: 5
       recharge_time: 60
+  model:                  # optional custom item model
+    json: "models/steel_sword.json"
+    textures:
+      layer0: "textures/steel_sword.png"
   block: "my:steel_block" # optional (type: block; defaults to same id)
   powers: ["my:flame_guard"]      # optional: grant powers while equipped
   abilities: ["my:fire_resist"]   # optional: auto-wrap abilities into an item-local power
@@ -186,6 +190,18 @@ Field notes:
 - `wand.projectile` must reference a custom projectile id defined in the pack.
 - `block` creates a placeable block item linked to a custom block. The item model automatically references
   the block model, and the item texture uses the block texture. If `block` is omitted, it defaults to the item id.
+- `model` can define a custom item model:
+- `item.model.json` is required (`item.model.model` is an alias).
+- `item.model.textures` is required and its keys must exist in the model JSON `textures` map.
+- If `item.model` is present, it takes precedence over auto-detection.
+- If `item.model` is omitted (and the item type is not `block`), the plugin auto-detects
+  `plugins/CustomItems/assets/item/<namespace>_<name>.json` (internal name: replace `:` with `_`).
+- Auto-detected models read their JSON `textures` map and try to resolve non-`#` texture references to
+  global item textures. If a non-vanilla reference can't be resolved, the model is skipped with a warning.
+- If auto-detection fails (missing/invalid JSON or unresolved custom textures), conversion continues and the item
+  falls back to the normal texture-only model.
+- Custom item models still require a regular item texture file (`assets/item/<id>.png` or global fallback).
+- `item.model` is ignored for `type: block` items (the linked block controls the model).
 - `powers` attaches existing YAML `power` ids to this item. While a player has this custom item in inventory,
   those powers are granted through the Powers plugin.
 - `abilities` attaches YAML `ability` ids directly to the item. CustomItems auto-generates a synthetic power
@@ -598,7 +614,9 @@ Texture paths:
 - Projectile cover textures referenced by name also fall back to `plugins/CustomItems/assets/projectile/<id>.png`.
 - For namespaced ids, `<id>` is the part after the colon (e.g. `my:steel_sword` -> `steel_sword.png`).
 - You can also use the internal name `<namespace>_<name>.png` (e.g. `my_ruby_axe.png`).
-- `model.texture` and `model.textures.*` can also point to explicit png paths relative to the pack folder.
+- `model.texture`, `model.textures.*`, and `item.model.textures.*` can point to explicit png paths relative to the pack folder.
+- For `item.model.textures.*`, path-like values fall back to `plugins/CustomItems/assets/item/...` when the
+  pack-local file is missing.
 - Textures must be square, power-of-two, and at most 512x512.
 
 ## Example pack layout

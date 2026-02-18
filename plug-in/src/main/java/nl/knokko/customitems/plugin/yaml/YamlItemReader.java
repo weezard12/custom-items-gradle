@@ -1,5 +1,8 @@
 package nl.knokko.customitems.plugin.yaml;
 
+import com.github.cliftonlabs.json_simple.JsonException;
+import com.github.cliftonlabs.json_simple.JsonObject;
+import com.github.cliftonlabs.json_simple.Jsoner;
 import nl.knokko.customitems.MCVersions;
 import nl.knokko.customitems.item.KciItemType;
 import nl.knokko.customitems.item.KciItemType.Category;
@@ -9,11 +12,17 @@ import nl.knokko.customitems.item.enchantment.VEnchantmentType;
 import org.bukkit.configuration.ConfigurationSection;
 
 import java.io.File;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 import static nl.knokko.customitems.plugin.yaml.YamlVersionContext.mcVersion;
 import static nl.knokko.customitems.plugin.yaml.YamlParseUtils.*;
@@ -47,6 +56,7 @@ class YamlItemReader {
             ConfigurationSection armorSection = getChildSection(itemSection, "armor", "item.", file, warnings);
             ConfigurationSection wandSection = getChildSection(itemSection, "wand", "item.", file, warnings);
             ConfigurationSection foodSection = getChildSection(itemSection, "food", "item.", file, warnings);
+            ConfigurationSection modelSection = getChildSection(itemSection, "model", "item.", file, warnings);
             Object rawBlock = itemSection.get("block");
             if (rawBlock == null) rawBlock = itemSection.get("block_id");
             String blockId = parseOptionalString(rawBlock, "item.block", file, warnings);
@@ -75,7 +85,14 @@ class YamlItemReader {
 
             if (type == null) return;
 
-            validateTypeSections(type, toolSection, armorSection, wandSection, foodSection, blockId != null, file, warnings);
+            YamlItemCustomModelDefinition customModelDefinition = parseCustomModelDefinition(
+                    modelSection, parsedId, pack.directory, type, file, warnings
+            );
+
+            validateTypeSections(
+                    type, toolSection, armorSection, wandSection, foodSection,
+                    blockId != null, customModelDefinition != null, file, warnings
+            );
             material = validateMaterialForType(type, material, file, warnings);
             if ((type == YamlItemType.TOOL || type == YamlItemType.ARMOR || type == YamlItemType.WAND)
                     && stackSize != null) {
@@ -119,6 +136,7 @@ class YamlItemReader {
                     armorDefinition,
                     wandDefinition,
                     foodDefinition,
+                    customModelDefinition,
                     blockInternalName,
                     material,
                     enchantments,
@@ -216,6 +234,7 @@ class YamlItemReader {
             ConfigurationSection wandSection,
             ConfigurationSection foodSection,
             boolean hasBlockReference,
+            boolean hasCustomModel,
             File sourceFile,
             List<String> warnings
     ) {
@@ -234,6 +253,207 @@ class YamlItemReader {
         if (type != YamlItemType.BLOCK && hasBlockReference) {
             warnOptional(warnings, "item.block is only allowed for type block in " + sourceFile.getPath());
         }
+        if (type == YamlItemType.BLOCK && hasCustomModel) {
+            warnOptional(warnings, "item.model is ignored for type block in " + sourceFile.getPath());
+        }
+    }
+
+    private static YamlItemCustomModelDefinition parseCustomModelDefinition(
+            ConfigurationSection modelSection,
+            ParsedId parsedId,
+            File packDirectory,
+            YamlItemType itemType,
+            File sourceFile,
+            List<String> warnings
+    ) {
+        if (modelSection != null) {
+            return parseExplicitCustomModelDefinition(modelSection, sourceFile, warnings);
+        }
+        if (itemType == YamlItemType.BLOCK) return null;
+        return parseAutoCustomModelDefinition(parsedId, packDirectory, sourceFile, warnings);
+    }
+
+    private static YamlItemCustomModelDefinition parseExplicitCustomModelDefinition(
+            ConfigurationSection modelSection, File sourceFile, List<String> warnings
+    ) {
+
+        boolean hasJson = modelSection.isSet("json");
+        boolean hasModel = modelSection.isSet("model");
+        String modelPath = parseOptionalString(modelSection.get("json"), "item.model.json", sourceFile, warnings);
+        if (modelPath == null) {
+            modelPath = parseOptionalString(modelSection.get("model"), "item.model.model", sourceFile, warnings);
+        }
+        if (modelPath == null) {
+            if (!hasJson && !hasModel) {
+                warnOptional(warnings, "item.model.json is required when item.model is present in " + sourceFile.getPath());
+            }
+            return null;
+        }
+
+        ConfigurationSection texturesSection = getChildSection(modelSection, "textures", "item.model.", sourceFile, warnings);
+        if (texturesSection == null) {
+            if (!modelSection.isSet("textures")) {
+                warnOptional(warnings, "item.model.textures is required when item.model is present in " + sourceFile.getPath());
+            }
+            return null;
+        }
+
+        Map<String, String> texturePaths = new HashMap<>();
+        for (String key : texturesSection.getKeys(false)) {
+            String value = parseOptionalString(
+                    texturesSection.get(key), "item.model.textures." + key, sourceFile, warnings
+            );
+            if (value == null) {
+                return null;
+            }
+            texturePaths.put(key, value);
+        }
+
+        return new YamlItemCustomModelDefinition(modelPath, texturePaths);
+    }
+
+    private static YamlItemCustomModelDefinition parseAutoCustomModelDefinition(
+            ParsedId parsedId, File packDirectory, File sourceFile, List<String> warnings
+    ) {
+        if (parsedId == null) return null;
+
+        File globalItemAssets = resolveGlobalItemAssetsDirectory(packDirectory);
+        if (globalItemAssets == null) return null;
+
+        File modelFile = new File(globalItemAssets, parsedId.internalName + ".json");
+        if (!modelFile.isFile()) return null;
+
+        byte[] rawModel;
+        try {
+            rawModel = Files.readAllBytes(modelFile.toPath());
+        } catch (IOException ex) {
+            warnOptional(warnings, "Auto item model fallback for " + parsedId.fullId + ": failed to read "
+                    + modelFile.getPath() + " (" + sourceFile.getPath() + ")");
+            return null;
+        }
+
+        JsonObject modelJson;
+        try {
+            modelJson = (JsonObject) Jsoner.deserialize(new String(rawModel, StandardCharsets.UTF_8));
+        } catch (JsonException ex) {
+            warnOptional(warnings, "Auto item model fallback for " + parsedId.fullId + ": invalid JSON in "
+                    + modelFile.getPath() + " (" + sourceFile.getPath() + ")");
+            return null;
+        }
+        if (modelJson == null) {
+            warnOptional(warnings, "Auto item model fallback for " + parsedId.fullId + ": empty model JSON in "
+                    + modelFile.getPath() + " (" + sourceFile.getPath() + ")");
+            return null;
+        }
+
+        Map<String, String> textureMap = parseTextureMap(modelJson.get("textures"));
+        if (textureMap == null) {
+            warnOptional(warnings, "Auto item model fallback for " + parsedId.fullId + ": model has no valid textures map in "
+                    + modelFile.getPath() + " (" + sourceFile.getPath() + ")");
+            return null;
+        }
+
+        Map<String, String> resolvedTextures = new HashMap<>();
+        for (Map.Entry<String, String> entry : textureMap.entrySet()) {
+            String textureKey = entry.getKey();
+            String textureValue = entry.getValue();
+            if (textureValue == null) {
+                warnOptional(warnings, "Auto item model fallback for " + parsedId.fullId + ": texture key '"
+                        + textureKey + "' has no value in " + modelFile.getPath() + " (" + sourceFile.getPath() + ")");
+                return null;
+            }
+            String trimmedValue = textureValue.trim();
+            if (trimmedValue.isEmpty()) {
+                warnOptional(warnings, "Auto item model fallback for " + parsedId.fullId + ": texture key '"
+                        + textureKey + "' is empty in " + modelFile.getPath() + " (" + sourceFile.getPath() + ")");
+                return null;
+            }
+            if (trimmedValue.startsWith("#")) continue;
+
+            String resolvedToken = resolveAutoTextureToken(trimmedValue, globalItemAssets);
+            if (resolvedToken != null) {
+                resolvedTextures.put(textureKey, resolvedToken);
+                continue;
+            }
+            if (!isVanillaTextureReference(trimmedValue)) {
+                warnOptional(warnings, "Auto item model fallback for " + parsedId.fullId + ": missing texture '"
+                        + trimmedValue + "' for key '" + textureKey + "' in " + modelFile.getPath()
+                        + " (" + sourceFile.getPath() + ")");
+                return null;
+            }
+        }
+
+        return new YamlItemCustomModelDefinition(modelFile.getPath(), resolvedTextures);
+    }
+
+    private static File resolveGlobalItemAssetsDirectory(File packDirectory) {
+        if (packDirectory == null) return null;
+        File parent = packDirectory.getParentFile();
+        if (parent == null) return null;
+        return new File(new File(parent, "assets"), "item");
+    }
+
+    private static Map<String, String> parseTextureMap(Object rawTextures) {
+        if (!(rawTextures instanceof Map)) return null;
+
+        Map<?, ?> rawMap = (Map<?, ?>) rawTextures;
+        Map<String, String> textureMap = new HashMap<>();
+        for (Map.Entry<?, ?> entry : rawMap.entrySet()) {
+            if (!(entry.getKey() instanceof String) || !(entry.getValue() instanceof String)) {
+                return null;
+            }
+            textureMap.put((String) entry.getKey(), (String) entry.getValue());
+        }
+        return textureMap;
+    }
+
+    private static String resolveAutoTextureToken(String rawValue, File globalItemAssetsDirectory) {
+        if (globalItemAssetsDirectory == null) return null;
+
+        for (String candidate : createAutoTextureCandidates(rawValue)) {
+            String normalized = candidate.replace('\\', '/');
+            while (normalized.startsWith("/")) {
+                normalized = normalized.substring(1);
+            }
+            if (normalized.isEmpty()) continue;
+            String withExtension = normalized.toLowerCase(Locale.ROOT).endsWith(".png")
+                    ? normalized
+                    : normalized + ".png";
+            File candidateFile = new File(globalItemAssetsDirectory, withExtension);
+            if (candidateFile.isFile()) {
+                return withExtension;
+            }
+        }
+        return null;
+    }
+
+    private static List<String> createAutoTextureCandidates(String rawValue) {
+        String value = rawValue.trim();
+        int colonIndex = value.indexOf(':');
+        if (colonIndex >= 0) {
+            value = value.substring(colonIndex + 1);
+        }
+
+        String normalized = value.replace('\\', '/');
+        Set<String> candidates = new LinkedHashSet<>();
+        if (!normalized.isEmpty()) {
+            candidates.add(normalized);
+
+            int slashIndex = normalized.lastIndexOf('/');
+            String baseName = slashIndex >= 0 ? normalized.substring(slashIndex + 1) : normalized;
+            if (!baseName.isEmpty()) {
+                candidates.add(baseName);
+            }
+        }
+
+        return new ArrayList<>(candidates);
+    }
+
+    private static boolean isVanillaTextureReference(String textureValue) {
+        String normalized = textureValue.toLowerCase(Locale.ROOT);
+        return normalized.startsWith("minecraft:")
+                || normalized.startsWith("item/")
+                || normalized.startsWith("block/");
     }
 
     private static YamlMaterialDefinition validateMaterialForType(

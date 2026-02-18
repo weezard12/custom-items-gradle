@@ -205,6 +205,7 @@ public class YamlItemSetBuilder {
             KciItem item = createItem(itemDefinition);
             applyBaseProperties(itemDefinition, item);
             applyTexture(itemDefinition, item, itemSet);
+            applyCustomItemModel(itemDefinition, item);
             applyMaterial(itemDefinition, item);
             applyStackSize(itemDefinition, item);
             applyEnchantments(itemDefinition, item);
@@ -320,6 +321,17 @@ public class YamlItemSetBuilder {
         item.setTexture(itemSet.textures.getReference(textureName));
     }
 
+    private static void applyCustomItemModel(
+            YamlItemDefinition itemDefinition, KciItem item
+    ) throws ValidationException, ProgrammingValidationException {
+        if (itemDefinition.customModelDefinition == null) return;
+        if (PLACEHOLDER_TEXTURE_NAME.equals(item.getTexture().getName())) {
+            throw new ValidationException("Custom item model requires an item texture for " + itemDefinition.fullId
+                    + " (" + itemDefinition.sourceFile.getPath() + ")");
+        }
+        item.setModel(createCustomItemModel(itemDefinition));
+    }
+
     private static File resolveTextureFile(YamlItemDefinition itemDefinition) {
         File assetsDir = new File(itemDefinition.packDirectory, "assets/item");
         File byName = new File(assetsDir, itemDefinition.idName + ".png");
@@ -338,6 +350,42 @@ public class YamlItemSetBuilder {
         }
 
         return null;
+    }
+
+    private static File resolveItemTextureFile(File packDirectory, String rawValue) {
+        if (rawValue == null) return null;
+        String trimmed = rawValue.trim();
+        if (trimmed.isEmpty()) return null;
+        boolean isPath = trimmed.contains("/") || trimmed.contains("\\")
+                || trimmed.toLowerCase(Locale.ROOT).endsWith(".png");
+        if (isPath) {
+            File file = new File(trimmed);
+            if (file.isAbsolute()) {
+                return file;
+            }
+            File localFile = new File(packDirectory, trimmed);
+            if (localFile.isFile()) return localFile;
+
+            File globalAssetsDir = resolveGlobalAssetsDirectory(packDirectory, "item");
+            if (globalAssetsDir != null) {
+                File globalFile = new File(globalAssetsDir, trimmed);
+                if (globalFile.isFile()) return globalFile;
+            }
+            return localFile;
+        }
+        int colonIndex = trimmed.indexOf(':');
+        String name = colonIndex >= 0 ? trimmed.substring(colonIndex + 1) : trimmed;
+        File assetsDir = new File(packDirectory, "assets/item");
+        File localFile = new File(assetsDir, name + ".png");
+        if (localFile.isFile()) return localFile;
+
+        File globalAssetsDir = resolveGlobalAssetsDirectory(packDirectory, "item");
+        if (globalAssetsDir != null) {
+            File globalFile = new File(globalAssetsDir, name + ".png");
+            if (globalFile.isFile()) return globalFile;
+        }
+
+        return localFile;
     }
 
     private static void applyMaterial(YamlItemDefinition itemDefinition, KciItem item) {
@@ -822,6 +870,77 @@ public class YamlItemSetBuilder {
             if (textureFile == null || !textureFile.isFile()) {
                 throw new ValidationException("Missing model texture " + entry.getValue()
                         + " (" + definition.sourceFile.getPath() + ")");
+            }
+
+            String fileKey = textureFile.getPath();
+            IncludedImageBuilder builder = includedImages.get(fileKey);
+            if (builder == null) {
+                BufferedImage image = loadTextureImage(textureFile, "model texture");
+                String safeName = createSafeName(textureFile.getName(), usedNames);
+                builder = new IncludedImageBuilder(safeName, image);
+                includedImages.put(fileKey, builder);
+            }
+            builder.textureReferences.add(textureKey);
+        }
+
+        List<ModernCustomItemModel.IncludedImage> includedImageList = new ArrayList<>(includedImages.size());
+        for (IncludedImageBuilder builder : includedImages.values()) {
+            includedImageList.add(new ModernCustomItemModel.IncludedImage(
+                    builder.textureReferences, builder.name, builder.image
+            ));
+        }
+
+        return new ModernCustomItemModel(rawModel, includedImageList);
+    }
+
+    private static ModernCustomItemModel createCustomItemModel(
+            YamlItemDefinition itemDefinition
+    ) throws ValidationException, ProgrammingValidationException {
+        YamlItemCustomModelDefinition definition = itemDefinition.customModelDefinition;
+        if (definition == null || definition.modelPath == null || definition.texturePaths == null) {
+            throw new ValidationException("Missing custom item model data for " + itemDefinition.fullId);
+        }
+
+        File modelFile = resolveModelFile(itemDefinition.packDirectory, definition.modelPath);
+        if (modelFile == null || !modelFile.isFile()) {
+            throw new ValidationException("Missing item model file " + definition.modelPath
+                    + " (" + itemDefinition.sourceFile.getPath() + ")");
+        }
+
+        byte[] rawModel;
+        try {
+            rawModel = Files.readAllBytes(modelFile.toPath());
+        } catch (IOException ex) {
+            throw new ValidationException("Failed to read item model " + modelFile.getPath() + ": " + ex.getMessage());
+        }
+
+        JsonObject modelJson;
+        try {
+            modelJson = (JsonObject) Jsoner.deserialize(new String(rawModel, StandardCharsets.UTF_8));
+        } catch (JsonException ex) {
+            throw new ValidationException("Invalid JSON in model " + modelFile.getPath());
+        }
+
+        if (modelJson == null) {
+            throw new ValidationException("Model " + modelFile.getPath() + " is empty or invalid JSON");
+        }
+
+        Map<String, String> textureMap = modelJson.getMap(ModernCustomItemModel.TEXTURES_KEY);
+        if (textureMap == null) {
+            throw new ValidationException("Model " + modelFile.getPath() + " is missing a textures map");
+        }
+
+        Map<String, IncludedImageBuilder> includedImages = new HashMap<>();
+        Map<String, Integer> usedNames = new HashMap<>();
+        for (Map.Entry<String, String> entry : definition.texturePaths.entrySet()) {
+            String textureKey = entry.getKey();
+            if (!textureMap.containsKey(textureKey)) {
+                throw new ValidationException("Model " + modelFile.getPath() + " has no texture key '" + textureKey + "'");
+            }
+            File textureFile = resolveItemTextureFile(itemDefinition.packDirectory, entry.getValue());
+            if (textureFile == null || !textureFile.isFile()) {
+                throw new ValidationException("Missing model texture " + entry.getValue()
+                        + " (" + itemDefinition.sourceFile.getPath() + ")");
             }
 
             String fileKey = textureFile.getPath();

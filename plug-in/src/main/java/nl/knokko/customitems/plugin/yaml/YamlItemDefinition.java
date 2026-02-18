@@ -17,6 +17,7 @@ class YamlItemDefinition {
     final YamlArmorDefinition armorDefinition;
     final YamlWandDefinition wandDefinition;
     final YamlFoodDefinition foodDefinition;
+    final YamlItemCustomModelDefinition customModelDefinition;
     final String blockInternalName;
     final YamlMaterialDefinition material;
     final List<YamlEnchantmentDefinition> enchantments;
@@ -39,6 +40,7 @@ class YamlItemDefinition {
             YamlArmorDefinition armorDefinition,
             YamlWandDefinition wandDefinition,
             YamlFoodDefinition foodDefinition,
+            YamlItemCustomModelDefinition customModelDefinition,
             String blockInternalName,
             YamlMaterialDefinition material,
             List<YamlEnchantmentDefinition> enchantments,
@@ -60,6 +62,7 @@ class YamlItemDefinition {
         this.armorDefinition = armorDefinition;
         this.wandDefinition = wandDefinition;
         this.foodDefinition = foodDefinition;
+        this.customModelDefinition = customModelDefinition;
         this.blockInternalName = blockInternalName;
         this.material = material;
         this.enchantments = enchantments;
