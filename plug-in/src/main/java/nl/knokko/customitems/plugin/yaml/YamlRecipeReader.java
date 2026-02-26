@@ -27,6 +27,11 @@ class YamlRecipeReader {
         List<YamlRecipeDefinition> recipes = new ArrayList<>();
         forEachYamlDocument(pack, errors, (file, config) -> {
             ConfigurationSection recipeSection = config.getConfigurationSection("recipe");
+            if (recipeSection == null && YamlDefinitionDetector.shouldUseImplicitRoot(
+                    config, file, YamlDefinitionDetector.DefinitionType.RECIPE
+            )) {
+                recipeSection = config;
+            }
             if (recipeSection == null) return;
 
             int errorCountBefore = errors.size();

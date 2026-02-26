@@ -34,9 +34,6 @@ public final class YamlResourcepackCli {
 
     private static final String DEFAULT_OUTPUT_NAME = "resource-pack.zip";
     private static final String[] PACK_ROOTS = new String[] { "customitems", "custom-items" };
-    private static final String[] YAML_KEYS = new String[] {
-            "item:", "block:", "recipe:", "projectile:", "projectile_cover:", "projectile-cover:"
-    };
 
     public static void main(String[] args) {
         int exit = run(args, System.out, System.err);
@@ -341,10 +338,11 @@ public final class YamlResourcepackCli {
                     trimmed = trimmed.substring(1).trim();
                 }
                 if ("---".equals(trimmed)) continue;
-                for (String key : YAML_KEYS) {
-                    if (trimmed.startsWith(key)) return true;
-                }
-                return false;
+                return YamlDefinitionDetector.looksLikeYamlDefinition(
+                        path.getFileName().toString(),
+                        trimmed,
+                        YamlDefinitionDetector.resourcepackDefinitionTypes()
+                );
             }
         }
         return false;

@@ -10,9 +10,9 @@ supported.
 - On startup and on `/kci reload`, the plugin scans `plugins/CustomItems/*`.
 - Before scanning, it imports embedded packs from other plugins (see below).
 - Each subfolder is treated as a pack.
-- Any `.yml` or `.yaml` file with a top-level `item:`, `block:`, `recipe:`, `projectile:`,
-  `projectile_cover:`, `projectile-cover:`, `ability:`, `abilities:`, `power:`, or `powers:`
-  section is parsed.
+- Any `.yml` or `.yaml` file can be parsed either by explicit top-level definition keys
+  (`item:`, `block:`, `recipe:`, `projectile:`, `projectile_cover:`, `projectile-cover:`,
+  `ability:`, `abilities:`, `power:`, `powers:`) or by filename keywords (see below).
 - You can define multiple entries in a single file by separating documents with `---`.
 - The plugin builds an ItemSet and writes `plugins/CustomItems/items.cis.txt`.
 - Runtime resource-pack generation can be toggled in `config.yml`.
@@ -65,6 +65,36 @@ power:
   abilities: ["my:fire_resist"]
 ```
 
+## Implicit type by filename
+
+If a YAML document has no explicit top-level definition key, CustomItems can infer the definition type from the
+file name (case-insensitive, extension removed):
+
+- `item`, `items` -> item
+- `block`, `blocks` -> block
+- `recipe`, `recipes` -> recipe
+- `projectile`, `projectiles` -> projectile
+- `projectile_cover`, `projectile_covers`, `projectile-cover`, `projectile-covers` -> projectile cover
+- `ability`, `abilities` -> ability
+- `power`, `powers` -> power
+
+Precedence:
+- If a document contains any explicit top-level definition key, explicit parsing is used.
+- Filename-based inference is only used when no explicit definition key is present in that document.
+
+Example:
+
+```yml
+# items.yml
+id: "my:steel_sword"
+name: "Steel Sword"
+```
+
+```yml
+# blocks.yml
+id: "my:steel_block"
+```
+
 ## Embedded packs from other plugins
 
 Other plugins can ship packs inside their jar resources. On startup (and `/kci reload`), CustomItems
@@ -96,9 +126,11 @@ Runtime resource pack:
 ```
 
 Rules:
-- A pack is only imported if it contains at least one `.yml/.yaml` file whose first non-empty line is
-  `item:`, `block:`, `recipe:`, `projectile:`, `projectile_cover:`, `projectile-cover:`,
-  `ability:`, `abilities:`, `power:`, or `powers:`.
+- A pack is only imported if it contains at least one `.yml/.yaml` file whose first non-empty line
+  either starts with one of the explicit definition keys (`item:`, `block:`, `recipe:`, `projectile:`,
+  `projectile_cover:`, `projectile-cover:`, `ability:`, `abilities:`, `power:`, `powers:`) or belongs
+  to a filename keyword file (`item/items`, `block/blocks`, `recipe/recipes`, `projectile/projectiles`,
+  `projectile_cover/projectile_covers/projectile-cover/projectile-covers`, `ability/abilities`, `power/powers`).
 - Packs are copied to `plugins/CustomItems/<pack>`.
 - If that folder already exists, it is only overwritten when it contains a `.kci-imported.txt`
   marker created by the same plugin. Otherwise it is skipped.
@@ -204,6 +236,8 @@ Field notes:
   `plugins/CustomItems/assets/item/<namespace>_<name>.json` (internal name: replace `:` with `_`).
 - Auto-detected models read their JSON `textures` map and try to resolve non-`#` texture references to
   global item textures. If a non-vanilla reference can't be resolved, the model is skipped with a warning.
+- For namespaced auto-model texture references like `my:steel_sword`, resolution checks both
+  `steel_sword.png` and `my_steel_sword.png` in global `assets/item`.
 - If auto-detection fails (missing/invalid JSON or unresolved custom textures), conversion continues and the item
   falls back to the normal texture-only model.
 - Custom item models still require a regular item texture file (`assets/item/<id>.png` or global fallback).

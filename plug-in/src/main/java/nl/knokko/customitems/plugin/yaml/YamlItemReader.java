@@ -33,6 +33,11 @@ class YamlItemReader {
         List<YamlItemDefinition> items = new ArrayList<>();
         forEachYamlDocument(pack, errors, (file, config) -> {
             ConfigurationSection itemSection = config.getConfigurationSection("item");
+            if (itemSection == null && YamlDefinitionDetector.shouldUseImplicitRoot(
+                    config, file, YamlDefinitionDetector.DefinitionType.ITEM
+            )) {
+                itemSection = config;
+            }
             if (itemSection == null) return;
 
             String rawId = itemSection.getString("id");
@@ -383,7 +388,7 @@ class YamlItemReader {
             }
         }
 
-        return new YamlItemCustomModelDefinition(modelFile.getPath(), resolvedTextures);
+        return new YamlItemCustomModelDefinition(modelFile.getAbsolutePath(), resolvedTextures);
     }
 
     private static File resolveGlobalItemAssetsDirectory(File packDirectory) {
@@ -429,8 +434,10 @@ class YamlItemReader {
 
     private static List<String> createAutoTextureCandidates(String rawValue) {
         String value = rawValue.trim();
+        String namespace = null;
         int colonIndex = value.indexOf(':');
         if (colonIndex >= 0) {
+            namespace = value.substring(0, colonIndex).trim();
             value = value.substring(colonIndex + 1);
         }
 
@@ -443,6 +450,19 @@ class YamlItemReader {
             String baseName = slashIndex >= 0 ? normalized.substring(slashIndex + 1) : normalized;
             if (!baseName.isEmpty()) {
                 candidates.add(baseName);
+            }
+
+            if (namespace != null && !namespace.isEmpty()) {
+                // Support both namespace folders and namespace_internal-name style files.
+                candidates.add(namespace + "/" + normalized);
+
+                String flattened = normalized.replace('/', '_');
+                if (!flattened.isEmpty()) {
+                    candidates.add(namespace + "_" + flattened);
+                }
+                if (!baseName.isEmpty()) {
+                    candidates.add(namespace + "_" + baseName);
+                }
             }
         }
 

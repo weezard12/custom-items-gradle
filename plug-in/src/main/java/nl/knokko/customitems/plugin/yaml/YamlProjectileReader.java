@@ -29,6 +29,11 @@ class YamlProjectileReader {
         List<YamlProjectileDefinition> projectiles = new ArrayList<>();
         forEachYamlDocument(pack, errors, (file, config) -> {
             ConfigurationSection projectileSection = config.getConfigurationSection("projectile");
+            if (projectileSection == null && YamlDefinitionDetector.shouldUseImplicitRoot(
+                    config, file, YamlDefinitionDetector.DefinitionType.PROJECTILE
+            )) {
+                projectileSection = config;
+            }
             if (projectileSection == null) return;
 
             int errorCountBefore = errors.size();

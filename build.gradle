@@ -158,6 +158,7 @@ project(':yaml-resourcepack-cli') {
     apply plugin: 'io.github.goooler.shadow'
     dependencies {
         implementation project(':plug-in')
+        implementation project(':shared-code')
         implementation 'org.bukkit:bukkit:1.12.2-R0.1-SNAPSHOT'
     }
     java {

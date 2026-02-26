@@ -27,6 +27,11 @@ class YamlBlockReader {
         List<YamlBlockDefinition> blocks = new ArrayList<>();
         forEachYamlDocument(pack, errors, (file, config) -> {
             ConfigurationSection blockSection = config.getConfigurationSection("block");
+            if (blockSection == null && YamlDefinitionDetector.shouldUseImplicitRoot(
+                    config, file, YamlDefinitionDetector.DefinitionType.BLOCK
+            )) {
+                blockSection = config;
+            }
             if (blockSection == null) return;
 
             int errorCountBefore = errors.size();

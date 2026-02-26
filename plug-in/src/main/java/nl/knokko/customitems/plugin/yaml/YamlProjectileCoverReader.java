@@ -25,6 +25,11 @@ class YamlProjectileCoverReader {
         forEachYamlDocument(pack, errors, (file, config) -> {
             ConfigurationSection coverSection = config.getConfigurationSection("projectile_cover");
             if (coverSection == null) coverSection = config.getConfigurationSection("projectile-cover");
+            if (coverSection == null && YamlDefinitionDetector.shouldUseImplicitRoot(
+                    config, file, YamlDefinitionDetector.DefinitionType.PROJECTILE_COVER
+            )) {
+                coverSection = config;
+            }
             if (coverSection == null) return;
 
             int errorCountBefore = errors.size();

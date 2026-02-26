@@ -112,7 +112,7 @@ public class YamlPackImporter {
                     info.resources.add(new PackResource(entry.getName(), path.relativePath));
                     if (!info.hasYamlDefinition && isYamlFile(path.relativePath)) {
                         try (InputStream input = jar.getInputStream(entry)) {
-                            if (looksLikeYamlDefinition(input)) {
+                            if (looksLikeYamlDefinition(input, path.relativePath)) {
                                 info.hasYamlDefinition = true;
                             }
                         } catch (IOException ignored) {
@@ -365,7 +365,7 @@ public class YamlPackImporter {
         return lower.endsWith(".yml") || lower.endsWith(".yaml");
     }
 
-    private static boolean looksLikeYamlDefinition(InputStream input) throws IOException {
+    private static boolean looksLikeYamlDefinition(InputStream input, String fileNameOrPath) throws IOException {
         BufferedReader reader = new BufferedReader(new InputStreamReader(input, StandardCharsets.UTF_8));
         String line;
         while ((line = reader.readLine()) != null) {
@@ -375,11 +375,9 @@ public class YamlPackImporter {
                 trimmed = trimmed.substring(1).trim();
             }
             if (trimmed.equals("---")) continue;
-            return trimmed.startsWith("item:") || trimmed.startsWith("block:") || trimmed.startsWith("recipe:")
-                    || trimmed.startsWith("projectile:") || trimmed.startsWith("projectile_cover:")
-                    || trimmed.startsWith("projectile-cover:")
-                    || trimmed.startsWith("power:") || trimmed.startsWith("powers:")
-                    || trimmed.startsWith("ability:") || trimmed.startsWith("abilities:");
+            return YamlDefinitionDetector.looksLikeYamlDefinition(
+                    fileNameOrPath, trimmed, YamlDefinitionDetector.allDefinitionTypes()
+            );
         }
         return false;
     }
