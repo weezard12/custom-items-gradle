@@ -24,8 +24,10 @@ class YamlItemDefinition {
     final Integer stackSize;
     final Integer damageValue;
     final Boolean unbreakable;
-    final Double attackDamage;
-    final Double attackSpeed;
+    final Double attackDamageFinal;
+    final Double attackSpeedFinal;
+    final Double attackDamageModifier;
+    final Double attackSpeedModifier;
 
     YamlItemDefinition(
             String fullId,
@@ -47,8 +49,10 @@ class YamlItemDefinition {
             Integer stackSize,
             Integer damageValue,
             Boolean unbreakable,
-            Double attackDamage,
-            Double attackSpeed
+            Double attackDamageFinal,
+            Double attackSpeedFinal,
+            Double attackDamageModifier,
+            Double attackSpeedModifier
     ) {
         this.fullId = fullId;
         this.internalName = internalName;
@@ -69,7 +73,9 @@ class YamlItemDefinition {
         this.stackSize = stackSize;
         this.damageValue = damageValue;
         this.unbreakable = unbreakable;
-        this.attackDamage = attackDamage;
-        this.attackSpeed = attackSpeed;
+        this.attackDamageFinal = attackDamageFinal;
+        this.attackSpeedFinal = attackSpeedFinal;
+        this.attackDamageModifier = attackDamageModifier;
+        this.attackSpeedModifier = attackSpeedModifier;
     }
 }

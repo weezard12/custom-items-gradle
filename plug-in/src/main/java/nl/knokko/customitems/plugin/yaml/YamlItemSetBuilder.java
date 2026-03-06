@@ -101,6 +101,8 @@ import java.util.Map;
 public class YamlItemSetBuilder {
 
     public static final String PLACEHOLDER_TEXTURE_NAME = "yaml_placeholder";
+    private static final double BASE_ATTACK_DAMAGE = 1.0;
+    private static final double BASE_ATTACK_SPEED = 4.0;
 
     static ItemSet build(Collection<YamlItemDefinition> items)
             throws ValidationException, ProgrammingValidationException {
@@ -438,6 +440,17 @@ public class YamlItemSetBuilder {
     }
 
     private static void applyAttributes(YamlItemDefinition itemDefinition, KciItem item) {
+        Double attackDamage = resolveAttackModifier(
+                itemDefinition.attackDamageFinal,
+                itemDefinition.attackDamageModifier,
+                BASE_ATTACK_DAMAGE
+        );
+        Double attackSpeed = resolveAttackModifier(
+                itemDefinition.attackSpeedFinal,
+                itemDefinition.attackSpeedModifier,
+                BASE_ATTACK_SPEED
+        );
+
         Double armorValue = null;
         Double armorToughness = null;
         if (itemDefinition.type == YamlItemType.ARMOR) {
@@ -454,23 +467,23 @@ public class YamlItemSetBuilder {
         }
 
         boolean hasArmorValues = armorValue != null && (armorValue != 0.0 || armorToughness != null && armorToughness != 0.0);
-        if (itemDefinition.attackDamage == null && itemDefinition.attackSpeed == null && !hasArmorValues) return;
+        if (attackDamage == null && attackSpeed == null && !hasArmorValues) return;
 
         Collection<KciAttributeModifier> attributes = new ArrayList<>(4);
-        if (itemDefinition.attackDamage != null) {
+        if (attackDamage != null) {
             attributes.add(KciAttributeModifier.createQuick(
                     KciAttributeModifier.Attribute.ATTACK_DAMAGE,
                     KciAttributeModifier.Slot.MAINHAND,
                     KciAttributeModifier.Operation.ADD,
-                    itemDefinition.attackDamage
+                    attackDamage
             ));
         }
-        if (itemDefinition.attackSpeed != null) {
+        if (attackSpeed != null) {
             attributes.add(KciAttributeModifier.createQuick(
                     KciAttributeModifier.Attribute.ATTACK_SPEED,
                     KciAttributeModifier.Slot.MAINHAND,
                     KciAttributeModifier.Operation.ADD,
-                    itemDefinition.attackSpeed
+                    attackSpeed
             ));
         }
         if (hasArmorValues) {
@@ -493,6 +506,12 @@ public class YamlItemSetBuilder {
             }
         }
         item.setAttributeModifiers(attributes);
+    }
+
+    private static Double resolveAttackModifier(Double finalValue, Double explicitModifier, double baseValue) {
+        if (explicitModifier != null) return explicitModifier;
+        if (finalValue == null) return null;
+        return finalValue - baseValue;
     }
 
     private static KciAttributeModifier.Slot getArmorSlot(KciItemType itemType) {

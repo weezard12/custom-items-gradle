@@ -83,8 +83,37 @@ class YamlItemReader {
             Integer stackSize = parseInteger(itemSection.get("stack_size"), 1, 64, "item.stack_size", file, warnings);
             Integer damageValue = parseInteger(itemSection.get("damage_value"), 0, Short.MAX_VALUE, "item.damage_value", file, warnings);
             Boolean unbreakable = parseBoolean(itemSection.get("unbreakable"), "item.unbreakable", file, warnings);
-            Double attackDamage = parseDouble(itemSection.get("attack_damage"), "item.attack_damage", file, warnings);
-            Double attackSpeed = parseDouble(itemSection.get("attack_speed"), "item.attack_speed", file, warnings);
+            Double legacyAttackDamageFinal = parseDouble(itemSection.get("attack_damage"), "item.attack_damage", file, warnings);
+            Double legacyAttackSpeedFinal = parseDouble(itemSection.get("attack_speed"), "item.attack_speed", file, warnings);
+            Double attackDamageFinal = parseDouble(itemSection.get("attack_damage_final"), "item.attack_damage_final", file, warnings);
+            Double attackSpeedFinal = parseDouble(itemSection.get("attack_speed_final"), "item.attack_speed_final", file, warnings);
+            Double attackDamageModifier = parseDouble(
+                    itemSection.get("attack_damage_modifier"), "item.attack_damage_modifier", file, warnings
+            );
+            Double attackSpeedModifier = parseDouble(
+                    itemSection.get("attack_speed_modifier"), "item.attack_speed_modifier", file, warnings
+            );
+
+            attackDamageFinal = chooseFinalAttackValue(
+                    legacyAttackDamageFinal, "item.attack_damage",
+                    attackDamageFinal, "item.attack_damage_final",
+                    file, warnings
+            );
+            attackSpeedFinal = chooseFinalAttackValue(
+                    legacyAttackSpeedFinal, "item.attack_speed",
+                    attackSpeedFinal, "item.attack_speed_final",
+                    file, warnings
+            );
+            warnModifierPrecedence(
+                    attackDamageFinal, "item.attack_damage/item.attack_damage_final",
+                    attackDamageModifier, "item.attack_damage_modifier",
+                    file, warnings
+            );
+            warnModifierPrecedence(
+                    attackSpeedFinal, "item.attack_speed/item.attack_speed_final",
+                    attackSpeedModifier, "item.attack_speed_modifier",
+                    file, warnings
+            );
 
             if (errors.size() != errorCountBefore) return;
 
@@ -99,6 +128,7 @@ class YamlItemReader {
                     blockId != null, customModelDefinition != null, file, warnings
             );
             material = validateMaterialForType(type, material, file, warnings);
+            warnBowCrossbowFallback(type, material, file, warnings);
             if ((type == YamlItemType.TOOL || type == YamlItemType.ARMOR || type == YamlItemType.WAND)
                     && stackSize != null) {
                 warnOptional(warnings, "item.stack_size is not supported for type "
@@ -148,12 +178,49 @@ class YamlItemReader {
                     stackSize,
                     damageValue,
                     unbreakable,
-                    attackDamage,
-                    attackSpeed
+                    attackDamageFinal,
+                    attackSpeedFinal,
+                    attackDamageModifier,
+                    attackSpeedModifier
             ));
         });
 
         return items;
+    }
+
+    private static Double chooseFinalAttackValue(
+            Double legacyFinalValue,
+            String legacyFieldName,
+            Double explicitFinalValue,
+            String explicitFieldName,
+            File sourceFile,
+            List<String> warnings
+    ) {
+        if (explicitFinalValue == null) return legacyFinalValue;
+        if (legacyFinalValue != null) {
+            warnOptional(
+                    warnings,
+                    "Both " + legacyFieldName + " and " + explicitFieldName + " are set in "
+                            + sourceFile.getPath() + "; " + explicitFieldName + " takes precedence"
+            );
+        }
+        return explicitFinalValue;
+    }
+
+    private static void warnModifierPrecedence(
+            Double finalValue,
+            String finalFieldName,
+            Double modifierValue,
+            String modifierFieldName,
+            File sourceFile,
+            List<String> warnings
+    ) {
+        if (finalValue == null || modifierValue == null) return;
+        warnOptional(
+                warnings,
+                "Both " + finalFieldName + " and " + modifierFieldName + " are set in "
+                        + sourceFile.getPath() + "; " + modifierFieldName + " takes precedence"
+        );
     }
 
 
@@ -474,6 +541,22 @@ class YamlItemReader {
         return normalized.startsWith("minecraft:")
                 || normalized.startsWith("item/")
                 || normalized.startsWith("block/");
+    }
+
+    private static void warnBowCrossbowFallback(
+            YamlItemType type,
+            YamlMaterialDefinition material,
+            File sourceFile,
+            List<String> warnings
+    ) {
+        if (type != YamlItemType.SIMPLE || material == null) return;
+        if (material.itemType != KciItemType.BOW && material.itemType != KciItemType.CROSSBOW) return;
+
+        warnings.add(
+                "item.material " + material.itemType.name() + " in " + sourceFile.getPath()
+                        + ": YAML bow/crossbow materials are imported as vanilla-looking custom items; "
+                        + "dedicated bow/crossbow textures and pull-state models are not supported yet"
+        );
     }
 
     private static YamlMaterialDefinition validateMaterialForType(

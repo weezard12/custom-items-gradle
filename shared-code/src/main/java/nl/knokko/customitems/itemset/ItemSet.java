@@ -182,6 +182,16 @@ public class ItemSet {
         }
     }
 
+    private static List<BowTextureEntry> getPullTextures(KciTexture texture) {
+        if (texture instanceof BowTexture) {
+            return ((BowTexture) texture).getPullTextures();
+        }
+        if (texture instanceof CrossbowTexture) {
+            return ((CrossbowTexture) texture).getPullTextures();
+        }
+        return null;
+    }
+
     public Map<KciItemType, ItemDurabilityAssignments> assignInternalItemDamages() throws ValidationException {
         Map<KciItemType, ItemDurabilityAssignments> assignmentMap = new EnumMap<>(KciItemType.class);
 
@@ -192,12 +202,7 @@ public class ItemSet {
                 if (!lockedAssignments.contains(item.getItemDamage())) {
                     ItemDurabilityAssignments assignments = assignmentMap.computeIfAbsent(item.getItemType(), k -> new ItemDurabilityAssignments());
 
-                    List<BowTextureEntry> pullTextures = null;
-                    if (item.getTexture() instanceof BowTexture) {
-                        pullTextures = ((BowTexture) item.getTexture()).getPullTextures();
-                    } else if (item.getTexture() instanceof CrossbowTexture) {
-                        pullTextures = ((CrossbowTexture) item.getTexture()).getPullTextures();
-                    }
+                    List<BowTextureEntry> pullTextures = getPullTextures(item.getTexture());
 
                     ItemDurabilityClaim lockedClaim = new ItemDurabilityClaim(
                             "customitems/" + item.getName(), item.getItemDamage(),
@@ -251,12 +256,7 @@ public class ItemSet {
 
                     String resourcePath = "customitems/" + item.getName();
 
-                    List<BowTextureEntry> pullTextures = null;
-                    if (itemType == KciItemType.BOW) {
-                        pullTextures = ((BowTexture) item.getTexture()).getPullTextures();
-                    } else if (itemType == KciItemType.CROSSBOW) {
-                        pullTextures = ((CrossbowTexture) item.getTexture()).getPullTextures();
-                    }
+                    List<BowTextureEntry> pullTextures = getPullTextures(item.getTexture());
 
                     assignments.claimList.add(new ItemDurabilityClaim(
                             resourcePath, nextItemDamage, pullTextures, !(item.getModel() instanceof DefaultItemModel)

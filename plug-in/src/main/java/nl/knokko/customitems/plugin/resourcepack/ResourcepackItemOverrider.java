@@ -2,9 +2,11 @@ package nl.knokko.customitems.plugin.resourcepack;
 
 import com.github.cliftonlabs.json_simple.JsonObject;
 import nl.knokko.customitems.MCVersions;
-import nl.knokko.customitems.item.VMaterial;
+import nl.knokko.customitems.item.KciBow;
+import nl.knokko.customitems.item.KciCrossbow;
 import nl.knokko.customitems.item.KciItemType;
 import nl.knokko.customitems.item.KciItem;
+import nl.knokko.customitems.item.VMaterial;
 import nl.knokko.customitems.item.durability.ItemDurabilityAssignments;
 import nl.knokko.customitems.item.durability.ItemDurabilityClaim;
 import nl.knokko.customitems.itemset.ItemSet;
@@ -44,13 +46,13 @@ class ResourcepackItemOverrider {
 
             KciItemType itemType = typeEntry.getKey();
             ItemDurabilityAssignments damageAssignments = typeEntry.getValue();
-            Set<Short> placeholderDamages = getPlaceholderDamages(itemType);
-            ItemDurabilityAssignments filteredAssignments = filterAssignments(damageAssignments, placeholderDamages);
+            Set<Short> skippedDamages = getSkippedDamagesForResourcepackOverrides(itemType);
+            ItemDurabilityAssignments filteredAssignments = filterAssignments(damageAssignments, skippedDamages);
 
             if (!filteredAssignments.claimList.isEmpty()) {
 
                 if (itemType == KciItemType.OTHER) {
-                    overrideOtherItems(zipOutput, filteredAssignments, placeholderDamages);
+                    overrideOtherItems(zipOutput, filteredAssignments, skippedDamages);
                 } else {
 
                     String modelName;
@@ -122,11 +124,19 @@ class ResourcepackItemOverrider {
         }
     }
 
-    private Set<Short> getPlaceholderDamages(KciItemType itemType) {
+    private Set<Short> getSkippedDamagesForResourcepackOverrides(KciItemType itemType) {
         Set<Short> result = new HashSet<>();
         for (KciItem item : itemSet.items) {
-            if (item.getItemType() == itemType
-                    && YamlItemSetBuilder.PLACEHOLDER_TEXTURE_NAME.equals(item.getTexture().getName())) {
+            if (item.getItemType() != itemType) continue;
+
+            boolean shouldSkip = YamlItemSetBuilder.PLACEHOLDER_TEXTURE_NAME.equals(item.getTexture().getName());
+            if (itemType == KciItemType.BOW && !(item instanceof KciBow)) {
+                shouldSkip = true;
+            } else if (itemType == KciItemType.CROSSBOW && !(item instanceof KciCrossbow)) {
+                shouldSkip = true;
+            }
+
+            if (shouldSkip) {
                 result.add(item.getItemDamage());
             }
         }

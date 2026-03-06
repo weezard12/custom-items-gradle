@@ -151,8 +151,10 @@ item:
   stack_size: 1           # optional
   damage_value: 0         # optional
   unbreakable: true       # optional
-  attack_damage: 7        # optional
-  attack_speed: 1.6       # optional
+  attack_damage_final: 8  # optional final in-game value
+  attack_speed_final: 1.6 # optional final in-game value
+  attack_damage_modifier: 7   # optional raw attribute modifier (advanced)
+  attack_speed_modifier: -2.4 # optional raw attribute modifier (advanced)
   enchantments:           # optional
     - id: "sharpness"
       level: 3
@@ -200,6 +202,9 @@ Field notes:
 - Use hex with `&#RRGGBB`; on MC 1.16+ it becomes `&x&...`, on older versions it is downgraded to the nearest legacy color.
 - `material` accepts vanilla names like `IRON_SWORD` or namespaced values like `minecraft:iron_sword`.
 - If `material` is not a supported `KciItemType`, it uses `OTHER` and requires MC 1.14+.
+- `material: BOW` and `material: CROSSBOW` are allowed for `simple` items as a compatibility fallback.
+  YAML does not yet support dedicated bow/crossbow pull textures or shooting behavior, so these items stay
+  vanilla-looking and are best paired with plugin logic that checks `CustomItemsApi.getItemId(...)`.
 - `type: tool` requires a tool material (`*_SWORD`, `*_AXE`, `*_PICKAXE`, `*_SHOVEL`, `*_HOE`, `SHEARS`, `FISHING_ROD`, `FLINT_AND_STEEL`, `CARROT_STICK`, `MACE`).
 - `type: armor` requires an armor material (`*_HELMET`, `*_CHESTPLATE`, `*_LEGGINGS`, `*_BOOTS`).
 - `type: wand` requires a wand-compatible item type (hoes or shears).
@@ -208,7 +213,15 @@ Field notes:
 - `stack_size` is supported for `simple`, `food`, and `block` items only.
 - `damage_value` locks the internal model data value when set to a positive number.
 - `enchantments` supports list entries as strings (`"sharpness:3"`) or maps (`id` + optional `level`).
-- `attack_damage` and `attack_speed` are added as attribute modifiers for the main hand.
+- Attack fields:
+- `attack_damage` and `attack_speed` are legacy aliases for final values and behave like
+  `attack_damage_final` and `attack_speed_final`.
+- `attack_damage_final` and `attack_speed_final` set the final in-game stat values.
+- `attack_damage_modifier` and `attack_speed_modifier` set raw main-hand attribute modifier values.
+- Conversion from final values to modifiers uses vanilla player base values:
+  `attack_damage_modifier = attack_damage_final - 1.0` and
+  `attack_speed_modifier = attack_speed_final - 4.0`.
+- If both final and modifier fields are set for the same stat, the `*_modifier` value takes precedence.
 - `type` controls which item class is used. If `type` is omitted, it defaults to `simple` unless a single
   type block (`tool`, `armor`, `wand`, `food`, or `block`) is present.
 - `tool` and `armor` blocks control durability defaults. If omitted, vanilla defaults are used based on `material`.
