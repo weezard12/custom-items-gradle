@@ -20,7 +20,8 @@ supported.
   When disabled, existing `plugins/CustomItems/resource-pack.zip` is left unchanged.
 - Packs with YAML errors are skipped, while valid packs are still converted.
 - Duplicate internal ids are warnings, not fatal errors: the first declaration is kept and later duplicates are skipped.
-- Packs that fail later conversion/validation are isolated and skipped, so other valid packs still convert.
+- Recipe conversion/validation failures are warnings: offending recipes are skipped while the rest of the pack stays active.
+- Other later conversion/validation failures are isolated per pack and skipped, so other valid packs still convert.
 - If no valid packs remain, conversion is skipped and the existing
   `items.cis.txt` (if any) is used.
 
@@ -205,7 +206,7 @@ Field notes:
 - `material: BOW` and `material: CROSSBOW` are allowed for `simple` items as a compatibility fallback.
   YAML does not yet support dedicated bow/crossbow pull textures or shooting behavior, so these items stay
   vanilla-looking and are best paired with plugin logic that checks `CustomItemsApi.getItemId(...)`.
-- `type: tool` requires a tool material (`*_SWORD`, `*_AXE`, `*_PICKAXE`, `*_SHOVEL`, `*_HOE`, `SHEARS`, `FISHING_ROD`, `FLINT_AND_STEEL`, `CARROT_STICK`, `MACE`).
+- `type: tool` requires a tool material (`*_SWORD`, `*_AXE`, `*_PICKAXE`, `*_SHOVEL`, `*_HOE`, `SHEARS`, `FISHING_ROD`, `FLINT_AND_STEEL`, `CARROT_STICK`, `BOW`, `CROSSBOW`, `MACE`).
 - `type: armor` requires an armor material (`*_HELMET`, `*_CHESTPLATE`, `*_LEGGINGS`, `*_BOOTS`).
 - `type: wand` requires a wand-compatible item type (hoes or shears).
 - `type: food` allows any food-compatible item type or a `VMaterial` (MC 1.14+).

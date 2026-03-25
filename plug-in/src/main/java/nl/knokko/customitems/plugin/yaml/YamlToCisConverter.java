@@ -180,6 +180,17 @@ public class YamlToCisConverter {
                 );
                 return new BuildResult(itemSet, collections, activePacks.size());
             } catch (ValidationException | ProgrammingValidationException ex) {
+                RecipeCulprit culpritRecipe = findCulpritRecipe(ex.getMessage(), activePacks);
+                if (culpritRecipe == null) {
+                    culpritRecipe = findCulpritRecipeByIsolation(activePacks);
+                }
+                if (culpritRecipe != null && culpritRecipe.pack.recipes.remove(culpritRecipe.recipe)) {
+                    log.accept(ChatColor.YELLOW + "Skipping recipe '" + culpritRecipe.recipe.internalName
+                            + "' in pack '" + culpritRecipe.pack.directory.getName()
+                            + "' due to conversion error: " + ex.getMessage());
+                    continue;
+                }
+
                 PackContent culprit = findCulpritPack(ex.getMessage(), activePacks);
                 if (culprit == null) {
                     culprit = findCulpritPackByIsolation(activePacks);
@@ -371,6 +382,72 @@ public class YamlToCisConverter {
         return null;
     }
 
+    private static RecipeCulprit findCulpritRecipe(String errorMessage, List<PackContent> packs) {
+        if (errorMessage == null || errorMessage.isEmpty()) return null;
+        String normalizedMessage = normalizePath(errorMessage);
+
+        List<RecipeCulprit> candidates = new ArrayList<>();
+        for (PackContent pack : packs) {
+            for (YamlRecipeDefinition recipe : pack.recipes) {
+                if (recipe.sourceFile == null) continue;
+                String normalizedPath = normalizePath(recipe.sourceFile.getPath());
+                String normalizedFileName = recipe.sourceFile.getName().toLowerCase(Locale.ROOT);
+                String packAndFileMarker = "/" + pack.directory.getName().toLowerCase(Locale.ROOT)
+                        + "/" + normalizedFileName;
+                boolean matches = normalizedMessage.contains(normalizedPath)
+                        || normalizedMessage.contains(packAndFileMarker)
+                        || normalizedMessage.contains("/" + normalizedFileName)
+                        || normalizedMessage.contains(normalizedFileName);
+                if (matches) {
+                    candidates.add(new RecipeCulprit(pack, recipe));
+                }
+            }
+        }
+        if (candidates.isEmpty()) return null;
+        if (candidates.size() == 1) return candidates.get(0);
+
+        for (RecipeCulprit candidate : candidates) {
+            String recipeNameMarker = "'" + candidate.recipe.internalName.toLowerCase(Locale.ROOT) + "'";
+            if (normalizedMessage.contains(recipeNameMarker)) {
+                return candidate;
+            }
+        }
+        for (RecipeCulprit candidate : candidates) {
+            if (canBuildWithoutRecipe(packs, candidate)) {
+                return candidate;
+            }
+        }
+
+        return candidates.get(0);
+    }
+
+    private static RecipeCulprit findCulpritRecipeByIsolation(List<PackContent> packs) {
+        for (PackContent pack : packs) {
+            for (int recipeIndex = 0; recipeIndex < pack.recipes.size(); recipeIndex++) {
+                YamlRecipeDefinition candidate = pack.recipes.remove(recipeIndex);
+                try {
+                    if (canBuildPacks(packs)) {
+                        return new RecipeCulprit(pack, candidate);
+                    }
+                } finally {
+                    pack.recipes.add(recipeIndex, candidate);
+                }
+            }
+        }
+        return null;
+    }
+
+    private static boolean canBuildWithoutRecipe(List<PackContent> packs, RecipeCulprit culprit) {
+        int recipeIndex = culprit.pack.recipes.indexOf(culprit.recipe);
+        if (recipeIndex == -1) return false;
+        culprit.pack.recipes.remove(recipeIndex);
+        try {
+            return canBuildPacks(packs);
+        } finally {
+            culprit.pack.recipes.add(recipeIndex, culprit.recipe);
+        }
+    }
+
     private static String normalizePath(String path) {
         return path.toLowerCase(Locale.ROOT).replace('\\', '/');
     }
@@ -414,6 +491,17 @@ public class YamlToCisConverter {
             this.recipes = recipes;
             this.projectileCovers = projectileCovers;
             this.projectiles = projectiles;
+        }
+    }
+
+    private static class RecipeCulprit {
+
+        final PackContent pack;
+        final YamlRecipeDefinition recipe;
+
+        RecipeCulprit(PackContent pack, YamlRecipeDefinition recipe) {
+            this.pack = pack;
+            this.recipe = recipe;
         }
     }
 

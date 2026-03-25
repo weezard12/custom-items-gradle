@@ -621,7 +621,8 @@ class YamlItemReader {
                 || itemType.canServe(Category.PICKAXE) || itemType.canServe(Category.SHOVEL)
                 || itemType.canServe(Category.HOE) || itemType.canServe(Category.SHEAR)
                 || itemType.canServe(Category.FISHING) || itemType.canServe(Category.FLINT)
-                || itemType.canServe(Category.CARROTSTICK);
+                || itemType.canServe(Category.CARROTSTICK) || itemType.canServe(Category.BOW)
+                || itemType.canServe(Category.CROSSBOW);
     }
 
     private static boolean isArmorItemType(KciItemType itemType) {
