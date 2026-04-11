@@ -108,6 +108,10 @@ public class ResourcepackGenerator {
         jsonWriter.println("{");
         jsonWriter.println("    \"pack\": {");
         jsonWriter.println("        \"pack_format\": " + packFormat + ",");
+        if (packFormat >= 75) {
+            jsonWriter.println("        \"min_format\": " + packFormat + ",");
+            jsonWriter.println("        \"max_format\": " + packFormat + ",");
+        }
         jsonWriter.println("        \"description\": \"KnokkosCustomItems generated resourcepack\"");
         jsonWriter.println("    }");
         jsonWriter.println("}");
