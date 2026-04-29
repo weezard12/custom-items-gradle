@@ -1,12 +1,14 @@
 package nl.knokko.customitems.plugin;
 
 import nl.knokko.customitems.block.KciBlock;
+import nl.knokko.customitems.item.KciBlockItem;
 import nl.knokko.customitems.item.KciItem;
 import nl.knokko.customitems.itemset.ItemSet;
 import nl.knokko.customitems.plugin.container.ContainerInfo;
 import nl.knokko.customitems.plugin.container.ContainerInstance;
 import nl.knokko.customitems.plugin.set.ItemSetWrapper;
 import nl.knokko.customitems.plugin.set.block.MushroomBlockHelper;
+import nl.knokko.customitems.plugin.util.ItemUtils;
 import nl.knokko.customitems.plugin.yaml.YamlToCisConverter;
 import nl.knokko.customitems.projectile.KciProjectile;
 import nl.knokko.customitems.recipe.KciCraftingRecipe;
@@ -57,19 +59,24 @@ public class CustomItemsApi {
     }
 
     /**
-     * Gives a custom item by id (alias) or internal name. Items that don't fit in the inventory will
-     * be dropped at the player's location.
+     * Gives a custom item or block item by item id/internal name or block id/internal name.
+     * Full inventories follow the same behavior as `/kci give`.
      */
     public static void giveItem(Player player, String itemId, int amount) {
-        if (player == null || amount <= 0) return;
+        ItemSetWrapper wrapper = CustomItemsPlugin.getInstance().getSet();
+        giveResolvedItem(player, wrapper, getGiveItemById(wrapper, itemId), amount);
+    }
 
-        ItemStack stack = createItemStackById(itemId, amount);
-        if (stack == null) return;
+    /**
+     * Gives a custom item or block item by item id/internal name or block id/internal name
+     * to each player in the collection.
+     */
+    public static void giveItem(Collection<? extends Player> players, String itemId, int amount) {
+        if (players == null) return;
 
-        Location dropLocation = player.getLocation();
-        for (ItemStack didNotFit : player.getInventory().addItem(stack).values()) {
-            player.getWorld().dropItem(dropLocation, didNotFit);
-        }
+        ItemSetWrapper wrapper = CustomItemsPlugin.getInstance().getSet();
+        KciItem item = getGiveItemById(wrapper, itemId);
+        for (Player player : players) giveResolvedItem(player, wrapper, item, amount);
     }
 
     public static String getItemName(ItemStack itemStack) {
@@ -144,6 +151,43 @@ public class CustomItemsApi {
         String lookupName = normalizeBlockLookupName(blockIdOrName);
         if (lookupName == null) return Optional.empty();
         return itemSet.blocks.get(lookupName);
+    }
+
+    private static Optional<KciBlockItem> getBlockItemByIdOrInternalName(ItemSet itemSet, String blockIdOrName) {
+        Optional<KciBlock> maybeBlock = getBlockByIdOrInternalName(itemSet, blockIdOrName);
+        if (!maybeBlock.isPresent()) return Optional.empty();
+
+        String normalizedLookupName = normalizeBlockLookupName(blockIdOrName);
+        KciBlock block = maybeBlock.get();
+        KciBlockItem fallback = null;
+
+        for (KciItem item : itemSet.items) {
+            if (!(item instanceof KciBlockItem)) continue;
+
+            KciBlockItem blockItem = (KciBlockItem) item;
+            if (blockItem.getBlock().getInternalID() != block.getInternalID()) continue;
+
+            if (blockIdOrName != null && blockIdOrName.equals(blockItem.getAlias())) {
+                return Optional.of(blockItem);
+            }
+            if (normalizedLookupName != null && normalizedLookupName.equals(blockItem.getName())) {
+                return Optional.of(blockItem);
+            }
+            if (fallback == null) fallback = blockItem;
+        }
+
+        return Optional.ofNullable(fallback);
+    }
+
+    private static KciItem getGiveItemById(ItemSetWrapper wrapper, String itemId) {
+        KciItem item = wrapper.getItemById(itemId);
+        if (item != null) return item;
+        return getBlockItemByIdOrInternalName(wrapper.get(), itemId).orElse(null);
+    }
+
+    private static void giveResolvedItem(Player player, ItemSetWrapper wrapper, KciItem item, int amount) {
+        if (player == null || item == null || amount < 1 || amount > item.getMaxStacksize()) return;
+        ItemUtils.giveCustomItem(wrapper, player, item, amount);
     }
 
     public static void placeBlock(Block destination, String blockIdOrName) {

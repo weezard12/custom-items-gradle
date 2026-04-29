@@ -5,25 +5,17 @@ import nl.knokko.customitems.plugin.CustomItemsPlugin;
 import nl.knokko.customitems.plugin.config.LanguageFile;
 import nl.knokko.customitems.plugin.set.ItemSetWrapper;
 import nl.knokko.customitems.plugin.util.ItemUtils;
+import nl.knokko.customitems.plugin.util.ItemUtils.GiveResult;
 import org.bukkit.ChatColor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
-import org.bukkit.inventory.Inventory;
-import org.bukkit.inventory.ItemStack;
 
 import static nl.knokko.customitems.plugin.command.CommandCustomItems.getOnlinePlayer;
-import static nl.knokko.customitems.plugin.set.item.CustomItemWrapper.wrap;
 
 public class CommandCustomItemsGive {
 
     final ItemSetWrapper itemSet;
     final LanguageFile lang;
-
-    private enum DeliveryResult {
-        ADDED_TO_INVENTORY,
-        DROPPED_ON_GROUND,
-        FAILED
-    }
 
     CommandCustomItemsGive(ItemSetWrapper itemSet, LanguageFile lang) {
         this.itemSet = itemSet;
@@ -186,12 +178,12 @@ public class CommandCustomItemsGive {
                 trimmedAmount = true;
             }
 
-            DeliveryResult deliveryResult = deliverItem(receiver, item, itemAmount);
-            if (deliveryResult == DeliveryResult.FAILED) {
+            GiveResult deliveryResult = deliverItem(receiver, item, itemAmount);
+            if (deliveryResult == GiveResult.FAILED) {
                 inventoryFull = true;
             } else {
                 deliveredCount++;
-                if (deliveryResult == DeliveryResult.DROPPED_ON_GROUND) droppedCount++;
+                if (deliveryResult == GiveResult.DROPPED_ON_GROUND) droppedCount++;
             }
         }
 
@@ -212,56 +204,19 @@ public class CommandCustomItemsGive {
         }
     }
 
-    public static boolean giveCustomItemToInventory(ItemSetWrapper itemSet, Inventory inventory, KciItem item, int amount) {
-        boolean wasGiven = false;
-
-        if (wrap(item).needsStackingHelp()) {
-            ItemStack[] contents = inventory.getStorageContents();
-            int freeSlotIndex = -1;
-            for (int index = 0; index < contents.length; index++) {
-                if (ItemUtils.isEmpty(contents[index])) {
-                    if (freeSlotIndex == -1) freeSlotIndex = index;
-                } else {
-                    ItemStack existingStack = contents[index];
-                    KciItem existingItem = itemSet.getItem(existingStack);
-                    if (existingItem == item && item.getMaxStacksize() >= existingStack.getAmount() + amount) {
-                        existingStack.setAmount(existingStack.getAmount() + amount);
-                        inventory.setStorageContents(contents);
-                        wasGiven = true;
-                        break;
-                    }
-                }
-            }
-
-            if (freeSlotIndex != -1 && !wasGiven) {
-                contents[freeSlotIndex] = wrap(item).create(amount);
-                inventory.setStorageContents(contents);
-                return true;
-            }
-
-            return wasGiven;
-        } else {
-            return inventory.addItem(wrap(item).create(amount)).isEmpty();
-        }
-    }
-
-    private DeliveryResult deliverItem(Player receiver, KciItem item, int amount) {
-        if (giveCustomItemToInventory(itemSet, receiver.getInventory(), item, amount)) {
-            return DeliveryResult.ADDED_TO_INVENTORY;
-        }
-        if (CustomItemsPlugin.getInstance().shouldDropGivenItemsWhenInventoryIsFull()) {
-            receiver.getWorld().dropItem(receiver.getLocation(), wrap(item).create(amount));
-            return DeliveryResult.DROPPED_ON_GROUND;
-        }
-        return DeliveryResult.FAILED;
+    private GiveResult deliverItem(Player receiver, KciItem item, int amount) {
+        return ItemUtils.giveCustomItem(
+                itemSet, receiver, item, amount,
+                CustomItemsPlugin.getInstance().shouldDropGivenItemsWhenInventoryIsFull()
+        );
     }
 
     private void giveTheItem(CommandSender sender, Player receiver, KciItem item, int amount, boolean enableOutput) {
-        DeliveryResult deliveryResult = deliverItem(receiver, item, amount);
+        GiveResult deliveryResult = deliverItem(receiver, item, amount);
         if (enableOutput) {
-            if (deliveryResult == DeliveryResult.ADDED_TO_INVENTORY) {
+            if (deliveryResult == GiveResult.ADDED_TO_INVENTORY) {
                 sender.sendMessage(lang.getCommandItemGiven());
-            } else if (deliveryResult == DeliveryResult.DROPPED_ON_GROUND) {
+            } else if (deliveryResult == GiveResult.DROPPED_ON_GROUND) {
                 sender.sendMessage(ChatColor.YELLOW + "Custom item was dropped on the ground because no inventory slot was available.");
             } else {
                 sender.sendMessage(ChatColor.RED + "No available inventory slot was found");
