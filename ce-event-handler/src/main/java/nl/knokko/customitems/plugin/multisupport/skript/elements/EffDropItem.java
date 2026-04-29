@@ -30,7 +30,7 @@ public class EffDropItem extends Effect {
     protected void execute(Event event) {
         int amount = this.amount != null ? Objects.requireNonNull(this.amount.getSingle(event)) : 1;
         Location location = this.location.getSingle(event);
-        location.getWorld().dropItemNaturally(location, CustomItemsApi.createItemStack(itemName.getSingle(event), amount));
+        location.getWorld().dropItemNaturally(location, CustomItemsApi.createItemStackById(itemName.getSingle(event), amount));
     }
 
     @Override

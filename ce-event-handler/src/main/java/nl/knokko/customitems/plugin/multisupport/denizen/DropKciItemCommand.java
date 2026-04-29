@@ -52,7 +52,7 @@ public class DropKciItemCommand extends AbstractCommand {
         int locationIndex = atIndex + 1;
 
         String itemName = arguments.get(itemIndex).getValue();
-        if (!CustomItemsApi.hasItem(itemName)) {
+        if (CustomItemsApi.createItemStackById(itemName, 1) == null) {
             throw new InvalidArgumentsException("There is no custom item named '" + itemName + "'");
         }
         scriptEntry.addObject("item_name", itemName);
@@ -70,6 +70,6 @@ public class DropKciItemCommand extends AbstractCommand {
         String itemName = scriptEntry.getObjectTag("item_name");
         Location location = scriptEntry.getObjectTag("location");
 
-        location.getWorld().dropItemNaturally(location, CustomItemsApi.createItemStack(itemName, amount));
+        location.getWorld().dropItemNaturally(location, CustomItemsApi.createItemStackById(itemName, amount));
     }
 }

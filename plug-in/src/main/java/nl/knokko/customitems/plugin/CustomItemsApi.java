@@ -49,11 +49,11 @@ public class CustomItemsApi {
     }
 
     /**
-     * Creates an ItemStack by custom item id (alias). If no item matches the id, this also tries the internal name.
+     * Creates an ItemStack by custom item id/internal name or block id/internal name.
      */
     public static ItemStack createItemStackById(String itemId, int amount) {
         ItemSetWrapper wrapper = CustomItemsPlugin.getInstance().getSet();
-        KciItem item = wrapper.getItemById(itemId);
+        KciItem item = getGiveItemById(wrapper, itemId);
         if (item != null) return wrap(item).create(amount);
         else return null;
     }
@@ -104,10 +104,11 @@ public class CustomItemsApi {
     }
 
     /**
-     * Checks whether a custom item with the given id (alias) exists. Falls back to internal names.
+     * Checks whether a custom item or block item exists by item id/internal name or block id/internal name.
      */
     public static boolean hasItemId(String itemId) {
-        return CustomItemsPlugin.getInstance().getSet().getItemById(itemId) != null;
+        ItemSetWrapper wrapper = CustomItemsPlugin.getInstance().getSet();
+        return getGiveItemById(wrapper, itemId) != null;
     }
 
     /**

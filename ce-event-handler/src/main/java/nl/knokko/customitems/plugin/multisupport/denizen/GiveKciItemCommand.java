@@ -8,10 +8,12 @@ import com.denizenscript.denizencore.scripts.ScriptEntry;
 import com.denizenscript.denizencore.scripts.commands.AbstractCommand;
 import nl.knokko.customitems.plugin.CustomItemsApi;
 import nl.knokko.customitems.plugin.CustomItemsPlugin;
-import nl.knokko.customitems.plugin.command.CommandCustomItemsGive;
 import nl.knokko.customitems.plugin.set.ItemSetWrapper;
+import nl.knokko.customitems.plugin.util.ItemUtils;
+import org.bukkit.inventory.ItemStack;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import static java.lang.Integer.parseInt;
@@ -55,7 +57,7 @@ public class GiveKciItemCommand extends AbstractCommand {
         int inventoryIndex = toIndex + 1;
 
         String itemName = arguments.get(itemIndex).getValue();
-        if (!CustomItemsApi.hasItem(itemName)) {
+        if (CustomItemsApi.createItemStackById(itemName, 1) == null) {
             throw new InvalidArgumentsException("There is no custom item named '" + itemName + "'");
         }
         scriptEntry.addObject("item_name", itemName);
@@ -83,9 +85,9 @@ public class GiveKciItemCommand extends AbstractCommand {
         }
 
         ItemSetWrapper itemSet = CustomItemsPlugin.getInstance().getSet();
+        ItemStack itemStack = CustomItemsApi.createItemStackById(itemName, amount);
+        if (itemStack == null) return;
 
-        CommandCustomItemsGive.giveCustomItemToInventory(
-                itemSet, inventory.getInventory(), itemSet.getItem(itemName), amount
-        );
+        ItemUtils.giveItems(itemSet, inventory.getInventory(), Collections.singleton(itemStack));
     }
 }
