@@ -47,12 +47,16 @@ function Get-JavaExeForVersion {
         return $DefaultJava
     }
 
-    $mcMajor = [int]$Version.Split('.')[1]
-    if ($mcMajor -le 16) {
+    $parts = $Version.Split('.')
+    $versionMajor = [int]$parts[0]
+    $versionMinor = if ($parts.Count -gt 1) { [int]$parts[1] } else { 0 }
+    if ($versionMajor -ge 26) {
+        $jdkMajor = 25
+    } elseif ($versionMinor -le 16) {
         $jdkMajor = 8
-    } elseif ($mcMajor -eq 17) {
+    } elseif ($versionMinor -eq 17) {
         $jdkMajor = 16
-    } elseif ($mcMajor -le 19) {
+    } elseif ($versionMinor -le 19) {
         $jdkMajor = 17
     } else {
         $jdkMajor = 21
@@ -177,6 +181,11 @@ Write-Host "Versions: $($Versions -join ', ')"
 Push-Location $workDirResolved
 try {
     foreach ($version in $Versions) {
+        if ([int]$version.Split('.')[0] -ge 26) {
+            Write-Host "Skipping BuildTools for $version (26.x uses the remote Paper API in this build)."
+            continue
+        }
+
         if ($SkipIfPresent -and (Test-VersionInstalled $version)) {
             Write-Host "Skipping $version (already installed)"
             continue

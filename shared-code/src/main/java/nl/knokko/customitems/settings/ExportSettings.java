@@ -254,7 +254,7 @@ public class ExportSettings extends ModelValues {
 
     public void validate() throws ValidationException, ProgrammingValidationException {
         int normalizedVersion = MCVersions.normalize(mcVersion);
-        if (normalizedVersion < MCVersions.FIRST_VERSION || normalizedVersion > MCVersions.LAST_VERSION) {
+        if (!MCVersions.isSupported(normalizedVersion)) {
             throw new ValidationException("Unsupported MC version: " + MCVersions.createString(mcVersion));
         }
         if (mode == null) throw new ProgrammingValidationException("No mode");

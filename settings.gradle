@@ -4,7 +4,7 @@ def allModules = [
         'bit-helper', 'gui', 'shared-code', 'plug-in', 'editor', 'kci-nms', 'custom-recipes',
         'kci-nms12', 'kci-nms13plus', 'kci-nms13', 'kci-nms14', 'kci-nms15', 'kci-nms16plus', 'kci-nms16',
         'kci-nms17', 'kci-nms18plus', 'kci-nms18', 'kci-nms19', 'kci-nms20', 'kci-nms21plus', 'kci-nms21',
-        'kci-nms21r1',
+        'kci-nms21r1', 'kci-nms26',
         'ce-event-handler', 'test-custom-recipes', 'yaml-resourcepack-cli', 'yaml-resourcepack-source-cli'
 ]
 
@@ -53,7 +53,11 @@ if (onlyVersions) {
             '1.21.2': 'kci-nms21',
             '1.21.1': 'kci-nms21r1',
             '1.21.0': 'kci-nms21r1',
-            '1.21': 'kci-nms21r1'
+            '1.21': 'kci-nms21r1',
+            '26.1.2': 'kci-nms26',
+            '26.1.1': 'kci-nms26',
+            '26.1.0': 'kci-nms26',
+            '26.1': 'kci-nms26'
     ]
     def moduleRequirements = [
             'kci-nms13': ['kci-nms13plus'],
@@ -65,7 +69,8 @@ if (onlyVersions) {
             'kci-nms19': ['kci-nms13plus', 'kci-nms16plus', 'kci-nms18plus'],
             'kci-nms20': ['kci-nms13plus', 'kci-nms16plus', 'kci-nms18plus'],
             'kci-nms21': ['kci-nms13plus', 'kci-nms16plus', 'kci-nms18plus', 'kci-nms21plus'],
-            'kci-nms21r1': ['kci-nms13plus', 'kci-nms16plus', 'kci-nms18plus', 'kci-nms21plus']
+            'kci-nms21r1': ['kci-nms13plus', 'kci-nms16plus', 'kci-nms18plus', 'kci-nms21plus'],
+            'kci-nms26': ['kci-nms13plus', 'kci-nms16plus', 'kci-nms18plus', 'kci-nms21plus']
     ]
     def requestedVersions = onlyVersions.split(',').collect { it.trim() }.findAll { it }
     def selectedNms = []

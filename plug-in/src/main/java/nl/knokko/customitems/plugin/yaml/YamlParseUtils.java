@@ -686,19 +686,19 @@ public final class YamlParseUtils {
             return null;
         }
         String trimmed = raw.trim();
-        if (trimmed.startsWith("1.")) trimmed = trimmed.substring(2);
-        int dotIndex = trimmed.indexOf('.');
-        if (dotIndex >= 0) trimmed = trimmed.substring(0, dotIndex);
-        if (!isInteger(trimmed)) {
+        Integer parsedVersion = MCVersions.parseVersion(trimmed);
+        if (parsedVersion == null && isInteger(trimmed)) {
+            parsedVersion = MCVersions.normalizeLowerBound(Integer.parseInt(trimmed));
+        }
+        if (parsedVersion == null) {
             warnOptional(warnings, "Invalid " + fieldName + " '" + raw + "' in " + sourceFile.getPath());
             return null;
         }
-        int version = Integer.parseInt(trimmed);
-        if (version < MCVersions.FIRST_VERSION || version > MCVersions.LAST_VERSION) {
+        if (!MCVersions.isSupported(parsedVersion)) {
             warnOptional(warnings, "Unsupported " + fieldName + " '" + raw + "' in " + sourceFile.getPath());
             return null;
         }
-        return version;
+        return parsedVersion;
     }
 
     // ========== Enum Parsers ==========

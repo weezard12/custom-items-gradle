@@ -6,6 +6,8 @@ without changing the YAML/CIS syntax.
 Edit `shared-code/src/main/java/nl/knokko/customitems/MCVersions.java`:
 - Add the new patch constant (e.g. `VERSION1_21_11`).
 - Update `LAST_VERSION` to the new patch.
+- Update `SUPPORTED_VERSIONS` so editor exports and validation use real releases
+  instead of integer ranges.
 - If the patch changes resource pack format or model layout, add logic in:
   - `normalizeLowerBound(...)`
   - `normalizeUpperBound(...)`
@@ -36,6 +38,9 @@ If the server package changes (e.g. `v1_21_R6` -> `v1_21_R7`):
 - Update `settings.gradle` and `build.gradle` to include the module.
 - Ensure the plugin selects the correct implementation.
 
+Minecraft 26.1+ uses the unversioned CraftBukkit package, so new NMS modules can
+declare `CRAFT_ITEM_STACK_CLASS_NAMES` instead of `NMS_VERSION_STRING(S)`.
+
 ### 5) Update YAML Parser Aliases (if needed)
 If new materials or renamed materials need aliases:
 - `plug-in/src/main/java/nl/knokko/customitems/plugin/yaml/YamlItemReader.java`
@@ -53,6 +58,7 @@ Then test on a server for the new patch and at least one previous patch (e.g. 1.
 
 ### Checklist
 - [ ] Added patch constant and updated `LAST_VERSION` in `MCVersions`
+- [ ] Added the release to `SUPPORTED_VERSIONS`
 - [ ] Updated new items/blocks/enchantments in `VMaterial`, `KciItemType`, `VEnchantmentType`
 - [ ] Updated resource pack format logic (editor + plugin) if needed
 - [ ] Updated/added NMS module if CraftBukkit revision changed

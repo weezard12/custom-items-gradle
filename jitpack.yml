@@ -1,3 +1,6 @@
 before_install:
+  - source "$HOME/.sdkman/bin/sdkman-init.sh" && sdk install java 25-open || true
   - cp .github/jitpack/build.gradle build.gradle
   - cp .github/jitpack/settings.gradle settings.gradle
+install:
+  - source "$HOME/.sdkman/bin/sdkman-init.sh" && sdk use java 25-open && java -version && ./gradlew clean publishToMavenLocal -x test --no-daemon

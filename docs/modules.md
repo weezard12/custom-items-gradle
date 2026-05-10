@@ -64,7 +64,7 @@ minecraft versions.
 The `kci-nms` module itself defines the interface that
 is implemented by all the `kci-nmsXX` modules.
 Each `kci-nmsXX` module implements these interfaces
-for minecraft `1.XX`.
+for its minecraft version family, such as `1.XX` or `26.x`.
 
 The modules `kci-nms13plus`, `kci-nms16plus`,
 `kci-nms18plus`, and `kci-nms21plus` facilitate code reuse

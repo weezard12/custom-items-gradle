@@ -25,19 +25,20 @@ public abstract class KciNms {
                 new NmsCandidate("nl.knokko.customitems.nms19.KciNms19", 19),
                 new NmsCandidate("nl.knokko.customitems.nms20.KciNms20", 20),
                 new NmsCandidate("nl.knokko.customitems.nms21.KciNms21", 21),
-                new NmsCandidate("nl.knokko.customitems.nms21r1.KciNms21R1", 21)
+                new NmsCandidate("nl.knokko.customitems.nms21r1.KciNms21R1", 21),
+                new NmsCandidate("nl.knokko.customitems.nms26.KciNms26", MCVersions.VERSION26_1_2)
         };
 
         for (NmsCandidate candidate : candidates) {
             try {
                 Class<?> nmsClass = Class.forName(candidate.className);
-                String[] nmsVersions = resolveNmsVersions(nmsClass);
+                String[] craftItemStackClassNames = resolveCraftItemStackClassNames(nmsClass);
                 boolean matched = false;
-                for (String nmsVersion : nmsVersions) {
+                for (String craftItemStackClassName : craftItemStackClassNames) {
                     try {
                         // If the candidate version matches the actual NMS version of the server implementation,
                         // we are good to go.
-                        Class.forName("org.bukkit.craftbukkit.v" + nmsVersion + ".inventory.CraftItemStack");
+                        Class.forName(craftItemStackClassName);
                         supportedInstance = (KciNms) nmsClass.getConstructor().newInstance();
                         chosenMcVersion = candidate.mcVersion;
                         if (!supportedInstance.isCompatible()) {
@@ -95,6 +96,26 @@ public abstract class KciNms {
         } catch (ReflectiveOperationException | RuntimeException | NoClassDefFoundError ignored) {
             return null;
         }
+    }
+
+    private static String[] resolveCraftItemStackClassNames(Class<?> nmsClass)
+            throws NoSuchFieldException, IllegalAccessException {
+        try {
+            Object fieldValue = nmsClass.getField("CRAFT_ITEM_STACK_CLASS_NAMES").get(null);
+            if (fieldValue instanceof String[]) {
+                String[] values = (String[]) fieldValue;
+                if (values.length > 0) return values;
+            }
+        } catch (NoSuchFieldException ignored) {
+            // Fallback to the older NMS-version fields
+        }
+
+        String[] nmsVersions = resolveNmsVersions(nmsClass);
+        String[] result = new String[nmsVersions.length];
+        for (int index = 0; index < nmsVersions.length; index++) {
+            result[index] = "org.bukkit.craftbukkit.v" + nmsVersions[index] + ".inventory.CraftItemStack";
+        }
+        return result;
     }
 
     private static String[] resolveNmsVersions(Class<?> nmsClass) throws NoSuchFieldException, IllegalAccessException {

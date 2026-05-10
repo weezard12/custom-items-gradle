@@ -30,11 +30,17 @@ If you only want to build a subset of NMS modules, pass `-PonlyVersions` to
 Gradle or `-OnlyVersions` to the build script:
 
 ```powershell
-./gradlew :plug-in:shadowJar -PonlyVersions=1.21.11
+./gradlew "-PonlyVersions=1.21.11" :plug-in:shadowJar
 ```
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts\build-plugin.ps1 -OnlyVersions 1.21.11
+```
+
+For Minecraft 26.1.2, use Java 25:
+
+```powershell
+./gradlew "-PonlyVersions=26.1.2" :plug-in:shadowJar
 ```
 
 By default this excludes `ce-event-handler` and `test-custom-recipes`. If you
@@ -52,7 +58,7 @@ running Gradle, or pass `-IncludeEventHandler` and/or `-IncludeTests` to
 
 ## JDK setup options
 `scripts/install-jdks.ps1` installs Temurin JDKs and sets `JAVA*_HOME`.
-- `-JdkVersions`: List of JDK majors (default: `8,16,17,21`).
+- `-JdkVersions`: List of JDK majors (default: `8,16,17,21,25`).
 - `-Architecture`: `x64` or `aarch64` (auto-detected if omitted).
 - `-InstallRoot`: Directory to install JDKs (default: `jdks` in repo root).
 - `-Persist`: Persist `JAVA*_HOME` in your user profile.

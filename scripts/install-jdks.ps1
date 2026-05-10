@@ -35,7 +35,7 @@ function Resolve-Architecture {
 }
 
 function Get-DefaultJdkVersions {
-    return @(8, 16, 17, 21)
+    return @(8, 16, 17, 21, 25)
 }
 
 function Get-AdoptiumUrl {

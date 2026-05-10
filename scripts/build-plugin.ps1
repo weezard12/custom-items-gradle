@@ -38,11 +38,22 @@ function Get-RequiredVersionsFromGradle {
             $null = $ordered.Add($version, $true)
         }
     }
+    $paperPattern = 'io\.papermc\.paper:paper-api:([0-9]+\.[0-9]+(?:\.[0-9]+)?)\.build'
+    $paperMatches = [regex]::Matches($content, $paperPattern)
+    foreach ($match in $paperMatches) {
+        $version = $match.Groups[1].Value
+        if (-not $ordered.Contains($version)) {
+            $null = $ordered.Add($version, $true)
+        }
+    }
     return @($ordered.Keys)
 }
 
 function Test-VersionInstalled {
     param([string]$Version)
+    if ([int]$Version.Split('.')[0] -ge 26) {
+        return $true
+    }
     $m2 = Join-Path $env:USERPROFILE ".m2\\repository"
     $candidates = @(
         Join-Path $m2 "org\\spigotmc\\spigot\\$Version-R0.1-SNAPSHOT\\spigot-$Version-R0.1-SNAPSHOT.jar",
@@ -61,12 +72,16 @@ function Get-RequiredJdkMajors {
     param([string[]]$Versions)
     $majors = New-Object 'System.Collections.Generic.HashSet[int]'
     foreach ($version in $Versions) {
-        $mcMajor = [int]$version.Split('.')[1]
-        if ($mcMajor -le 16) {
+        $parts = $version.Split('.')
+        $versionMajor = [int]$parts[0]
+        $versionMinor = if ($parts.Count -gt 1) { [int]$parts[1] } else { 0 }
+        if ($versionMajor -ge 26) {
+            $null = $majors.Add(25)
+        } elseif ($versionMinor -le 16) {
             $null = $majors.Add(8)
-        } elseif ($mcMajor -eq 17) {
+        } elseif ($versionMinor -eq 17) {
             $null = $majors.Add(16)
-        } elseif ($mcMajor -le 19) {
+        } elseif ($versionMinor -le 19) {
             $null = $majors.Add(17)
         } else {
             $null = $majors.Add(21)

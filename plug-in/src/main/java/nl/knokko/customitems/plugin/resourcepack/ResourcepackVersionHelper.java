@@ -19,6 +19,8 @@ final class ResourcepackVersionHelper {
     }
 
     static boolean useModernItemModels(int mcVersion) {
+        int major = MCVersions.getMajor(mcVersion);
+        if (major > 1) return true;
         int minor = MCVersions.getMinor(mcVersion);
         if (minor < 21) return false;
         if (minor > 21) return true;
@@ -35,8 +37,11 @@ final class ResourcepackVersionHelper {
     }
 
     static int getPackFormat(int mcVersion) throws ProgrammingValidationException {
+        int major = MCVersions.getMajor(mcVersion);
         int minor = MCVersions.getMinor(mcVersion);
-        if (minor == 12) {
+        if (major == 26 && minor == 1) {
+            return 84;
+        } else if (minor == 12) {
             return 3;
         } else if (minor == 13 || minor == 14) {
             return 4;
