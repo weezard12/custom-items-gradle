@@ -185,6 +185,15 @@ project(':yaml-resourcepack-cli') {
             attributes('Main-Class': 'nl.knokko.customitems.plugin.yaml.YamlResourcepackCli')
         }
     }
+    test {
+        dependsOn shadowJar
+        dependsOn ':yaml-resourcepack-source-cli:shadowJar'
+        doFirst {
+            systemProperty 'yamlResourcepackCliJar', shadowJar.archiveFile.get().asFile.absolutePath
+            systemProperty 'yamlSourceResourcepackCliJar',
+                    project(':yaml-resourcepack-source-cli').shadowJar.archiveFile.get().asFile.absolutePath
+        }
+    }
 }
 
 project(':yaml-resourcepack-source-cli') {
