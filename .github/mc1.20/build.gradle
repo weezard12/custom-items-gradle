@@ -1,6 +1,6 @@
 plugins {
     id 'java'
-    id 'io.github.goooler.shadow' version '8.1.5'
+    id 'com.gradleup.shadow' version '9.4.1'
 }
 
 allprojects {
@@ -25,8 +25,18 @@ allprojects {
     }
 }
 
+project(':shared-code') {
+    dependencies {
+        implementation project(':bit-helper')
+        implementation 'com.github.cliftonlabs:json-simple:4.0.1'
+    }
+    sourceSets.test.java.setSrcDirs([])
+    sourceSets.test.resources.setSrcDirs([])
+}
+
 project(':kci-nms') {
     dependencies {
+        compileOnly project(':shared-code')
         compileOnly 'org.bukkit:bukkit:1.12.2-R0.1-SNAPSHOT'
     }
 }
@@ -56,8 +66,9 @@ project(':kci-nms18plus') {
 }
 
 project(':kci-nms20') {
-    apply plugin: 'io.github.goooler.shadow'
+    apply plugin: 'com.gradleup.shadow'
     dependencies {
+        compileOnly project(':shared-code')
         compileOnly project(':kci-nms')
         compileOnly project(':kci-nms13plus')
         compileOnly project(':kci-nms16plus')

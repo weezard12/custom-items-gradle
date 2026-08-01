@@ -2,7 +2,7 @@ import org.gradle.api.attributes.java.TargetJvmVersion
 
 plugins {
     id 'java'
-    id 'com.gradleup.shadow' version '9.3.1'
+    id 'com.gradleup.shadow' version '9.4.1'
 }
 
 def hasProject = { String path -> rootProject.findProject(path) != null }
@@ -81,6 +81,7 @@ project(':plug-in') {
         if (hasProject(':kci-nms21plus')) runtimeOnly project(':kci-nms21plus')
         if (hasProject(':kci-nms21')) runtimeOnly project(':kci-nms21')
         if (hasProject(':kci-nms21r1')) runtimeOnly project(':kci-nms21r1')
+        if (hasProject(':kci-nms26plus')) runtimeOnly project(':kci-nms26plus')
         if (hasProject(':kci-nms26')) runtimeOnly project(':kci-nms26')
         if (hasProject(':ce-event-handler')) runtimeOnly project(':ce-event-handler')
         compileOnly project(':bit-helper')
@@ -90,7 +91,7 @@ project(':plug-in') {
         compileOnly 'com.github.jojodmo:ItemBridge:master-SNAPSHOT'
         compileOnly 'com.elmakers.mine.bukkit:MagicAPI:9.3'
         compileOnly 'org.geysermc.geyser:api:2.2.0-SNAPSHOT'
-        implementation 'de.tr7zw:item-nbt-api:2.15.5-SNAPSHOT'
+        implementation 'de.tr7zw:item-nbt-api:2.15.7'
 
         testImplementation project(':bit-helper')
         testImplementation 'org.bukkit:bukkit:1.12.2-R0.1-SNAPSHOT'
@@ -112,6 +113,13 @@ project(':custom-recipes') {
 
 if (hasProject(':test-custom-recipes')) {
     project(':test-custom-recipes') {
+        java {
+            sourceCompatibility = JavaVersion.VERSION_17
+            targetCompatibility = JavaVersion.VERSION_17
+        }
+        tasks.withType(JavaCompile).configureEach {
+            options.release.set(17)
+        }
         dependencies {
             testImplementation project(':custom-recipes')
             testImplementation 'com.github.seeseemelk:MockBukkit-v1.20:3.9.0'
@@ -444,6 +452,32 @@ if (hasProject(':kci-nms21r1')) {
     }
 }
 
+if (hasProject(':kci-nms26plus')) {
+    project(':kci-nms26plus') {
+        java {
+            toolchain {
+                languageVersion = JavaLanguageVersion.of(25)
+            }
+            sourceCompatibility = JavaVersion.VERSION_21
+            targetCompatibility = JavaVersion.VERSION_21
+        }
+        tasks.withType(JavaCompile).configureEach {
+            options.release.set(21)
+        }
+        configurations.compileClasspath {
+            attributes.attribute(TargetJvmVersion.TARGET_JVM_VERSION_ATTRIBUTE, 25)
+        }
+        dependencies {
+            compileOnly project(':kci-nms')
+            compileOnly project(':kci-nms13plus')
+            compileOnly project(':kci-nms16plus')
+            compileOnly project(':kci-nms18plus')
+            compileOnly project(':kci-nms21plus')
+            compileOnly 'io.papermc.paper:paper-api:26.2.build.87-stable'
+        }
+    }
+}
+
 if (hasProject(':kci-nms26')) {
     project(':kci-nms26') {
         java {
@@ -465,7 +499,8 @@ if (hasProject(':kci-nms26')) {
             compileOnly project(':kci-nms16plus')
             compileOnly project(':kci-nms18plus')
             compileOnly project(':kci-nms21plus')
-            compileOnly 'io.papermc.paper:paper-api:26.1.2.build.61-stable'
+            compileOnly project(':kci-nms26plus')
+            compileOnly 'io.papermc.paper:paper-api:26.2.build.87-stable'
         }
     }
 }

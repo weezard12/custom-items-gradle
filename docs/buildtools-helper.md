@@ -37,10 +37,10 @@ Gradle or `-OnlyVersions` to the build script:
 powershell -ExecutionPolicy Bypass -File scripts\build-plugin.ps1 -OnlyVersions 1.21.11
 ```
 
-For Minecraft 26.1.2, use Java 25:
+For Minecraft 26.1.2 and 26.2, use Java 25. For the latest supported version:
 
 ```powershell
-./gradlew "-PonlyVersions=26.1.2" :plug-in:shadowJar
+./gradlew "-PonlyVersions=26.2" :plug-in:shadowJar
 ```
 
 By default this excludes `ce-event-handler` and `test-custom-recipes`. If you

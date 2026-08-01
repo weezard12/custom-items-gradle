@@ -33,9 +33,9 @@ first and then `scripts/install-spigot.ps1`. See
 - MC 1.19.x (1.19 through 1.19.4): use Java 17: `java -jar BuildTools.jar --rev 1.19.4`
 - MC 1.20.x (1.20 through 1.20.6): use Java 21: `java -jar BuildTools.jar --rev 1.20.6`
 - MC 1.21.x (1.21 through 1.21.11): use Java 21: `java -jar BuildTools.jar --rev 1.21.11`
-- MC 26.1.x (26.1 through 26.1.2): use Java 25. The 26.1 bridge compiles against
+- MC 26.1.x and 26.2: use Java 25. The 26.x bridge compiles against
   the remote Paper API, so BuildTools is not required for the Gradle build; download a
-  Paper 26.1.2 server jar when you want to run a test server.
+  matching Paper server jar when you want to run a test server.
 
 These steps will add some dependencies to the mavenLocal
 on your computer, which are required for development.
@@ -61,7 +61,7 @@ Alternatively, you can keep the files unchanged and use
 the dev profile flag:
 `./gradlew "-PonlyVersions=1.21.11" :plug-in:shadowJar`
 (add `-PincludeEventHandler=true` if you need that module).
-Use `"-PonlyVersions=26.1.2"` for the Minecraft 26.1.2 bridge.
+Use `"-PonlyVersions=26.2"` for the latest Minecraft 26.x bridge.
 
 ### Building the plug-in
 When you followed all the above steps, you should be able

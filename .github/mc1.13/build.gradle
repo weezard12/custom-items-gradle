@@ -20,8 +20,18 @@ allprojects {
     }
 }
 
+project(':shared-code') {
+    dependencies {
+        implementation project(':bit-helper')
+        implementation 'com.github.cliftonlabs:json-simple:4.0.1'
+    }
+    sourceSets.test.java.setSrcDirs([])
+    sourceSets.test.resources.setSrcDirs([])
+}
+
 project(':kci-nms') {
     dependencies {
+        compileOnly project(':shared-code')
         compileOnly 'org.bukkit:bukkit:1.12.2-R0.1-SNAPSHOT'
     }
 }

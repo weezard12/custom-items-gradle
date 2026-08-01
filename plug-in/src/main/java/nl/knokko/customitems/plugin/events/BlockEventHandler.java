@@ -35,6 +35,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 import static nl.knokko.customitems.plugin.recipe.RecipeHelper.convertResultToItemStack;
+import static nl.knokko.customitems.plugin.util.BiomeConverter.fromVanillaBiome;
 import static org.bukkit.enchantments.Enchantment.LOOT_BONUS_BLOCKS;
 import static org.bukkit.enchantments.Enchantment.SILK_TOUCH;
 
@@ -285,7 +286,7 @@ public class BlockEventHandler implements Listener {
 
     public static boolean shouldRequiredItemsAccept(RequiredItems ri, ItemStack item, ItemSetWrapper itemSet) {
         if (item == null) return shouldRequiredItemsAccept(ri, VMaterial.AIR, null);
-        return shouldRequiredItemsAccept(ri, VMaterial.valueOf(item.getType().name()), itemSet.getItem(item));
+        return shouldRequiredItemsAccept(ri, VMaterial.getOrNull(item.getType().name()), itemSet.getItem(item));
     }
 
     public static boolean shouldRequiredItemsAccept(
@@ -341,7 +342,7 @@ public class BlockEventHandler implements Listener {
 
             if (!shouldRequiredItemsAccept(blockDrop.getDrop().getRequiredHeldItems(), usedTool, itemSet)) continue;
 
-            if (!blockDrop.getDrop().getAllowedBiomes().isAllowed(VBiome.valueOf(location.getBlock().getBiome().name()))) continue;
+            if (!blockDrop.getDrop().getAllowedBiomes().isAllowed(fromVanillaBiome(location.getBlock().getBiome()))) continue;
 
             ItemStack itemToDrop = convertResultToItemStack(blockDrop.getDrop().getOutputTable().pickResult(rng));
             if (itemToDrop != null) {
@@ -366,7 +367,7 @@ public class BlockEventHandler implements Listener {
                     material = VMaterial.AIR;
                     customItem = null;
                 } else {
-                    material = VMaterial.valueOf(KciNms.instance.items.getMaterialName(item));
+                    material = VMaterial.getOrNull(KciNms.instance.items.getMaterialName(item));
                     customItem = itemSet.getItem(item);
                 }
 

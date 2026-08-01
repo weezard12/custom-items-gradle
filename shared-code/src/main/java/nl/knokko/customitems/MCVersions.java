@@ -52,6 +52,7 @@ public class MCVersions {
 	public static final int VERSION26_1_0 = version(26, 1, 0);
 	public static final int VERSION26_1_1 = version(26, 1, 1);
 	public static final int VERSION26_1_2 = version(26, 1, 2);
+	public static final int VERSION26_2_0 = version(26, 2, 0);
 
 	public static final int VERSION1_12 = VERSION1_12_2;
 	public static final int VERSION1_13 = VERSION1_13_0;
@@ -64,9 +65,12 @@ public class MCVersions {
 	public static final int VERSION1_20 = VERSION1_20_0;
 	public static final int VERSION1_21 = VERSION1_21_0;
 	public static final int VERSION26_1 = VERSION26_1_0;
+	public static final int VERSION26_2 = VERSION26_2_0;
+	// Upstream uses VERSION26 as the lower bound for the year-based version line.
+	public static final int VERSION26 = VERSION26_1_0;
 
 	public static final int FIRST_VERSION = VERSION1_12;
-	public static final int LAST_VERSION = VERSION26_1_2;
+	public static final int LAST_VERSION = VERSION26_2_0;
 
 	public static final int[] SUPPORTED_VERSIONS = {
 			VERSION1_12_2,
@@ -82,7 +86,7 @@ public class MCVersions {
 			VERSION1_21_0, VERSION1_21_1, VERSION1_21_2, VERSION1_21_3, VERSION1_21_4,
 			VERSION1_21_5, VERSION1_21_6, VERSION1_21_7, VERSION1_21_8, VERSION1_21_9,
 			VERSION1_21_10, VERSION1_21_11,
-			VERSION26_1_0, VERSION26_1_1, VERSION26_1_2
+			VERSION26_1_0, VERSION26_1_1, VERSION26_1_2, VERSION26_2_0
 	};
 
 	public static int version(int major, int minor, int patch) {
@@ -113,9 +117,10 @@ public class MCVersions {
 
 	public static int normalizeUpperBound(int version) {
 		if (version < 1000) {
-			if (version == 26) return VERSION26_1_2;
+			if (version == 26) return LAST_VERSION;
 			return latestPatchForMinor(1, version, version);
 		}
+		if (version == VERSION26) return LAST_VERSION;
 
 		int patch = getPatch(version);
 		if (patch > 0) return version;
@@ -137,11 +142,12 @@ public class MCVersions {
 				case 18: return VERSION1_18_2;
 				case 19: return VERSION1_19_4;
 				case 20: return VERSION1_20_6;
-				case 21: return VERSION26_1_2;
+				case 21: return VERSION1_21_11;
 				default: return fallback;
 			}
 		}
 		if (major == 26 && minor == 1) return VERSION26_1_2;
+		if (major == 26 && minor == 2) return VERSION26_2_0;
 		return fallback;
 	}
 
@@ -158,7 +164,7 @@ public class MCVersions {
 			case 19: return VERSION1_19_4;
 			case 20: return VERSION1_20_6;
 			case 21: return VERSION1_21_11;
-			case 26: return VERSION26_1_2;
+			case 26: return LAST_VERSION;
 			default: return version;
 		}
 	}

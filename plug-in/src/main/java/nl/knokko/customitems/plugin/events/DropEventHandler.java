@@ -25,6 +25,7 @@ import java.util.Collection;
 import java.util.Random;
 
 import static nl.knokko.customitems.plugin.recipe.RecipeHelper.convertResultToItemStack;
+import static nl.knokko.customitems.plugin.util.BiomeConverter.fromVanillaBiome;
 
 public class DropEventHandler implements Listener {
 
@@ -42,7 +43,7 @@ public class DropEventHandler implements Listener {
         // Make sure the required held items of drops are really required
         boolean shouldDrop = BlockEventHandler.shouldRequiredItemsAccept(drop.getRequiredHeldItems(), mainItem, itemSet);
 
-        if (!drop.getAllowedBiomes().isAllowed(VBiome.valueOf(location.getBlock().getBiome().name()))) {
+        if (!drop.getAllowedBiomes().isAllowed(fromVanillaBiome(location.getBlock().getBiome()))) {
             shouldDrop = false;
         }
 
@@ -128,7 +129,7 @@ public class DropEventHandler implements Listener {
 
     private boolean isProjectileSource(ItemStack stack) {
         if (stack == null) return false;
-        VMaterial material = VMaterial.valueOf(stack.getType().name());
+        VMaterial material = VMaterial.getOrNull(stack.getType().name());
 
         KciItem customItem = itemSet.getItem(stack);
         return material == VMaterial.BOW || material == VMaterial.CROSSBOW || material == VMaterial.TRIDENT ||

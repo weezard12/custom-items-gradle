@@ -24,6 +24,16 @@ public class TestYamlMcVersionParsing {
     }
 
     @Test
+    public void testParseMinecraft262() {
+        List<String> warnings = new ArrayList<>();
+        assertEquals(
+                MCVersions.VERSION26_2,
+                YamlParseUtils.parseMcVersion("26.2", "condition.mc", SOURCE, warnings)
+        );
+        assertTrue(warnings.isEmpty());
+    }
+
+    @Test
     public void testParseLegacyMinorShorthand() {
         List<String> warnings = new ArrayList<>();
         assertEquals(
@@ -40,8 +50,8 @@ public class TestYamlMcVersionParsing {
     @Test
     public void testRejectUnknownFutureVersion() {
         List<String> warnings = new ArrayList<>();
-        assertNull(YamlParseUtils.parseMcVersion("26.2", "condition.mc", SOURCE, warnings));
+        assertNull(YamlParseUtils.parseMcVersion("26.3", "condition.mc", SOURCE, warnings));
         assertEquals(1, warnings.size());
-        assertTrue(warnings.get(0).contains("Unsupported condition.mc '26.2'"));
+        assertTrue(warnings.get(0).contains("Unsupported condition.mc '26.3'"));
     }
 }

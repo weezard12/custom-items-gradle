@@ -40,11 +40,9 @@ import nl.knokko.customitems.bithelper.BitInput;
 import nl.knokko.customitems.bithelper.BitOutput;
 import nl.knokko.customitems.bithelper.ByteArrayBitInput;
 import nl.knokko.customitems.bithelper.ByteArrayBitOutput;
-import org.bukkit.potion.PotionEffect;
-import org.bukkit.potion.PotionEffectType;
-
 import static nl.knokko.customitems.plugin.recipe.RecipeHelper.convertResultToItemStack;
 import static nl.knokko.customitems.plugin.recipe.RecipeHelper.shouldIngredientAcceptItemStack;
+import static nl.knokko.customitems.plugin.util.EffectConverter.vanillaEffect;
 
 public class PluginData {
 	
@@ -266,11 +264,7 @@ public class PluginData {
 
 	private static void applyCustomFoodPotionEffects(Player player, KciFood food) {
 		food.getEatEffects().forEach(eatEffect ->
-				player.addPotionEffect(new PotionEffect(
-						PotionEffectType.getByName(eatEffect.getType().name()),
-						eatEffect.getDuration(),
-						eatEffect.getLevel() - 1
-				))
+				player.addPotionEffect(vanillaEffect(eatEffect))
 		);
 	}
 

@@ -5,10 +5,10 @@ COPY gradlew ./gradlew
 RUN dos2unix ./gradlew
 COPY gradle ./gradle
 COPY kci-nms ./kci-nms
-
-FROM build_base AS build_plugin
 COPY bit-helper ./bit-helper
 COPY shared-code ./shared-code
+
+FROM build_base AS build_plugin
 COPY plug-in ./plug-in
 COPY custom-recipes ./custom-recipes
 COPY .github/plug-in/build.gradle ./

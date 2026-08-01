@@ -122,8 +122,10 @@ public class ResourcepackGenerator {
     private static int getPackFormat(int mcVersion) throws ProgrammingValidationException {
         int major = MCVersions.getMajor(mcVersion);
         int minor = MCVersions.getMinor(mcVersion);
-        if (major == 26 && minor == 1) {
-            return 84;
+        if (major == 26) {
+            if (minor == 1) return 84;
+            if (minor == 2) return 88;
+            throw new ProgrammingValidationException("Unknown pack format for mc version " + mcVersion);
         } else if (minor == 12) {
             return 3;
         } else if (minor == 13 || minor == 14) {

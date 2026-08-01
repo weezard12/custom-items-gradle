@@ -1,32 +1,38 @@
 package nl.knokko.customitems.nms;
 
-import nl.knokko.customitems.MCVersions;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
+import org.bukkit.Sound;
+import org.bukkit.block.Biome;
 import org.bukkit.entity.Entity;
+import org.bukkit.potion.PotionEffectType;
 import org.bukkit.util.Vector;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public abstract class KciNms {
+
+    private static final Pattern VERSION_PATTERN = Pattern.compile("(\\d+)\\.(\\d+)(?:\\.(\\d+))?");
 
     static {
         KciNms supportedInstance = null;
         int chosenMcVersion = -1;
         NmsCandidate[] candidates = {
-                new NmsCandidate("nl.knokko.customitems.nms12.KciNms12", 12),
-                new NmsCandidate("nl.knokko.customitems.nms13.KciNms13", 13),
-                new NmsCandidate("nl.knokko.customitems.nms14.KciNms14", 14),
-                new NmsCandidate("nl.knokko.customitems.nms15.KciNms15", 15),
-                new NmsCandidate("nl.knokko.customitems.nms16.KciNms16", 16),
-                new NmsCandidate("nl.knokko.customitems.nms17.KciNms17", 17),
-                new NmsCandidate("nl.knokko.customitems.nms18.KciNms18", 18),
-                new NmsCandidate("nl.knokko.customitems.nms19.KciNms19", 19),
-                new NmsCandidate("nl.knokko.customitems.nms20.KciNms20", 20),
-                new NmsCandidate("nl.knokko.customitems.nms21.KciNms21", 21),
-                new NmsCandidate("nl.knokko.customitems.nms21r1.KciNms21R1", 21),
-                new NmsCandidate("nl.knokko.customitems.nms26.KciNms26", MCVersions.VERSION26_1_2)
+                new NmsCandidate("nl.knokko.customitems.nms12.KciNms12", version(1, 12, 2)),
+                new NmsCandidate("nl.knokko.customitems.nms13.KciNms13", version(1, 13, 2)),
+                new NmsCandidate("nl.knokko.customitems.nms14.KciNms14", version(1, 14, 4)),
+                new NmsCandidate("nl.knokko.customitems.nms15.KciNms15", version(1, 15, 2)),
+                new NmsCandidate("nl.knokko.customitems.nms16.KciNms16", version(1, 16, 5)),
+                new NmsCandidate("nl.knokko.customitems.nms17.KciNms17", version(1, 17, 1)),
+                new NmsCandidate("nl.knokko.customitems.nms18.KciNms18", version(1, 18, 2)),
+                new NmsCandidate("nl.knokko.customitems.nms19.KciNms19", version(1, 19, 4)),
+                new NmsCandidate("nl.knokko.customitems.nms20.KciNms20", version(1, 20, 6)),
+                new NmsCandidate("nl.knokko.customitems.nms21.KciNms21", version(1, 21, 11)),
+                new NmsCandidate("nl.knokko.customitems.nms21r1.KciNms21R1", version(1, 21, 11)),
+                new NmsCandidate("nl.knokko.customitems.nms26.KciNms26", version(26, 2, 0))
         };
 
         for (NmsCandidate candidate : candidates) {
@@ -74,18 +80,32 @@ public abstract class KciNms {
         } catch (RuntimeException | NoClassDefFoundError ignored) {
             raw = null;
         }
-        Integer parsed = MCVersions.parseVersion(raw);
+        Integer parsed = parseVersion(raw);
         if (parsed != null) return parsed;
 
         raw = reflectServerString("getMinecraftVersion");
-        parsed = MCVersions.parseVersion(raw);
+        parsed = parseVersion(raw);
         if (parsed != null) return parsed;
 
         raw = reflectServerString("getBukkitVersion");
-        parsed = MCVersions.parseVersion(raw);
+        parsed = parseVersion(raw);
         if (parsed != null) return parsed;
 
-        return MCVersions.normalize(fallbackMajor);
+        return fallbackMajor;
+    }
+
+    private static Integer parseVersion(String raw) {
+        if (raw == null) return null;
+        Matcher matcher = VERSION_PATTERN.matcher(raw);
+        if (!matcher.find()) return null;
+        int major = Integer.parseInt(matcher.group(1));
+        int minor = Integer.parseInt(matcher.group(2));
+        int patch = matcher.group(3) != null ? Integer.parseInt(matcher.group(3)) : 0;
+        return version(major, minor, patch);
+    }
+
+    private static int version(int major, int minor, int patch) {
+        return major * 10000 + minor * 100 + patch;
     }
 
     private static String reflectServerString(String methodName) {
@@ -188,5 +208,17 @@ public abstract class KciNms {
 
     protected boolean isCompatible() {
         return true;
+    }
+
+    public Sound getVanillaSound(String key) {
+        return Sound.valueOf(key);
+    }
+
+    public PotionEffectType getVanillaEffectType(String key) {
+        return PotionEffectType.getByName(key);
+    }
+
+    public String getBiomeKey(Biome biome) {
+        return biome.name();
     }
 }
