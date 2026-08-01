@@ -171,6 +171,7 @@ project(':yaml-resourcepack-cli') {
         implementation project(':plug-in')
         implementation project(':shared-code')
         implementation 'org.bukkit:bukkit:1.12.2-R0.1-SNAPSHOT'
+        testImplementation project(':yaml-resourcepack-source-cli')
     }
     java {
         sourceCompatibility = JavaVersion.VERSION_21

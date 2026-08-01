@@ -20,7 +20,7 @@ It uses the existing YAML parser logic from Knokko Custom Items and **does not**
 
 ## Run
 ```powershell
-java -jar yaml-resourcepack-source-cli\build\libs\yaml-resourcepack-source-cli-all.jar <pluginRoot> <outputPath> --mc-version 1.20.4
+java -jar yaml-resourcepack-source-cli\build\libs\yaml-resourcepack-source-cli-all.jar <pluginRoot> <outputPath> --mc-version 26.2
 ```
 
 If `<outputPath>` is a directory, `resource-pack.zip` is created inside it.
@@ -29,6 +29,7 @@ If `<outputPath>` is a directory, `resource-pack.zip` is created inside it.
 - `--mc-version <x.y.z>`
   - Overrides the MC version used by the YAML parser.
   - If omitted, `api-version` is read from `plugin.yml` or `paper-plugin.yml`.
+  - Minecraft 26.1.x and 26.2 are supported; 26.2 generates resource-pack format 88.
 - `--restrict-to-roots`
   - Only scans packs inside `customitems/` and `custom-items/`.
 - `--roots <csv>`
