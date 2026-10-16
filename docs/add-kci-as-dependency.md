@@ -1,4 +1,26 @@
 ## Adding CustomItems as dependency to your own project
+
+### Publishing this fork on JitPack
+
+`jitpack.yml` selects Java 25 and installs the Gradle profile from
+`.github/jitpack/`. It publishes `bit-helper`, `shared-code`, `plug-in`,
+`kci-nms`, and `custom-recipes` using Gradle's built-in `maven-publish` plugin.
+Each module includes a library JAR, sources, and dependency metadata.
+The Paper server plugin is built separately with the normal
+`:plug-in:shadowJar` task.
+
+The JitPack profile uses a Maven Central mirror before the direct Central
+repository to reduce HTTP 429 failures on shared build infrastructure.
+It does not load Shadow, which is unnecessary for these library publications.
+The build also registers its checkout as a safe Git directory.
+
+When consuming this fork, replace `knokko` in the coordinates below with
+`weezard12` and choose the branch or commit containing your changes, for example
+`testing-SNAPSHOT`.
+
+See [JitPack's Gradle publishing guide](https://docs.jitpack.io/building/)
+and the [Central mirror information](https://storage-download.googleapis.com/maven-central/index.html).
+
 ### Without build system
 If you don't like build systems, you can simply download CustomItems.jar from Spigot or BukkitDev
 and add it to your classpath.

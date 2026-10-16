@@ -1,4 +1,5 @@
 before_install:
+  - git config --global --add safe.directory "$PWD"
   - source "$HOME/.sdkman/bin/sdkman-init.sh" && sdk install java 25-open || true
   - cp .github/jitpack/build.gradle build.gradle
   - cp .github/jitpack/settings.gradle settings.gradle
