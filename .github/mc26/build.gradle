@@ -80,7 +80,7 @@ project(':kci-nms26plus') {
         compileOnly project(':kci-nms16plus')
         compileOnly project(':kci-nms18plus')
         compileOnly project(':kci-nms21plus')
-        compileOnly 'io.papermc.paper:paper-api:26.2.build.87-stable'
+        compileOnly 'io.papermc.paper:paper-api:26.3.build.200-stable'
     }
 }
 
@@ -92,6 +92,6 @@ project(':kci-nms26') {
         compileOnly project(':kci-nms18plus')
         compileOnly project(':kci-nms21plus')
         compileOnly project(':kci-nms26plus')
-        compileOnly 'io.papermc.paper:paper-api:26.2.build.87-stable'
+        compileOnly 'io.papermc.paper:paper-api:26.3.build.200-stable'
     }
 }

@@ -41,8 +41,8 @@ RUN zip -r CustomItems.jar *
 FROM knokkogator/kci:0.1.8-mc26 AS prepared
 
 RUN mkdir /server
-RUN wget -O /server/server.jar https://fill-data.papermc.io/v1/objects/3ab7536642d04c504a06fe43174b8a94f8c5f25d5847d4672212413f6e54b906/paper-26.2-87.jar
-RUN echo "3ab7536642d04c504a06fe43174b8a94f8c5f25d5847d4672212413f6e54b906  /server/server.jar" | sha256sum -c -
+RUN wget -O /server/server.jar https://fill-data.papermc.io/v1/objects/0e104a19ad818f05266a4571c0a9b0cada241c2016ee64883e5d38435332fa8d/paper-26.3-200.jar
+RUN echo "0e104a19ad818f05266a4571c0a9b0cada241c2016ee64883e5d38435332fa8d  /server/server.jar" | sha256sum -c -
 WORKDIR /server
 
 RUN mkdir plugins

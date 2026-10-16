@@ -26,22 +26,24 @@ public class TestYamlResourcepackCli26 {
     Path tempDir;
 
     @Test
-    public void testBothClisSupportMinecraft261And262() throws IOException {
+    public void testBothClisSupportMinecraft26() throws IOException {
         verifyVersion("embedded", YamlResourcepackCli::run, "26.1.2", "GOLDEN_DANDELION", "golden_dandelion", 84);
         verifyVersion("source", YamlSourceResourcepackCli::run, "26.1.2", "GOLDEN_DANDELION", "golden_dandelion", 84);
 
         verifyVersion("embedded", YamlResourcepackCli::run, "26.2", "CINNABAR", "cinnabar", 88);
         verifyVersion("source", YamlSourceResourcepackCli::run, "26.2", "CINNABAR", "cinnabar", 88);
+        verifyVersion("embedded", YamlResourcepackCli::run, "26.3", "POPLAR_PLANKS", "poplar_planks", 97);
+        verifyVersion("source", YamlSourceResourcepackCli::run, "26.3", "POPLAR_PLANKS", "poplar_planks", 97);
     }
 
     @Test
-    public void testBothClisDefaultToMinecraft262() throws IOException {
-        verifyVersion("embedded-default", YamlResourcepackCli::run, null, "CINNABAR", "cinnabar", 88);
-        verifyVersion("source-default", YamlSourceResourcepackCli::run, null, "CINNABAR", "cinnabar", 88);
+    public void testBothClisDefaultToMinecraft263() throws IOException {
+        verifyVersion("embedded-default", YamlResourcepackCli::run, null, "POPLAR_PLANKS", "poplar_planks", 97);
+        verifyVersion("source-default", YamlSourceResourcepackCli::run, null, "POPLAR_PLANKS", "poplar_planks", 97);
     }
 
     @Test
-    public void testShadedJarsSupportMinecraft261And262() throws IOException, InterruptedException {
+    public void testShadedJarsSupportMinecraft26() throws IOException, InterruptedException {
         Path embeddedJar = getJar("yamlResourcepackCliJar");
         Path sourceJar = getJar("yamlSourceResourcepackCliJar");
 
@@ -49,6 +51,8 @@ public class TestYamlResourcepackCli26 {
         verifyShadedJar("source-jar", sourceJar, "26.1.2", "GOLDEN_DANDELION", "golden_dandelion", 84);
         verifyShadedJar("embedded-jar", embeddedJar, "26.2", "CINNABAR", "cinnabar", 88);
         verifyShadedJar("source-jar", sourceJar, "26.2", "CINNABAR", "cinnabar", 88);
+        verifyShadedJar("embedded-jar", embeddedJar, "26.3", "POPLAR_PLANKS", "poplar_planks", 97);
+        verifyShadedJar("source-jar", sourceJar, "26.3", "POPLAR_PLANKS", "poplar_planks", 97);
     }
 
     private Path getJar(String propertyName) {
@@ -120,6 +124,10 @@ public class TestYamlResourcepackCli26 {
                 + "  name: \"" + itemName + "\"\n"
                 + "  material: \"" + material + "\"\n");
         ImageIO.write(new BufferedImage(16, 16, BufferedImage.TYPE_INT_ARGB), "png", texturePath.toFile());
+        Files.writeString(packRoot.resolve("block.yml"), "block:\n  id: \"demo:camp\"\n");
+        Path blockTexture = packRoot.resolve("assets/block/camp.png");
+        Files.createDirectories(blockTexture.getParent());
+        ImageIO.write(new BufferedImage(16, 16, BufferedImage.TYPE_INT_ARGB), "png", blockTexture.toFile());
         return projectRoot;
     }
 
@@ -131,6 +139,11 @@ public class TestYamlResourcepackCli26 {
             assertNotNull(mcMetaEntry);
             String mcMeta = new String(zip.getInputStream(mcMetaEntry).readAllBytes(), StandardCharsets.UTF_8);
             assertTrue(mcMeta.contains("\"pack_format\": " + packFormat), mcMeta);
+            String format = packFormat == 97 ? "[97, 1]" : Integer.toString(packFormat);
+            assertTrue(mcMeta.contains("\"min_format\": " + format), mcMeta);
+            assertTrue(mcMeta.contains("\"max_format\": " + format), mcMeta);
+            assertNotNull(zip.getEntry("assets/minecraft/models/customblocks/demo_camp.json"));
+            assertNotNull(zip.getEntry("assets/minecraft/blockstates/brown_mushroom_block.json"));
             assertNotNull(zip.getEntry("assets/minecraft/models/customitems/demo_" + itemName + ".json"));
             assertNotNull(zip.getEntry("assets/minecraft/textures/customitems/demo_" + itemName + ".png"));
         }

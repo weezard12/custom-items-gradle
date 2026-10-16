@@ -53,6 +53,7 @@ public class MCVersions {
 	public static final int VERSION26_1_1 = version(26, 1, 1);
 	public static final int VERSION26_1_2 = version(26, 1, 2);
 	public static final int VERSION26_2_0 = version(26, 2, 0);
+	public static final int VERSION26_3_0 = version(26, 3, 0);
 
 	public static final int VERSION1_12 = VERSION1_12_2;
 	public static final int VERSION1_13 = VERSION1_13_0;
@@ -66,11 +67,12 @@ public class MCVersions {
 	public static final int VERSION1_21 = VERSION1_21_0;
 	public static final int VERSION26_1 = VERSION26_1_0;
 	public static final int VERSION26_2 = VERSION26_2_0;
+	public static final int VERSION26_3 = VERSION26_3_0;
 	// Upstream uses VERSION26 as the lower bound for the year-based version line.
 	public static final int VERSION26 = VERSION26_1_0;
 
 	public static final int FIRST_VERSION = VERSION1_12;
-	public static final int LAST_VERSION = VERSION26_2_0;
+	public static final int LAST_VERSION = VERSION26_3_0;
 
 	public static final int[] SUPPORTED_VERSIONS = {
 			VERSION1_12_2,
@@ -86,7 +88,7 @@ public class MCVersions {
 			VERSION1_21_0, VERSION1_21_1, VERSION1_21_2, VERSION1_21_3, VERSION1_21_4,
 			VERSION1_21_5, VERSION1_21_6, VERSION1_21_7, VERSION1_21_8, VERSION1_21_9,
 			VERSION1_21_10, VERSION1_21_11,
-			VERSION26_1_0, VERSION26_1_1, VERSION26_1_2, VERSION26_2_0
+			VERSION26_1_0, VERSION26_1_1, VERSION26_1_2, VERSION26_2_0, VERSION26_3_0
 	};
 
 	public static int version(int major, int minor, int patch) {
@@ -148,6 +150,7 @@ public class MCVersions {
 		}
 		if (major == 26 && minor == 1) return VERSION26_1_2;
 		if (major == 26 && minor == 2) return VERSION26_2_0;
+		if (major == 26 && minor == 3) return VERSION26_3_0;
 		return fallback;
 	}
 

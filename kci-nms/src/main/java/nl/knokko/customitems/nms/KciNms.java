@@ -32,7 +32,7 @@ public abstract class KciNms {
                 new NmsCandidate("nl.knokko.customitems.nms20.KciNms20", version(1, 20, 6)),
                 new NmsCandidate("nl.knokko.customitems.nms21.KciNms21", version(1, 21, 11)),
                 new NmsCandidate("nl.knokko.customitems.nms21r1.KciNms21R1", version(1, 21, 11)),
-                new NmsCandidate("nl.knokko.customitems.nms26.KciNms26", version(26, 2, 0))
+                new NmsCandidate("nl.knokko.customitems.nms26.KciNms26", version(26, 3, 0))
         };
 
         for (NmsCandidate candidate : candidates) {

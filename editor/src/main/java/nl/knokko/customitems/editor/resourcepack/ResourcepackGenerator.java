@@ -109,8 +109,9 @@ public class ResourcepackGenerator {
         jsonWriter.println("    \"pack\": {");
         jsonWriter.println("        \"pack_format\": " + packFormat + ",");
         if (packFormat >= 75) {
-            jsonWriter.println("        \"min_format\": " + packFormat + ",");
-            jsonWriter.println("        \"max_format\": " + packFormat + ",");
+            String format = mcVersion >= VERSION26_3 ? "[97, 1]" : Integer.toString(packFormat);
+            jsonWriter.println("        \"min_format\": " + format + ",");
+            jsonWriter.println("        \"max_format\": " + format + ",");
         }
         jsonWriter.println("        \"description\": \"KnokkosCustomItems generated resourcepack\"");
         jsonWriter.println("    }");
@@ -125,6 +126,7 @@ public class ResourcepackGenerator {
         if (major == 26) {
             if (minor == 1) return 84;
             if (minor == 2) return 88;
+            if (minor == 3) return 97;
             throw new ProgrammingValidationException("Unknown pack format for mc version " + mcVersion);
         } else if (minor == 12) {
             return 3;

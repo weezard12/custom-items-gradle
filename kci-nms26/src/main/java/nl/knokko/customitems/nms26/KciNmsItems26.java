@@ -15,7 +15,7 @@ public class KciNmsItems26 extends KciNmsItems21Plus {
         try {
             return Class.forName("net.minecraft.world.item.ItemStack");
         } catch (ClassNotFoundException missing) {
-            throw new IllegalStateException("Can't find the NMS ItemStack class for 26.1.x", missing);
+            throw new IllegalStateException("Can't find the NMS ItemStack class for 26.x", missing);
         }
     }
 
@@ -35,7 +35,7 @@ public class KciNmsItems26 extends KciNmsItems21Plus {
             }
         }
 
-        throw new IllegalStateException("Can't find the NMS ItemStack name method for 26.1.x");
+        throw new IllegalStateException("Can't find the NMS ItemStack name method for 26.x");
     }
 
     private static Method findAsNmsCopyMethod() {
@@ -43,7 +43,7 @@ public class KciNmsItems26 extends KciNmsItems21Plus {
             Class<?> craftItemStack = Class.forName("org.bukkit.craftbukkit.inventory.CraftItemStack");
             return craftItemStack.getMethod("asNMSCopy", ItemStack.class);
         } catch (ReflectiveOperationException failure) {
-            throw new IllegalStateException("Can't find CraftItemStack.asNMSCopy for 26.1.x", failure);
+            throw new IllegalStateException("Can't find CraftItemStack.asNMSCopy for 26.x", failure);
         }
     }
 

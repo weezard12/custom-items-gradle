@@ -57,7 +57,7 @@ class ResourcepackModelWriter {
                 writeLines(zipOutput, getDefaultModelCrossbow(item.getTexture().getName()));
             } else {
                 ItemModel model = item.getModel();
-                model.write(zipOutput, item.getName(), item.getTexture().getName(), item.getDefaultModelType(), item.getItemType().isLeatherArmor());
+                model.write(zipOutput, item.getName(), item.getTexture().getName(), item.getDefaultModelType(), item.getItemType().isLeatherArmor(), itemSet.getExportSettings().getMcVersion());
             }
 
             zipOutput.closeEntry();
@@ -82,7 +82,7 @@ class ResourcepackModelWriter {
             ZipEntry blockModelEntry = new ZipEntry("assets/minecraft/models/customblocks/" + block.getName() + ".json");
             zipOutput.putNextEntry(blockModelEntry);
 
-            block.getModel().write(zipOutput, block.getName());
+            block.getModel().write(zipOutput, block.getName(), itemSet.getExportSettings().getMcVersion());
 
             zipOutput.closeEntry();
         }
@@ -142,19 +142,19 @@ class ResourcepackModelWriter {
     private void writeExtraShieldModels(KciShield shield) throws IOException {
         ZipEntry entry = new ZipEntry("assets/minecraft/models/customitems/" + shield.getName() + "_blocking.json");
         zipOutput.putNextEntry(entry);
-        shield.getBlockingModel().write(zipOutput, shield.getName(), shield.getTexture().getName(), DefaultModelType.SHIELD_BLOCKING, false);
+        shield.getBlockingModel().write(zipOutput, shield.getName(), shield.getTexture().getName(), DefaultModelType.SHIELD_BLOCKING, false, itemSet.getExportSettings().getMcVersion());
         zipOutput.closeEntry();
     }
 
     private void writeExtraTridentModels(KciTrident trident) throws IOException {
         ZipEntry entry = new ZipEntry("assets/minecraft/models/customitems/" + trident.getName() + "_in_hand.json");
         zipOutput.putNextEntry(entry);
-        trident.getInHandModel().write(zipOutput, trident.getName(), trident.getTexture().getName(), DefaultModelType.TRIDENT_IN_HAND, false);
+        trident.getInHandModel().write(zipOutput, trident.getName(), trident.getTexture().getName(), DefaultModelType.TRIDENT_IN_HAND, false, itemSet.getExportSettings().getMcVersion());
         zipOutput.closeEntry();
 
         entry = new ZipEntry("assets/minecraft/models/customitems/" + trident.getName() + "_throwing.json");
         zipOutput.putNextEntry(entry);
-        trident.getThrowingModel().write(zipOutput, trident.getName(), trident.getTexture().getName(), DefaultModelType.TRIDENT_THROWING, false);
+        trident.getThrowingModel().write(zipOutput, trident.getName(), trident.getTexture().getName(), DefaultModelType.TRIDENT_THROWING, false, itemSet.getExportSettings().getMcVersion());
         zipOutput.closeEntry();
     }
 
@@ -162,7 +162,7 @@ class ResourcepackModelWriter {
         for (ProjectileCover cover : itemSet.projectileCovers) {
             ZipEntry entry = new ZipEntry("assets/minecraft/models/customprojectiles/" + cover.getName() + ".json");
             zipOutput.putNextEntry(entry);
-            cover.writeModel(zipOutput);
+            cover.writeModel(zipOutput, itemSet.getExportSettings().getMcVersion());
             zipOutput.flush();
         }
     }

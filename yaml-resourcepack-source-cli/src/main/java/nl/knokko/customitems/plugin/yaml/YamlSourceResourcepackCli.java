@@ -205,7 +205,7 @@ public final class YamlSourceResourcepackCli {
     }
 
     private static void printUsage(PrintStream err) {
-        err.println("Usage: <pluginRoot> <outputPath> [--mc-version <26.2>] [--restrict-to-roots] [--roots <customitems,custom-items>]");
+        err.println("Usage: <pluginRoot> <outputPath> [--mc-version <26.3>] [--restrict-to-roots] [--roots <customitems,custom-items>]");
         err.println("If outputPath is a directory, " + DEFAULT_OUTPUT_NAME + " will be created inside it.");
     }
 

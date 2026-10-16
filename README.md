@@ -14,6 +14,10 @@ More information about these tricks can be found
 [here](docs/custom-texture-system.md).
 
 ## Development
+This fork supports Paper 26.3, including YAML item/block parsing and resource
+pack generation. See [26.3 compatibility notes](docs/minecraft-26.3.md) for
+build instructions and the upstream fix audit.
+
 Docker is strongly recommended for development of this
 plug-in (if you have plenty of disk space). See
 [this page](docs/development-with-docker.md) for details.

@@ -171,7 +171,7 @@ public final class YamlResourcepackCli {
     }
 
     private static void printUsage(PrintStream err) {
-        err.println("Usage: <pluginRoot> <outputPath> [--mc-version <26.2>]");
+        err.println("Usage: <pluginRoot> <outputPath> [--mc-version <26.3>]");
         err.println("If outputPath is a directory, " + DEFAULT_OUTPUT_NAME + " will be created inside it.");
     }
 

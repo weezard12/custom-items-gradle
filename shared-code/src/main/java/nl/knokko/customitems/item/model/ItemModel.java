@@ -31,5 +31,12 @@ public interface ItemModel {
             DefaultModelType defaultModelType, boolean isLeatherArmor
     ) throws IOException;
 
+    default void write(
+            ZipOutputStream zipOutput, String itemName, String textureName,
+            DefaultModelType defaultModelType, boolean isLeatherArmor, int mcVersion
+    ) throws IOException {
+        write(zipOutput, itemName, textureName, defaultModelType, isLeatherArmor);
+    }
+
     void save(BitOutput output, ItemSet.Side targetSide);
 }

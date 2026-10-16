@@ -19,6 +19,39 @@ import static org.junit.jupiter.api.Assertions.*;
 public class TestResourcepackGenerator {
 
     @Test
+    public void testMinecraft26PackMetadata() throws Exception {
+        for (int version : new int[] { VERSION26_1_2, VERSION26_2, VERSION26_3 }) {
+            ItemSet set = new ItemSet(ItemSet.Side.EDITOR);
+            ExportSettings settings = new ExportSettings(true);
+            settings.setMcVersion(version);
+            settings.setMode(ExportSettings.Mode.MANUAL);
+            set.setExportSettings(settings);
+            ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+            new ResourcepackGenerator(set).write(bytes, null, null, true);
+            boolean found = false;
+            try (ZipInputStream input = new ZipInputStream(new ByteArrayInputStream(bytes.toByteArray()))) {
+                ZipEntry entry;
+                while ((entry = input.getNextEntry()) != null) {
+                    if (!entry.getName().equals("pack.mcmeta")) continue;
+                    found = true;
+                    JsonObject metadata = (JsonObject) Jsoner.deserialize(new InputStreamReader(input));
+                    JsonObject pack = (JsonObject) metadata.get("pack");
+                    int format = version == VERSION26_3 ? 97 : version == VERSION26_2 ? 88 : 84;
+                    assertEquals(format, ((Number) pack.get("pack_format")).intValue());
+                    if (version == VERSION26_3) {
+                        assertEquals(Jsoner.deserialize("[97,1]"), pack.get("min_format"));
+                        assertEquals(Jsoner.deserialize("[97,1]"), pack.get("max_format"));
+                    } else {
+                        assertEquals(format, ((Number) pack.get("min_format")).intValue());
+                        assertEquals(format, ((Number) pack.get("max_format")).intValue());
+                    }
+                }
+            }
+            assertTrue(found);
+        }
+    }
+
+    @Test
     public void testBasicResourcepackValidity() {
         assertValidResourcepack("item-sets/backward12old.cisb", VERSION1_12);
 

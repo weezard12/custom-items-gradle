@@ -218,7 +218,8 @@ public enum VBiome {
     windswept_hills(VERSION26, VERSION26),
     windswept_savanna(VERSION26, VERSION26),
     wooded_badlands(VERSION26, VERSION26),
-    sulfur_caves(VERSION26_2, VERSION26_2);
+    sulfur_caves(VERSION26_2, LAST_VERSION),
+	dappled_forest(VERSION26_3, LAST_VERSION);
 
     public final int firstVersion;
     public final int lastVersion;

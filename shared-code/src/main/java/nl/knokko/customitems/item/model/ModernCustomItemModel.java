@@ -74,9 +74,18 @@ public class ModernCustomItemModel implements ItemModel {
             ZipOutputStream zipOutput, String itemName, String textureName,
             DefaultModelType defaultModelType, boolean isLeatherArmor
     ) throws IOException {
+        write(zipOutput, itemName, textureName, defaultModelType, isLeatherArmor, 0);
+    }
+
+    @Override
+    public void write(
+            ZipOutputStream zipOutput, String itemName, String textureName,
+            DefaultModelType defaultModelType, boolean isLeatherArmor, int mcVersion
+    ) throws IOException {
         String rawModelString = new String(rawModel, StandardCharsets.UTF_8);
         try {
             JsonObject modelJson = (JsonObject) Jsoner.deserialize(rawModelString);
+            ModelFormatHelper.adapt(modelJson, mcVersion);
             Map<String, String> textureMap = modelJson.getMap(TEXTURES_KEY);
 
             for (IncludedImage includedImage : includedImages) {

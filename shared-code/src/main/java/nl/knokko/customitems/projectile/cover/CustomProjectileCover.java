@@ -101,4 +101,10 @@ public class CustomProjectileCover extends ProjectileCover {
         model.write(output, "projectile_cover/" + this.name, null, null, false);
         output.flush();
     }
+
+    @Override
+    public void writeModel(ZipOutputStream output, int mcVersion) throws IOException {
+        model.write(output, "projectile_cover/" + this.name, null, null, false, mcVersion);
+        output.flush();
+    }
 }

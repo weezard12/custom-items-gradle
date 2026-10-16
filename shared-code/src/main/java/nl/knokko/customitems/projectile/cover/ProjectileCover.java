@@ -150,6 +150,10 @@ public abstract class ProjectileCover extends ModelValues {
         throw new UnsupportedOperationException("This can only be done on the Editor side");
     }
 
+    public void writeModel(ZipOutputStream output, int mcVersion) throws IOException {
+        writeModel(output);
+    }
+
     public void validate(ItemSet itemSet, String oldName) throws ValidationException, ProgrammingValidationException {
         if (itemType == null) throw new ProgrammingValidationException("No item type");
         if (!itemType.canServe(KciItemType.Category.PROJECTILE_COVER)) {

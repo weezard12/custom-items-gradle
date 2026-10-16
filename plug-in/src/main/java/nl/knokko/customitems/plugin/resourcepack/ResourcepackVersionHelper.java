@@ -42,6 +42,7 @@ final class ResourcepackVersionHelper {
         if (major == 26) {
             if (minor == 1) return 84;
             if (minor == 2) return 88;
+            if (minor == 3) return 97;
             throw new ProgrammingValidationException("Unknown pack format for mc version " + mcVersion);
         } else if (minor == 12) {
             return 3;

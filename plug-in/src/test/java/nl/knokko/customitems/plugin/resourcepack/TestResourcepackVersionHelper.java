@@ -12,5 +12,6 @@ public class TestResourcepackVersionHelper {
     public void testYearBasedPackFormats() throws ProgrammingValidationException {
         assertEquals(84, ResourcepackVersionHelper.getPackFormat(MCVersions.VERSION26_1_2));
         assertEquals(88, ResourcepackVersionHelper.getPackFormat(MCVersions.VERSION26_2));
+        assertEquals(97, ResourcepackVersionHelper.getPackFormat(MCVersions.VERSION26_3));
     }
 }

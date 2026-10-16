@@ -44,6 +44,11 @@ public class CustomBlockModel implements BlockModel {
     }
 
     @Override
+    public void write(ZipOutputStream zipOutput, String blockName, int mcVersion) throws IOException {
+        itemModel.write(zipOutput, "block/" + blockName, null, null, false, mcVersion);
+    }
+
+    @Override
     public void save(BitOutput output, ItemSet.Side targetSide) {
         output.addByte(MODEL_TYPE_CUSTOM);
         output.addByte((byte) 2);

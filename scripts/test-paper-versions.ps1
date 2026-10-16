@@ -115,6 +115,9 @@ function Get-JdkMajorForVersion {
         if ($parts.Length -lt 2) {
             return 21
         }
+        if ([int]$parts[0] -ge 26) {
+            return 25
+        }
         $minor = [int]$parts[1]
         $patch = 0
         if ($parts.Length -ge 3) {

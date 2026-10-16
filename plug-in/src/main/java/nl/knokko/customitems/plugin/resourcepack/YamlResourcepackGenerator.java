@@ -56,6 +56,11 @@ public class YamlResourcepackGenerator {
         jsonWriter.println("{");
         jsonWriter.println("    \"pack\": {");
         jsonWriter.println("        \"pack_format\": " + packFormat + ",");
+        if (packFormat >= 75) {
+            String format = mcVersion >= VERSION26_3 ? "[97, 1]" : Integer.toString(packFormat);
+            jsonWriter.println("        \"min_format\": " + format + ",");
+            jsonWriter.println("        \"max_format\": " + format + ",");
+        }
         jsonWriter.println("        \"description\": \"KnokkosCustomItems generated resourcepack\"");
         jsonWriter.println("    }");
         jsonWriter.println("}");

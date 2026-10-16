@@ -59,7 +59,9 @@ if (onlyVersions) {
             '26.1.0': 'kci-nms26',
             '26.1': 'kci-nms26',
             '26.2.0': 'kci-nms26',
-            '26.2': 'kci-nms26'
+            '26.2': 'kci-nms26',
+            '26.3.0': 'kci-nms26',
+            '26.3': 'kci-nms26'
     ]
     def moduleRequirements = [
             'kci-nms13': ['kci-nms13plus'],

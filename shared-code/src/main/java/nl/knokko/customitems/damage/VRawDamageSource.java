@@ -36,7 +36,7 @@ public enum VRawDamageSource {
     SONIC_BOOM("sonic_boom", VERSION1_19, VERSION26),
     GENERIC_KILL("genericKill", VERSION1_20, VERSION26),
     OUTSIDE_BORDER("outsideBorder", VERSION1_20, VERSION26),
-    SULFUR_CUBE_HOT("sulfur_cube_hot", VERSION26_2, VERSION26_2);
+    SULFUR_CUBE_HOT("sulfur_cube_hot", VERSION26_2, LAST_VERSION);
 
     public final String rawName;
     public final int minVersion;
