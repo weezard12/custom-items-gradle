@@ -10,13 +10,11 @@ allprojects {
     group = 'nl.knokko.customitems'
 
     repositories {
-        // JitPack shares outbound IPs: Central can return 429 even for small builds.
+        // Avoid direct Central entirely: even a lookup for a third-party artifact can
+        // return 429 before Gradle reaches the repository that actually hosts it.
         maven {
             name = 'MavenCentralMirror'
             url = 'https://maven-central.storage-download.googleapis.com/maven2/'
-            mavenContent { releasesOnly() }
-        }
-        mavenCentral {
             mavenContent { releasesOnly() }
         }
 
@@ -29,7 +27,6 @@ allprojects {
         }
 
         maven { url = 'https://oss.sonatype.org/content/repositories/snapshots' }
-        maven { url = 'https://oss.sonatype.org/content/repositories/central' }
         maven { url = 'https://maven.enginehub.org/repo/' }
         maven { url = 'https://repo.crazycrew.us/releases' }
         maven { url = 'https://repo.citizensnpcs.co' }

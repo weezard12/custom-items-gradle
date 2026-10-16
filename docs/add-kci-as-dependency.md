@@ -9,8 +9,9 @@ Each module includes a library JAR, sources, and dependency metadata.
 The Paper server plugin is built separately with the normal
 `:plug-in:shadowJar` task.
 
-The JitPack profile uses a Maven Central mirror before the direct Central
-repository to reduce HTTP 429 failures on shared build infrastructure.
+The JitPack profile resolves Central releases through a Maven Central mirror
+to avoid HTTP 429 failures on shared build infrastructure. It does not query
+direct Central, including for libraries hosted in third-party repositories.
 It does not load Shadow, which is unnecessary for these library publications.
 The build also registers its checkout as a safe Git directory.
 
